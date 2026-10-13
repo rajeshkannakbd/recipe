@@ -1,0 +1,23 @@
+# Large archives
+*.zip
+
+# .NET build output
+**/bin/
+**/obj/
+
+# Node and Expo
+**/node_modules/
+**/.expo/
+**/dist/
+
+# Secrets and local environment settings
+.env
+.env.*
+!.env.example
+**/appsettings.Development.json
+
+# IDE files
+.vs/
+
+# Git history backup
+.git_backup/
