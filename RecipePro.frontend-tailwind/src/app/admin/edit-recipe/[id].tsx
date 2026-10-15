@@ -154,13 +154,10 @@ setLoading(false);
 }
 }, [id, isNew]);
 useFocusEffect(
-useCallback(() => {
-void load();
-}, [load])
+  useCallback(() => {
+    void load();
+  }, [load])
 );
-useEffect(() => {
-void load();
-}, [load]);
 const filteredIngredients = useMemo(() => {
 const query = ingredientSearch.trim().toLowerCase();
 if (!query) return [];
@@ -381,11 +378,7 @@ const confirmDelete = async () => {
 
 const closeSuccessModal = () => {
   setSuccessModalVisible(false);
-  if (successAction === "list") {
-    router.replace("/admin/recipes");
-  } else if (successAction === "back") {
-    router.back();
-  }
+  router.replace("/admin/recipes");
   setSuccessAction(null);
 };
 const updateIngredient = (

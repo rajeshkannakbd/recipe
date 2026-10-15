@@ -30,7 +30,7 @@
 
   } from "react-native";
 
-  import { useRouter } from "expo-router";
+  import { useRouter, useFocusEffect  } from "expo-router";
 
   import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -158,11 +158,11 @@
 
     }, []);
 
-    useEffect(() => {
-
-      load();
-
-    }, [load]);
+    useFocusEffect(
+  useCallback(() => {
+    void load();
+  }, [load])
+);
 
     const filtered = useMemo(() => {
 

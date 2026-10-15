@@ -131,39 +131,39 @@ public class AppDbContext : DbContext
 
             entity.HasIndex(x => x.RecipeId);
         });
-modelBuilder.Entity<Favorite>(entity =>
-{
-    entity.HasKey(x => x.Id);
+        modelBuilder.Entity<Favorite>(entity =>
+        {
+            entity.HasKey(x => x.Id);
 
-    entity.HasIndex(x => new
-    {
-        x.UserId,
-        x.RecipeId
-    }).IsUnique();
+            entity.HasIndex(x => new
+            {
+                x.UserId,
+                x.RecipeId
+            }).IsUnique();
 
-    entity.HasOne(x => x.User)
-        .WithMany()
-        .HasForeignKey(x => x.UserId)
-        .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
 
-    entity.HasOne(x => x.Recipe)
-        .WithMany()
-        .HasForeignKey(x => x.RecipeId)
-        .OnDelete(DeleteBehavior.Cascade);
-});
-modelBuilder.Entity<FavoriteIngredient>()
-    .HasOne(x => x.Favorite)
-    .WithMany(x => x.Ingredients)
-    .HasForeignKey(x => x.FavoriteId)
-    .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(x => x.Recipe)
+                .WithMany()
+                .HasForeignKey(x => x.RecipeId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+        modelBuilder.Entity<FavoriteIngredient>()
+            .HasOne(x => x.Favorite)
+            .WithMany(x => x.Ingredients)
+            .HasForeignKey(x => x.FavoriteId)
+            .OnDelete(DeleteBehavior.Cascade);
 
-modelBuilder.Entity<FavoriteIngredient>()
-    .HasOne(x => x.Ingredient)
-    .WithMany()
-    .HasForeignKey(x => x.IngredientId)
-    .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<FavoriteIngredient>()
+            .HasOne(x => x.Ingredient)
+            .WithMany()
+            .HasForeignKey(x => x.IngredientId)
+            .OnDelete(DeleteBehavior.Restrict);
 
-    }
+            }
 
     private static void ConfigureCategory(ModelBuilder modelBuilder)
     {
