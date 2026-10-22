@@ -1,9 +1,11 @@
-    using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
     using RecipePro.Api.Data;
     using RecipePro.Api.DTOs.Recipe;
     using RecipePro.Api.Models;
     using Microsoft.AspNetCore.Http;
     using RecipePro.Api.Services.Images;
+    using RecipePro.Api.DTOs.RecipeTag;
+    using RecipePro.Api.Services.Prices;
 
     namespace RecipePro.Api.Services.Recipe;
 
@@ -11,13 +13,16 @@
     {
             private readonly AppDbContext _context;
         private readonly IImageService _imageService;
+        private readonly IMandiPriceService _mandiPriceService;
 
         public RecipeService(
             AppDbContext context,
-            IImageService imageService)
+            IImageService imageService,
+            IMandiPriceService mandiPriceService)
         {
             _context = context;
             _imageService = imageService;
+            _mandiPriceService = mandiPriceService;
         }
         public async Task<RecipeResponse> CreateAsync(
             RecipeRequest request)
@@ -30,6 +35,10 @@
                 throw new InvalidOperationException(
                     "The selected category does not exist.");
             }
+
+            await ValidateRecipeMetadataAsync(request);
+            await ValidateTagIdsAsync(request.TagIds);
+            await ValidateCuisineIdAsync(request.CuisineId);
 
             var ingredientIds = request.Ingredients
                 .Select(x => x.IngredientId)
@@ -75,7 +84,17 @@
                 Status = request.Status,
                 PhotoUrl = string.IsNullOrWhiteSpace(request.PhotoUrl)
                                 ? null
-                                : request.PhotoUrl.Trim()
+                                : request.PhotoUrl.Trim(),
+                CuisineId = request.CuisineId,
+                MealType = request.MealType?.Trim(),
+                ChefId = request.ChefId,
+                CookingStyleId = request.CookingStyleId,
+                PreparationTimeMinutes = request.PreparationTimeMinutes,
+                CookingTimeMinutes = request.CookingTimeMinutes,
+                StorageInstructions = request.StorageInstructions?.Trim(),
+                ShelfLifeHours = request.ShelfLifeHours,
+                SourceName = request.SourceName?.Trim(),
+                SourceUrl = request.SourceUrl?.Trim()
             };
 
             foreach (var item in request.Ingredients)
@@ -100,6 +119,14 @@
                     });
             }
 
+            foreach (var tagId in request.TagIds.Distinct())
+{
+    recipe.RecipeTags.Add(new RecipeTagMapping
+    {
+        RecipeTagId = tagId
+    });
+}
+
             _context.Recipes.Add(recipe);
 
             await _context.SaveChangesAsync();
@@ -115,6 +142,11 @@
                 .Include(x => x.RecipeIngredients)
                     .ThenInclude(x => x.Ingredient)
                 .Include(x => x.Procedures)
+                .Include(x => x.Chef)
+                .Include(x => x.CookingStyle)
+                .Include(x => x.CuisineEntity)
+                .Include(x => x.RecipeTags)
+                .ThenInclude(x => x.RecipeTag)
                 .FirstAsync(x => x.Id == id);
 
             return new RecipeResponse
@@ -130,6 +162,32 @@
                 PhotoUrl = recipe.PhotoUrl,
                 CreatedAt = recipe.CreatedAt,
                 UpdatedAt = recipe.UpdatedAt,
+                Cuisine = recipe.Cuisine,
+                MealType = recipe.MealType,
+
+                ChefId = recipe.ChefId,
+                ChefName = recipe.Chef?.Name,
+
+                CookingStyleId = recipe.CookingStyleId,
+                CookingStyleName = recipe.CookingStyle?.Name,
+
+                PreparationTimeMinutes = recipe.PreparationTimeMinutes,
+                CookingTimeMinutes = recipe.CookingTimeMinutes,
+
+                StorageInstructions = recipe.StorageInstructions,
+                ShelfLifeHours = recipe.ShelfLifeHours,
+
+                SourceName = recipe.SourceName,
+                SourceUrl = recipe.SourceUrl,
+
+                Tags = recipe.RecipeTags
+                .Select(x => new RecipeTagResponse
+                {
+                    Id = x.RecipeTag.Id,
+                    Name = x.RecipeTag.Name
+                })
+                .OrderBy(x => x.Name)
+                .ToList(),
 
                 Ingredients = recipe.RecipeIngredients
                     .OrderBy(x => x.Id)
@@ -142,6 +200,7 @@
                         Quantity = x.Quantity,
                         Unit = x.Unit
                     })
+                    
                     .ToList(),
 
                 Procedures = recipe.Procedures
@@ -163,6 +222,11 @@
                 .Include(x => x.RecipeIngredients)
                     .ThenInclude(x => x.Ingredient)
                 .Include(x => x.Procedures)
+                .Include(x => x.Chef)
+                .Include(x => x.CookingStyle)
+                .Include(x => x.CuisineEntity)
+                .Include(x => x.RecipeTags)
+                .ThenInclude(x => x.RecipeTag)
                 .OrderBy(x => x.Name)
                 .ToListAsync();
 
@@ -179,6 +243,31 @@
                 PhotoUrl = recipe.PhotoUrl,
                 CreatedAt = recipe.CreatedAt,
                 UpdatedAt = recipe.UpdatedAt,
+                Cuisine = recipe.Cuisine,
+                MealType = recipe.MealType,
+
+                ChefId = recipe.ChefId,
+                ChefName = recipe.Chef?.Name,
+
+                CookingStyleId = recipe.CookingStyleId,
+                CookingStyleName = recipe.CookingStyle?.Name,
+
+                PreparationTimeMinutes = recipe.PreparationTimeMinutes,
+                CookingTimeMinutes = recipe.CookingTimeMinutes,
+
+                StorageInstructions = recipe.StorageInstructions,
+                ShelfLifeHours = recipe.ShelfLifeHours,
+
+                SourceName = recipe.SourceName,
+                SourceUrl = recipe.SourceUrl,
+                Tags = recipe.RecipeTags
+    .Select(x => new RecipeTagResponse
+    {
+        Id = x.RecipeTag.Id,
+        Name = x.RecipeTag.Name
+    })
+    .OrderBy(x => x.Name)
+    .ToList(),
 
                 Ingredients = recipe.RecipeIngredients
                     .OrderBy(x => x.Id)
@@ -213,6 +302,11 @@
                     .Include(x => x.RecipeIngredients)
                         .ThenInclude(x => x.Ingredient)
                     .Include(x => x.Procedures)
+                    .Include(x => x.Chef)
+                    .Include(x => x.CookingStyle)
+                    .Include(x => x.CuisineEntity)
+                    .Include(x => x.RecipeTags)
+                    .ThenInclude(x => x.RecipeTag)
                     .FirstOrDefaultAsync(x => x.Id == id);
 
                 if (recipe == null)
@@ -233,6 +327,31 @@
                     PhotoUrl = recipe.PhotoUrl,
                     CreatedAt = recipe.CreatedAt,
                     UpdatedAt = recipe.UpdatedAt,
+                    Cuisine = recipe.Cuisine,
+                    MealType = recipe.MealType,
+
+                    ChefId = recipe.ChefId,
+                    ChefName = recipe.Chef?.Name,
+
+                    CookingStyleId = recipe.CookingStyleId,
+                    CookingStyleName = recipe.CookingStyle?.Name,
+
+                    PreparationTimeMinutes = recipe.PreparationTimeMinutes,
+                    CookingTimeMinutes = recipe.CookingTimeMinutes,
+
+                    StorageInstructions = recipe.StorageInstructions,
+                    ShelfLifeHours = recipe.ShelfLifeHours,
+
+                    SourceName = recipe.SourceName,
+                    SourceUrl = recipe.SourceUrl,
+                     Tags = recipe.RecipeTags
+                    .Select(x => new RecipeTagResponse
+                    {
+                        Id = x.RecipeTag.Id,
+                        Name = x.RecipeTag.Name
+                    })
+                    .OrderBy(x => x.Name)
+                    .ToList(),
 
                     Ingredients = recipe.RecipeIngredients
                         .OrderBy(x => x.Id)
@@ -302,97 +421,157 @@ public async Task<RecipeCalculationResponse?> CalculateAsync(
                 MidpointRounding.AwayFromZero)
             : null;
 
-    var calculatedIngredients = recipe.RecipeIngredients
-        .OrderBy(x => x.Id)
-        .Select(x =>
-        {
-            decimal calculatedQuantity = Math.Round(
-                x.Quantity * multiplier * 4m,
-                MidpointRounding.AwayFromZero
-            ) / 4m;
+    var calculatedIngredients =
+        new List<CalculatedIngredientResponse>();
 
-            // Calculate price before changing the display unit.
-            decimal? estimatedCost = CalculateIngredientCost(
+    foreach (var x in recipe.RecipeIngredients.OrderBy(x => x.Id))
+    {
+        decimal calculatedQuantity = Math.Round(
+            x.Quantity * multiplier * 4m,
+            MidpointRounding.AwayFromZero) / 4m;
+
+        // Fetch a live mandi price. If the government API has no matching
+        // record or is unavailable, keep the cost null rather than inventing
+        // a price or silently using an unrelated stored price.
+        var mandiPrice = await _mandiPriceService.GetPriceAsync(
+            x.Ingredient.Name);
+
+        if (mandiPrice is null)
+        {
+            Console.WriteLine(
+                $"[MANDI PRICE] No price returned for {x.Ingredient.Name}");
+        }
+
+        decimal? estimatedCost = null;
+        string priceSource = "Unavailable";
+
+        // Prefer a valid government mandi price. If it cannot calculate a
+        // cost for this recipe unit, try the admin's saved purchase details.
+        if (mandiPrice is not null)
+        {
+            estimatedCost = CalculateIngredientCost(
                 calculatedQuantity,
                 x.Unit,
-                x.Ingredient);
+                mandiPrice.PricePerKg,
+                1m,
+                "kg");
 
-            var converted = ConvertQuantity(
-                calculatedQuantity,
-                x.Unit);
-
-            string unit = converted.Unit
-                .Trim()
-                .ToLowerInvariant();
-
-            decimal quantity = converted.Quantity;
-
-            decimal? ingredientWeightGrams = unit switch
+            if (estimatedCost.HasValue)
             {
-                "g" or "gram" or "grams" => quantity,
-
-                "kg" or "kilogram" or "kilograms"
-                    => quantity * 1000m,
-
-                "ml" or "milliliter" or "milliliters"
-                    when x.Ingredient.GramsPerMilliliter.HasValue
-                    => quantity *
-                       x.Ingredient.GramsPerMilliliter.Value,
-
-                "l" or "liter" or "liters"
-                    when x.Ingredient.GramsPerMilliliter.HasValue
-                    => quantity * 1000m *
-                       x.Ingredient.GramsPerMilliliter.Value,
-
-                "tsp" or "teaspoon" or "teaspoons"
-                    when x.Ingredient.GramsPerMilliliter.HasValue
-                    => quantity * 5m *
-                       x.Ingredient.GramsPerMilliliter.Value,
-
-                "tbsp" or "tablespoon" or "tablespoons"
-                    when x.Ingredient.GramsPerMilliliter.HasValue
-                    => quantity * 15m *
-                       x.Ingredient.GramsPerMilliliter.Value,
-
-                "piece" or "pieces" or "pc" or "pcs"
-                    when x.Ingredient.GramsPerPiece.HasValue
-                    => quantity *
-                       x.Ingredient.GramsPerPiece.Value,
-
-                _ => null
-            };
-
-            if (ingredientWeightGrams.HasValue)
-            {
-                totalWeightGrams += ingredientWeightGrams.Value;
+                priceSource = "GovernmentApi";
             }
-            else
+        }
+
+        if (!estimatedCost.HasValue)
+        {
+            if (x.Ingredient.PurchasePrice.HasValue &&
+                x.Ingredient.PurchaseQuantity.HasValue &&
+                !string.IsNullOrWhiteSpace(x.Ingredient.PurchaseUnit))
             {
-                isWeightEstimateComplete = false;
+                estimatedCost = CalculateIngredientCost(
+                    calculatedQuantity,
+                    x.Unit,
+                    x.Ingredient.PurchasePrice.Value,
+                    x.Ingredient.PurchaseQuantity.Value,
+                    x.Ingredient.PurchaseUnit);
             }
 
-            return new CalculatedIngredientResponse
+            if (estimatedCost.HasValue)
             {
-                IngredientId = x.IngredientId,
-                IngredientName = x.Ingredient.Name,
-                IngredientPhotoUrl =
-                    x.Ingredient.PhotoUrl ?? string.Empty,
-                BaseQuantity = x.Quantity,
-                RequiredQuantity = converted.Quantity,
-                Unit = converted.Unit,
-                EstimatedCost = estimatedCost
-            };
-        })
-        .ToList();
+                priceSource = "Admin";
+            }
+        }
+
+        if (mandiPrice is not null)
+        {
+            Console.WriteLine(
+                $"[MANDI PRICE] {mandiPrice.Commodity} | " +
+                $"Market: {mandiPrice.Market} | " +
+                $"District: {mandiPrice.District} | " +
+                $"Arrival date: {mandiPrice.ArrivalDate} | " +
+                $"Price/kg: ₹{mandiPrice.PricePerKg} | " +
+                $"Ingredient cost: {estimatedCost?.ToString() ?? "N/A"}");
+        }
+
+        var converted = ConvertQuantity(
+            calculatedQuantity,
+            x.Unit);
+
+        string unit = converted.Unit
+            .Trim()
+            .ToLowerInvariant();
+
+        decimal quantity = converted.Quantity;
+
+        decimal? ingredientWeightGrams = unit switch
+        {
+            "g" or "gram" or "grams" => quantity,
+
+            "kg" or "kilogram" or "kilograms"
+                => quantity * 1000m,
+
+            "ml" or "milliliter" or "milliliters"
+                when x.Ingredient.GramsPerMilliliter.HasValue
+                => quantity * x.Ingredient.GramsPerMilliliter.Value,
+
+            "l" or "liter" or "liters"
+                when x.Ingredient.GramsPerMilliliter.HasValue
+                => quantity * 1000m *
+                   x.Ingredient.GramsPerMilliliter.Value,
+
+            "tsp" or "teaspoon" or "teaspoons"
+                when x.Ingredient.GramsPerMilliliter.HasValue
+                => quantity * 5m *
+                   x.Ingredient.GramsPerMilliliter.Value,
+
+            "tbsp" or "tablespoon" or "tablespoons"
+                when x.Ingredient.GramsPerMilliliter.HasValue
+                => quantity * 15m *
+                   x.Ingredient.GramsPerMilliliter.Value,
+
+            "piece" or "pieces" or "pc" or "pcs"
+                when x.Ingredient.GramsPerPiece.HasValue
+                => quantity * x.Ingredient.GramsPerPiece.Value,
+
+            _ => null
+        };
+
+        if (ingredientWeightGrams.HasValue)
+        {
+            totalWeightGrams += ingredientWeightGrams.Value;
+        }
+        else
+        {
+            isWeightEstimateComplete = false;
+        }
+
+        calculatedIngredients.Add(new CalculatedIngredientResponse
+        {
+            IngredientId = x.IngredientId,
+            IngredientName = x.Ingredient.Name,
+            IngredientPhotoUrl = x.Ingredient.PhotoUrl ?? string.Empty,
+            BaseQuantity = x.Quantity,
+            RequiredQuantity = converted.Quantity,
+            Unit = converted.Unit,
+            EstimatedCost = estimatedCost,
+            PriceSource = priceSource,
+            PriceMarket = priceSource == "GovernmentApi" ? mandiPrice?.Market : null,
+            PriceDistrict = priceSource == "GovernmentApi" ? mandiPrice?.District : null,
+            PriceArrivalDate = priceSource == "GovernmentApi" ? mandiPrice?.ArrivalDate : null
+        });
+    }
 
     bool isCostEstimateComplete =
-        calculatedIngredients.All(
-            x => x.EstimatedCost.HasValue);
+        calculatedIngredients.All(x => x.EstimatedCost.HasValue);
 
-    decimal? estimatedTotalCost = isCostEstimateComplete
+    var availableCosts = calculatedIngredients
+        .Where(x => x.EstimatedCost.HasValue)
+        .Select(x => x.EstimatedCost!.Value)
+        .ToList();
+
+    decimal? estimatedTotalCost = availableCosts.Count > 0
         ? Math.Round(
-            calculatedIngredients.Sum(
-                x => x.EstimatedCost!.Value),
+            availableCosts.Sum(),
             2,
             MidpointRounding.AwayFromZero)
         : null;
@@ -404,23 +583,18 @@ public async Task<RecipeCalculationResponse?> CalculateAsync(
         BaseServings = recipe.BaseServings,
         RequiredServings = request.RequiredServings,
 
-        EstimatedCookedWeightGrams =
-            estimatedCookedWeightGrams,
+        EstimatedCookedWeightGrams = estimatedCookedWeightGrams,
 
-        EstimatedTotalWeightGrams =
-            isWeightEstimateComplete
-                ? Math.Round(
-                    totalWeightGrams,
-                    2,
-                    MidpointRounding.AwayFromZero)
-                : null,
+        EstimatedTotalWeightGrams = isWeightEstimateComplete
+            ? Math.Round(
+                totalWeightGrams,
+                2,
+                MidpointRounding.AwayFromZero)
+            : null,
 
-        IsWeightEstimateComplete =
-            isWeightEstimateComplete,
-
+        IsWeightEstimateComplete = isWeightEstimateComplete,
         EstimatedTotalCost = estimatedTotalCost,
         IsCostEstimateComplete = isCostEstimateComplete,
-
         Ingredients = calculatedIngredients
     };
 }
@@ -428,13 +602,11 @@ public async Task<RecipeCalculationResponse?> CalculateAsync(
 private static decimal? CalculateIngredientCost(
     decimal requiredQuantity,
     string recipeUnit,
-    RecipePro.Api.Models.Ingredient ingredient)
+    decimal purchasePrice,
+    decimal purchaseQuantity,
+    string purchaseUnit)
 {
-    if (!ingredient.PurchasePrice.HasValue ||
-        !ingredient.PurchaseQuantity.HasValue ||
-        ingredient.PurchasePrice.Value < 0m ||
-        ingredient.PurchaseQuantity.Value <= 0m ||
-        string.IsNullOrWhiteSpace(ingredient.PurchaseUnit))
+    if (purchasePrice < 0m || purchaseQuantity <= 0m)
     {
         return null;
     }
@@ -454,9 +626,7 @@ private static decimal? CalculateIngredientCost(
         };
     }
 
-    static decimal? ToBaseQuantity(
-        decimal quantity,
-        string unit)
+    static decimal? ToBaseQuantity(decimal quantity, string unit)
     {
         return NormalizeUnit(unit) switch
         {
@@ -472,26 +642,21 @@ private static decimal? CalculateIngredientCost(
     }
 
     string normalizedRecipeUnit = NormalizeUnit(recipeUnit);
-    string normalizedPurchaseUnit =
-        NormalizeUnit(ingredient.PurchaseUnit);
+    string normalizedPurchaseUnit = NormalizeUnit(purchaseUnit);
 
-    bool recipeIsWeight =
-        normalizedRecipeUnit is "g" or "kg";
-
-    bool purchaseIsWeight =
-        normalizedPurchaseUnit is "g" or "kg";
+    bool recipeIsWeight = normalizedRecipeUnit is "g" or "kg";
+    bool purchaseIsWeight = normalizedPurchaseUnit is "g" or "kg";
 
     bool recipeIsVolume =
         normalizedRecipeUnit is "ml" or "l" or "tsp" or "tbsp";
-
     bool purchaseIsVolume =
         normalizedPurchaseUnit is "ml" or "l" or "tsp" or "tbsp";
 
     bool recipeIsPiece = normalizedRecipeUnit == "piece";
     bool purchaseIsPiece = normalizedPurchaseUnit == "piece";
 
-    // Weight, volume and piece units cannot be interchanged
-    // without ingredient-specific conversion information.
+    // Mandi prices are converted to ₹/kg. Do not estimate costs for
+    // volume or piece units unless a reliable conversion is available.
     if ((recipeIsWeight && !purchaseIsWeight) ||
         (recipeIsVolume && !purchaseIsVolume) ||
         (recipeIsPiece && !purchaseIsPiece))
@@ -504,7 +669,7 @@ private static decimal? CalculateIngredientCost(
         normalizedRecipeUnit);
 
     decimal? purchaseBase = ToBaseQuantity(
-        ingredient.PurchaseQuantity.Value,
+        purchaseQuantity,
         normalizedPurchaseUnit);
 
     if (!requiredBase.HasValue ||
@@ -515,9 +680,7 @@ private static decimal? CalculateIngredientCost(
     }
 
     decimal cost =
-        requiredBase.Value /
-        purchaseBase.Value *
-        ingredient.PurchasePrice.Value;
+        requiredBase.Value / purchaseBase.Value * purchasePrice;
 
     return Math.Round(
         cost,
@@ -525,7 +688,7 @@ private static decimal? CalculateIngredientCost(
         MidpointRounding.AwayFromZero);
 }
 
-    private static (decimal Quantity, string Unit) ConvertQuantity(
+private static (decimal Quantity, string Unit) ConvertQuantity(
         decimal quantity,
         string unit)
     {
@@ -607,6 +770,7 @@ private static decimal? CalculateIngredientCost(
                 var recipe = await _context.Recipes
                     .Include(x => x.RecipeIngredients)
                     .Include(x => x.Procedures)
+                    .Include(x => x.RecipeTags)
                     .FirstOrDefaultAsync(x => x.Id == id);
 
                 if (recipe == null)
@@ -623,6 +787,10 @@ private static decimal? CalculateIngredientCost(
                     throw new InvalidOperationException(
                         "The selected category does not exist.");
                 }
+
+                await ValidateRecipeMetadataAsync(request);
+                await ValidateTagIdsAsync(request.TagIds);
+                await ValidateCuisineIdAsync(request.CuisineId);
 
                 // Check ingredients
                 var ingredientIds = request.Ingredients
@@ -671,6 +839,17 @@ private static decimal? CalculateIngredientCost(
                     {
                         recipe.PhotoUrl = request.PhotoUrl.Trim();
                     }
+                recipe.CuisineId = request.CuisineId;
+                recipe.MealType = request.MealType?.Trim();
+                recipe.ChefId = request.ChefId;
+                recipe.CookingStyleId = request.CookingStyleId;
+                recipe.PreparationTimeMinutes = request.PreparationTimeMinutes;
+                recipe.CookingTimeMinutes = request.CookingTimeMinutes;
+                recipe.StorageInstructions = request.StorageInstructions?.Trim();
+                recipe.ShelfLifeHours = request.ShelfLifeHours;
+                recipe.SourceName = request.SourceName?.Trim();
+                recipe.SourceUrl = request.SourceUrl?.Trim();
+                
 
                 // Remove old ingredients
                 _context.RecipeIngredients.RemoveRange(
@@ -705,6 +884,19 @@ private static decimal? CalculateIngredientCost(
                             Description = procedure.Description.Trim()
                         });
                 }
+
+                _context.RecipeTagMappings.RemoveRange(recipe.RecipeTags);
+                recipe.RecipeTags.Clear();
+
+                // Add the updated tag mappings.
+                foreach (var tagId in request.TagIds.Distinct())
+                {
+                    recipe.RecipeTags.Add(new RecipeTagMapping
+                    {
+                        RecipeId = recipe.Id,
+                        RecipeTagId = tagId
+                    });
+}
 
                 await _context.SaveChangesAsync();
 
@@ -744,8 +936,72 @@ private static decimal? CalculateIngredientCost(
 
                     recipe.PhotoUrl = imageUrl;
 
+                    
+
                     await _context.SaveChangesAsync();
 
                     return await GetByIdAsync(id);
                 }
+                private async Task ValidateRecipeMetadataAsync(RecipeRequest request)
+{
+    if (request.ChefId.HasValue)
+    {
+        var chefExists = await _context.Chefs
+            .AnyAsync(x => x.Id == request.ChefId.Value);
+
+        if (!chefExists)
+        {
+            throw new InvalidOperationException(
+                "The selected chef does not exist.");
+        }
+    }
+
+    if (request.CookingStyleId.HasValue)
+    {
+        var cookingStyleExists = await _context.CookingStyles
+            .AnyAsync(x => x.Id == request.CookingStyleId.Value);
+
+        if (!cookingStyleExists)
+        {
+            throw new InvalidOperationException(
+                "The selected cooking style does not exist.");
+        }
+    }
+}
+private async Task ValidateTagIdsAsync(List<long> tagIds)
+{
+    var distinctTagIds = tagIds.Distinct().ToList();
+
+    if (distinctTagIds.Any(id => id <= 0))
+    {
+        throw new InvalidOperationException(
+            "Tag IDs must be greater than zero.");
+    }
+
+    var existingCount = await _context.RecipeTags
+        .CountAsync(x => distinctTagIds.Contains(x.Id));
+
+    if (existingCount != distinctTagIds.Count)
+    {
+        throw new InvalidOperationException(
+            "One or more recipe tags do not exist.");
+    }
+}
+
+        private async Task ValidateCuisineIdAsync(long? cuisineId)
+        {
+            if (!cuisineId.HasValue)
+            {
+                return;
+            }
+
+            var exists = await _context.Cuisines
+                .AnyAsync(x => x.Id == cuisineId.Value);
+
+            if (!exists)
+            {
+                throw new InvalidOperationException(
+                    "The selected cuisine does not exist.");
+            }
+        }
     }

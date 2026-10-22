@@ -15,4 +15,9 @@ public class CalculatedIngredientResponse
     public string Unit { get; set; } = string.Empty;
 
     public decimal? EstimatedCost { get; set; }
+
+    public string PriceSource { get; set; } = "Unavailable";
+    public string? PriceMarket { get; set; }
+    public string? PriceDistrict { get; set; }
+    public string? PriceArrivalDate { get; set; }
 }

@@ -42,7 +42,7 @@ export const ENDPOINTS = {
   },
 
   RECIPES: {
-    GET_ALL: "/recipes",
+    GET_ALL: "/recipes",GET_CUISINES: "/recipes/cuisines",
 
     GET_BY_ID: (
       id: number | string
@@ -65,5 +65,7 @@ export const ENDPOINTS = {
       id: number | string
     ) =>
       `/recipes/${id}/calculate`,
+    
   },
+  
 } as const;

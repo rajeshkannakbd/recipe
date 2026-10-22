@@ -2,6 +2,8 @@ import {
   View,
   Text,
   TextInput,
+  Animated,
+  Easing,
   Pressable,
   StyleSheet,
   KeyboardAvoidingView,
@@ -14,7 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
 import { API_BASE_URL } from "../api/client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const TOKEN_KEY = "recipepro_token";
 const USER_KEY = "recipepro_user";
@@ -61,6 +63,82 @@ async function clearAuthData(): Promise<void> {
 
 export default function LoginScreen() {
   const router = useRouter();
+
+  // Entrance animation values: these affect only opacity and transform.
+  const headerOpacity = useRef(new Animated.Value(0)).current;
+  const headerTranslateY = useRef(new Animated.Value(16)).current;
+  const logoScale = useRef(new Animated.Value(0.92)).current;
+  const formOpacity = useRef(new Animated.Value(0)).current;
+  const formTranslateY = useRef(new Animated.Value(18)).current;
+  const footerOpacity = useRef(new Animated.Value(0)).current;
+  const footerTranslateY = useRef(new Animated.Value(10)).current;
+
+  useEffect(() => {
+    const entranceAnimation = Animated.sequence([
+      Animated.parallel([
+        Animated.timing(headerOpacity, {
+          toValue: 1,
+          duration: 420,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(headerTranslateY, {
+          toValue: 0,
+          duration: 420,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.spring(logoScale, {
+          toValue: 1,
+          speed: 16,
+          bounciness: 4,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.parallel([
+        Animated.timing(formOpacity, {
+          toValue: 1,
+          duration: 360,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(formTranslateY, {
+          toValue: 0,
+          duration: 360,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.parallel([
+        Animated.timing(footerOpacity, {
+          toValue: 1,
+          duration: 280,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(footerTranslateY, {
+          toValue: 0,
+          duration: 280,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]),
+    ]);
+
+    entranceAnimation.start();
+
+    return () => {
+      entranceAnimation.stop();
+    };
+  }, [
+    footerOpacity,
+    footerTranslateY,
+    formOpacity,
+    formTranslateY,
+    headerOpacity,
+    headerTranslateY,
+    logoScale,
+  ]);
 
   useEffect(() => {
     let active = true;
@@ -171,6 +249,11 @@ export default function LoginScreen() {
         throw new Error("Invalid login response from the server.");
       }
 
+      // Make the current token available to existing in-memory API consumers.
+      (globalThis as typeof globalThis & {
+        recipeProAuth?: { token?: string };
+      }).recipeProAuth = { token: result.token };
+
       // Store authentication according to the Remember Me selection.
       if (rememberMe) {
         await saveAuthData(result.token, result.user);
@@ -237,18 +320,36 @@ export default function LoginScreen() {
         style={styles.keyboardView}
       >
         <View style={styles.content}>
-          <View style={styles.header}>
-            <View style={styles.logoIcon}>
+          <Animated.View
+            style={[
+              styles.header,
+              {
+                opacity: headerOpacity,
+                transform: [{ translateY: headerTranslateY }],
+              },
+            ]}
+          >
+            <Animated.View
+              style={[styles.logoIcon, { transform: [{ scale: logoScale }] }]}
+            >
               <Ionicons name="restaurant" size={40} color="#1F7655" />
-            </View>
+            </Animated.View>
 
             <Text style={styles.logoText}>RecipePro</Text>
             <Text style={styles.tagline}>Plan • Cook • Scale • Manage</Text>
             <Text style={styles.subText}>Login to continue</Text>
 
-          </View>
+          </Animated.View>
 
-          <View style={styles.form}>
+          <Animated.View
+            style={[
+              styles.form,
+              {
+                opacity: formOpacity,
+                transform: [{ translateY: formTranslateY }],
+              },
+            ]}
+          >
             <View style={styles.inputContainer}>
               <Ionicons
                 name="mail-outline"
@@ -421,9 +522,17 @@ export default function LoginScreen() {
                 />
               </Pressable>
             </View> */}
-          </View>
+          </Animated.View>
 
-          <View style={styles.footer}>
+          <Animated.View
+            style={[
+              styles.footer,
+              {
+                opacity: footerOpacity,
+                transform: [{ translateY: footerTranslateY }],
+              },
+            ]}
+          >
             <Text style={styles.footerText}>Don't have an account? </Text>
 
             <Pressable
@@ -432,7 +541,7 @@ export default function LoginScreen() {
             >
               <Text style={styles.signupText}>Sign Up</Text>
             </Pressable>
-          </View>
+          </Animated.View>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>

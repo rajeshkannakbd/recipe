@@ -37,6 +37,10 @@ export default function AdminLayout() {
         name="edit-recipe/[id]"
         options={{ href: null }}
       />
+      <Tabs.Screen
+        name="metadata"
+        options={{ href: null }}
+      />
         <Tabs.Screen
         name="category-recipes"
         options={{ href: null }}

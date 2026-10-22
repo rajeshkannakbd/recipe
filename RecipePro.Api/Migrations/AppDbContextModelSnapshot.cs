@@ -138,6 +138,112 @@ namespace MyApi.Migrations
                         });
                 });
 
+            modelBuilder.Entity("RecipePro.Api.Models.Chef", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Biography")
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long?>("CreatedBy")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<string>("PhotoUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("SourceUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long?>("UpdatedBy")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Chefs");
+                });
+
+            modelBuilder.Entity("RecipePro.Api.Models.CookingStyle", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long?>("CreatedBy")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long?>("UpdatedBy")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("CookingStyles");
+                });
+
+            modelBuilder.Entity("RecipePro.Api.Models.Cuisine", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long?>("CreatedBy")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long?>("UpdatedBy")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Cuisines");
+                });
+
             modelBuilder.Entity("RecipePro.Api.Models.Favorite", b =>
                 {
                     b.Property<long>("Id")
@@ -197,11 +303,94 @@ namespace MyApi.Migrations
                     b.ToTable("FavoriteIngredients");
                 });
 
+            modelBuilder.Entity("RecipePro.Api.Models.FunctionPlan", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long?>("CreatedBy")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("EventDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long?>("UpdatedBy")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.ToTable("FunctionPlans");
+                });
+
+            modelBuilder.Entity("RecipePro.Api.Models.FunctionPlanRecipe", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long?>("CreatedBy")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("FunctionPlanId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("RecipeId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("RequiredServings")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long?>("UpdatedBy")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RecipeId");
+
+                    b.HasIndex("FunctionPlanId", "RecipeId")
+                        .IsUnique();
+
+                    b.ToTable("FunctionPlanRecipes", t =>
+                        {
+                            t.HasCheckConstraint("CK_FunctionPlanRecipe_RequiredServings_Positive", "`RequiredServings` > 0");
+                        });
+                });
+
             modelBuilder.Entity("RecipePro.Api.Models.Ingredient", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint");
+
+                    b.Property<string>("Brand")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("CautionMessage")
+                        .HasColumnType("longtext");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
@@ -215,10 +404,19 @@ namespace MyApi.Migrations
                     b.Property<decimal?>("GramsPerPiece")
                         .HasColumnType("decimal(65,30)");
 
+                    b.Property<int>("IngredientType")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsCautionRequired")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(150)
                         .HasColumnType("varchar(150)");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("longtext");
 
                     b.Property<string>("PhotoUrl")
                         .HasMaxLength(500)
@@ -233,6 +431,65 @@ namespace MyApi.Migrations
                     b.Property<string>("PurchaseUnit")
                         .HasColumnType("longtext");
 
+                    b.Property<int?>("ShelfLifeDays")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("StorageInstructions")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long?>("UpdatedBy")
+                        .HasColumnType("bigint");
+
+                    b.Property<decimal?>("WastageQuantity")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<string>("WastageUnit")
+                        .HasColumnType("longtext");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Ingredients");
+                });
+
+            modelBuilder.Entity("RecipePro.Api.Models.IngredientSubstitution", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long?>("CreatedBy")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Instructions")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<decimal?>("Quantity")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<long>("RecipeIngredientId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("SubstituteIngredientId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Unit")
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime(6)");
 
@@ -241,10 +498,12 @@ namespace MyApi.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Name")
+                    b.HasIndex("SubstituteIngredientId");
+
+                    b.HasIndex("RecipeIngredientId", "SubstituteIngredientId")
                         .IsUnique();
 
-                    b.ToTable("Ingredients");
+                    b.ToTable("IngredientSubstitutions");
                 });
 
             modelBuilder.Entity("RecipePro.Api.Models.Permission", b =>
@@ -285,15 +544,35 @@ namespace MyApi.Migrations
                     b.Property<long>("CategoryId")
                         .HasColumnType("bigint");
 
+                    b.Property<long?>("ChefId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("CookingStyleId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int?>("CookingTimeMinutes")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
                     b.Property<long?>("CreatedBy")
                         .HasColumnType("bigint");
 
+                    b.Property<string>("Cuisine")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<long?>("CuisineId")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("Description")
                         .HasMaxLength(1000)
                         .HasColumnType("varchar(1000)");
+
+                    b.Property<string>("MealType")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -301,12 +580,29 @@ namespace MyApi.Migrations
                         .HasColumnType("varchar(200)");
 
                     b.Property<string>("PhotoUrl")
-                        .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("varchar(500)");
 
+                    b.Property<int?>("PreparationTimeMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ShelfLifeHours")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SourceName")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("SourceUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
                     b.Property<int>("Status")
                         .HasColumnType("int");
+
+                    b.Property<string>("StorageInstructions")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime(6)");
@@ -317,6 +613,12 @@ namespace MyApi.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CategoryId");
+
+                    b.HasIndex("ChefId");
+
+                    b.HasIndex("CookingStyleId");
+
+                    b.HasIndex("CuisineId");
 
                     b.ToTable("Recipes", t =>
                         {
@@ -370,6 +672,70 @@ namespace MyApi.Migrations
                         });
                 });
 
+            modelBuilder.Entity("RecipePro.Api.Models.RecipeNutrition", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    b.Property<decimal?>("CaloriesKcal")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal?>("CarbohydratesGrams")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long?>("CreatedBy")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("DataSource")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<decimal?>("FatGrams")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal?>("FiberGrams")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<bool>("IsVerified")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<decimal?>("ProteinGrams")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<long>("RecipeId")
+                        .HasColumnType("bigint");
+
+                    b.Property<decimal?>("SodiumMilligrams")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal?>("SugarGrams")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long?>("UpdatedBy")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RecipeId")
+                        .IsUnique();
+
+                    b.ToTable("RecipeNutritions");
+                });
+
             modelBuilder.Entity("RecipePro.Api.Models.RecipeProcedure", b =>
                 {
                     b.Property<long>("Id")
@@ -415,6 +781,50 @@ namespace MyApi.Migrations
                         });
                 });
 
+            modelBuilder.Entity("RecipePro.Api.Models.RecipeReview", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Comment")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long?>("CreatedBy")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Rating")
+                        .HasColumnType("int");
+
+                    b.Property<long>("RecipeId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long?>("UpdatedBy")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("RecipeId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("RecipeReviews", t =>
+                        {
+                            t.HasCheckConstraint("CK_RecipeReview_Rating", "`Rating` >= 1 AND `Rating` <= 5");
+                        });
+                });
+
             modelBuilder.Entity("RecipePro.Api.Models.RecipeRevision", b =>
                 {
                     b.Property<long>("Id")
@@ -453,6 +863,81 @@ namespace MyApi.Migrations
                     b.HasIndex("RecipeId");
 
                     b.ToTable("RecipeRevisions");
+                });
+
+            modelBuilder.Entity("RecipePro.Api.Models.RecipeTag", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("RecipeTags");
+                });
+
+            modelBuilder.Entity("RecipePro.Api.Models.RecipeTagMapping", b =>
+                {
+                    b.Property<long>("RecipeId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("RecipeTagId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("RecipeId", "RecipeTagId");
+
+                    b.HasIndex("RecipeTagId");
+
+                    b.ToTable("RecipeTagMappings");
+                });
+
+            modelBuilder.Entity("RecipePro.Api.Models.RecipeVariation", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long?>("CreatedBy")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<string>("IngredientChangesJson")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("ProcedureChanges")
+                        .HasMaxLength(4000)
+                        .HasColumnType("varchar(4000)");
+
+                    b.Property<long>("RecipeId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long?>("UpdatedBy")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RecipeId");
+
+                    b.ToTable("RecipeVariations");
                 });
 
             modelBuilder.Entity("RecipePro.Api.Models.RolePermission", b =>
@@ -508,6 +993,44 @@ namespace MyApi.Migrations
                     b.Navigation("Ingredient");
                 });
 
+            modelBuilder.Entity("RecipePro.Api.Models.FunctionPlanRecipe", b =>
+                {
+                    b.HasOne("RecipePro.Api.Models.FunctionPlan", "FunctionPlan")
+                        .WithMany("Recipes")
+                        .HasForeignKey("FunctionPlanId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("RecipePro.Api.Models.Recipe", "Recipe")
+                        .WithMany()
+                        .HasForeignKey("RecipeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("FunctionPlan");
+
+                    b.Navigation("Recipe");
+                });
+
+            modelBuilder.Entity("RecipePro.Api.Models.IngredientSubstitution", b =>
+                {
+                    b.HasOne("RecipePro.Api.Models.RecipeIngredient", "RecipeIngredient")
+                        .WithMany()
+                        .HasForeignKey("RecipeIngredientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("RecipePro.Api.Models.Ingredient", "SubstituteIngredient")
+                        .WithMany()
+                        .HasForeignKey("SubstituteIngredientId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("RecipeIngredient");
+
+                    b.Navigation("SubstituteIngredient");
+                });
+
             modelBuilder.Entity("RecipePro.Api.Models.Recipe", b =>
                 {
                     b.HasOne("RecipePro.Api.Models.Category", "Category")
@@ -516,7 +1039,28 @@ namespace MyApi.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("RecipePro.Api.Models.Chef", "Chef")
+                        .WithMany("Recipes")
+                        .HasForeignKey("ChefId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("RecipePro.Api.Models.CookingStyle", "CookingStyle")
+                        .WithMany("Recipes")
+                        .HasForeignKey("CookingStyleId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("RecipePro.Api.Models.Cuisine", "CuisineEntity")
+                        .WithMany("Recipes")
+                        .HasForeignKey("CuisineId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Category");
+
+                    b.Navigation("Chef");
+
+                    b.Navigation("CookingStyle");
+
+                    b.Navigation("CuisineEntity");
                 });
 
             modelBuilder.Entity("RecipePro.Api.Models.RecipeIngredient", b =>
@@ -538,10 +1082,70 @@ namespace MyApi.Migrations
                     b.Navigation("Recipe");
                 });
 
+            modelBuilder.Entity("RecipePro.Api.Models.RecipeNutrition", b =>
+                {
+                    b.HasOne("RecipePro.Api.Models.Recipe", "Recipe")
+                        .WithOne("Nutrition")
+                        .HasForeignKey("RecipePro.Api.Models.RecipeNutrition", "RecipeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Recipe");
+                });
+
             modelBuilder.Entity("RecipePro.Api.Models.RecipeProcedure", b =>
                 {
                     b.HasOne("RecipePro.Api.Models.Recipe", "Recipe")
                         .WithMany("Procedures")
+                        .HasForeignKey("RecipeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Recipe");
+                });
+
+            modelBuilder.Entity("RecipePro.Api.Models.RecipeReview", b =>
+                {
+                    b.HasOne("RecipePro.Api.Models.Recipe", "Recipe")
+                        .WithMany("Reviews")
+                        .HasForeignKey("RecipeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("RecipePro.Api.Models.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Recipe");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("RecipePro.Api.Models.RecipeTagMapping", b =>
+                {
+                    b.HasOne("RecipePro.Api.Models.Recipe", "Recipe")
+                        .WithMany("RecipeTags")
+                        .HasForeignKey("RecipeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("RecipePro.Api.Models.RecipeTag", "RecipeTag")
+                        .WithMany("RecipeTags")
+                        .HasForeignKey("RecipeTagId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Recipe");
+
+                    b.Navigation("RecipeTag");
+                });
+
+            modelBuilder.Entity("RecipePro.Api.Models.RecipeVariation", b =>
+                {
+                    b.HasOne("RecipePro.Api.Models.Recipe", "Recipe")
+                        .WithMany("Variations")
                         .HasForeignKey("RecipeId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -578,9 +1182,29 @@ namespace MyApi.Migrations
                     b.Navigation("Recipes");
                 });
 
+            modelBuilder.Entity("RecipePro.Api.Models.Chef", b =>
+                {
+                    b.Navigation("Recipes");
+                });
+
+            modelBuilder.Entity("RecipePro.Api.Models.CookingStyle", b =>
+                {
+                    b.Navigation("Recipes");
+                });
+
+            modelBuilder.Entity("RecipePro.Api.Models.Cuisine", b =>
+                {
+                    b.Navigation("Recipes");
+                });
+
             modelBuilder.Entity("RecipePro.Api.Models.Favorite", b =>
                 {
                     b.Navigation("Ingredients");
+                });
+
+            modelBuilder.Entity("RecipePro.Api.Models.FunctionPlan", b =>
+                {
+                    b.Navigation("Recipes");
                 });
 
             modelBuilder.Entity("RecipePro.Api.Models.Ingredient", b =>
@@ -590,9 +1214,22 @@ namespace MyApi.Migrations
 
             modelBuilder.Entity("RecipePro.Api.Models.Recipe", b =>
                 {
+                    b.Navigation("Nutrition");
+
                     b.Navigation("Procedures");
 
                     b.Navigation("RecipeIngredients");
+
+                    b.Navigation("RecipeTags");
+
+                    b.Navigation("Reviews");
+
+                    b.Navigation("Variations");
+                });
+
+            modelBuilder.Entity("RecipePro.Api.Models.RecipeTag", b =>
+                {
+                    b.Navigation("RecipeTags");
                 });
 #pragma warning restore 612, 618
         }

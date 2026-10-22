@@ -20,6 +20,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 
 import { recipeApi } from "../../api/recipeApi";
+import { get, API_BASE_URL } from "../../api/client";
 import { favoriteApi } from "../../api/favoriteApi";
 import { getAuthToken } from "../../utils/authStorage";
 
@@ -41,6 +42,19 @@ const formatEstimatedWeight = (grams: number): string => {
 const formatQuantity = (quantity: number, unit: string): string =>
   `${Number(quantity.toFixed(2))} ${unit}`;
 
+const hasText = (value?: string | null): value is string =>
+  typeof value === "string" && value.trim().length > 0;
+
+type RecipeReview = {
+  id: number;
+  recipeId: number;
+  userId: number;
+  userName: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+};
+
 export default function RecipeDetailScreen() {
   const { id, fromFavorites } = useLocalSearchParams<{
     id: string;
@@ -50,6 +64,13 @@ export default function RecipeDetailScreen() {
   const router = useRouter();
 
   const [recipe, setRecipe] = useState<RecipeResponse | null>(null);
+  const [reviews, setReviews] = useState<RecipeReview[]>([]);
+  const [showRecipeDetails, setShowRecipeDetails] = useState(false);
+  const [showAllTags, setShowAllTags] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
   const [calculation, setCalculation] =
     useState<RecipeCalculationResponse | null>(null);
@@ -89,6 +110,26 @@ export default function RecipeDetailScreen() {
       const data = await recipeApi.getById(Number(id));
 
       setRecipe(data);
+
+      // Reviews are returned by a separate endpoint, not by the recipe response.
+      try {
+        const reviewData = await get<unknown>(`/recipes/${data.id}/reviews`);
+        const normalizedReviews: RecipeReview[] = Array.isArray(reviewData)
+          ? (reviewData as RecipeReview[])
+          : reviewData &&
+              typeof reviewData === "object" &&
+              Array.isArray((reviewData as { items?: unknown[] }).items)
+            ? ((reviewData as { items: RecipeReview[] }).items)
+            : reviewData &&
+                typeof reviewData === "object" &&
+                Array.isArray((reviewData as { reviews?: unknown[] }).reviews)
+              ? ((reviewData as { reviews: RecipeReview[] }).reviews)
+              : [];
+        setReviews(normalizedReviews);
+      } catch (reviewError) {
+        console.warn("Could not load recipe reviews:", reviewError);
+        setReviews([]);
+      }
 
       const initialServings = data.baseServings;
 
@@ -446,6 +487,73 @@ export default function RecipeDetailScreen() {
     }
   };
 
+  const handleSubmitReview = async () => {
+    if (!recipe || isSubmittingReview) return;
+
+    try {
+      const token = await getAuthToken();
+      if (!token || !token.trim()) {
+        setShowReviewModal(false);
+        Alert.alert(
+          "Login required",
+          "Please log in to leave a review.",
+          [
+            { text: "Cancel", style: "cancel" },
+            {
+              text: "Log in",
+              onPress: () =>
+                router.push({
+                  pathname: "/login",
+                  params: { redirectTo: `/recipe/${recipe.id}` },
+                }),
+            },
+          ],
+        );
+        return;
+      }
+
+      setIsSubmittingReview(true);
+      const response = await fetch(`${API_BASE_URL}/recipes/${recipe.id}/reviews`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          rating: reviewRating,
+          comment: reviewComment.trim() || null,
+        }),
+      });
+
+      const responseData = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(
+          responseData?.message ||
+          (response.status === 409
+            ? "You have already reviewed this recipe."
+            : `Could not submit review (${response.status}).`),
+        );
+      }
+
+      const createdReview = responseData as RecipeReview;
+      setReviews((current) => [
+        createdReview,
+        ...current.filter((item) => item.id !== createdReview.id),
+      ]);
+      setReviewComment("");
+      setReviewRating(5);
+      setShowReviewModal(false);
+      Alert.alert("Thank you!", "Your review has been added.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Please try again.";
+      Alert.alert("Unable to submit review", message);
+    } finally {
+      setIsSubmittingReview(false);
+    }
+  };
+
   if (loading || !recipe || !calculation) {
     return <ScreenLoader />;
   }
@@ -503,7 +611,7 @@ export default function RecipeDetailScreen() {
       <ScrollView
         style={styles.mainScroll}
         contentContainerStyle={styles.mainScrollContent}
-        stickyHeaderIndices={[1]}
+        stickyHeaderIndices={[2]}
         showsVerticalScrollIndicator={false}
         nestedScrollEnabled
         keyboardShouldPersistTaps="handled"
@@ -529,13 +637,107 @@ export default function RecipeDetailScreen() {
           )}
         </View>
 
+        {/* COMPACT RECIPE INTRO: keep scaling close to the top */}
+        <View style={styles.recipeOverview}>
+          <View style={styles.recipeHeadingRow}>
+            <View style={styles.recipeHeadingText}>
+              <Text style={styles.recipeTitle}>{recipe.name}</Text>
+              {hasText(recipe.description) ? (
+                <Text style={styles.recipeDescription} numberOfLines={2}>
+                  {recipe.description}
+                </Text>
+              ) : null}
+            </View>
+            <Pressable
+              style={styles.recipeInfoButton}
+              onPress={() => setShowRecipeDetails(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Show recipe details and reviews"
+              hitSlop={8}
+            >
+              <Ionicons name="information" size={19} color="#1F7655" />
+            </Pressable>
+          </View>
+
+          <View style={styles.quickMetaRow}>
+            {hasText(recipe.categoryName) ? (
+              <View style={styles.quickMetaItem}>
+                <Ionicons name="grid-outline" size={14} color="#1F7655" />
+                <Text style={styles.quickMetaText}>{recipe.categoryName}</Text>
+              </View>
+            ) : null}
+            {hasText(recipe.mealType) ? (
+              <View style={styles.quickMetaItem}>
+                <Ionicons name="restaurant-outline" size={14} color="#1F7655" />
+                <Text style={styles.quickMetaText}>{recipe.mealType}</Text>
+              </View>
+            ) : null}
+            {(recipe.preparationTimeMinutes != null || recipe.cookingTimeMinutes != null) ? (
+              <View style={styles.quickMetaItem}>
+                <Ionicons name="time-outline" size={14} color="#1F7655" />
+                <Text style={styles.quickMetaText}>
+                  {(Number(recipe.preparationTimeMinutes) || 0) +
+                    (Number(recipe.cookingTimeMinutes) || 0)} min total
+                </Text>
+              </View>
+            ) : null}
+            <View style={styles.quickMetaItem}>
+              <Ionicons name="star" size={14} color="#E6A23C" />
+              <Text style={styles.quickMetaText}>
+                {reviews.length
+                  ? (reviews.reduce((sum, review) => sum + (Number(review.rating) || 0), 0) / reviews.length).toFixed(1)
+                  : "New"}
+                {reviews.length ? ` · ${reviews.length} review${reviews.length === 1 ? "" : "s"}` : ""}
+              </Text>
+            </View>
+          </View>
+
+          <Pressable
+            style={styles.writeReviewInline}
+            onPress={() => setShowReviewModal(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Write a recipe review"
+          >
+            <Ionicons name="create-outline" size={16} color="#1F7655" />
+            <Text style={styles.writeReviewInlineText}>Write a review</Text>
+          </Pressable>
+
+          {(recipe.tags?.filter((tag) => hasText(tag.name)).length ?? 0) > 0 ? (
+            <View style={styles.tagList}>
+              {(showAllTags
+                ? recipe.tags!.filter((tag) => hasText(tag.name))
+                : recipe.tags!.filter((tag) => hasText(tag.name)).slice(0, 3)
+              ).map((tag) => (
+                <View key={tag.id} style={styles.tagChip}>
+                  <Text style={styles.tagChipText}>{tag.name}</Text>
+                </View>
+              ))}
+              {(recipe.tags?.filter((tag) => hasText(tag.name)).length ?? 0) > 3 ? (
+                <Pressable
+                  onPress={() => setShowAllTags((current) => !current)}
+                  style={styles.moreTagsButton}
+                  accessibilityRole="button"
+                  accessibilityLabel={showAllTags ? "Show fewer tags" : "Show all tags"}
+                  hitSlop={6}
+                >
+                  <Text style={styles.moreTagsText}>
+                    {showAllTags
+                      ? "Show less"
+                      : `+${recipe.tags!.filter((tag) => hasText(tag.name)).length - 3} more`}
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null}
+        </View>
+
         {/* STICKY SECTION: SCALING + TABS + SECTION TITLE */}
         <View style={styles.stickyControls}>
           <View style={styles.scalingCard}>
             <View style={styles.scalingHeading}>
               <View style={styles.scalingTextContainer}>
                 <Text style={styles.scalingTitle}>Scaling</Text>
-                <Text style={styles.scalingSubtitle}>Adjust ingredient quantities</Text>
+                <Text style={styles.scalingSubtitle}>Set servings and quantities</Text>
               </View>
             </View>
 
@@ -594,9 +796,21 @@ export default function RecipeDetailScreen() {
           </View>
 
           {activeTab === "ingredients" ? (
-            <Text style={styles.scaledTitle}>
-              Scaled Ingredients ({currentServings} servings)
-            </Text>
+            <View style={styles.scaledTitleRow}>
+              <Text style={styles.scaledTitle}>
+                Scaled Ingredients ({currentServings} servings)
+              </Text>
+              <View style={styles.priceSourceLegend}>
+                <View style={styles.priceSourceLegendItem}>
+                  <View style={[styles.priceSourceDot, styles.priceSourceDotManual]} />
+                  <Text style={styles.priceSourceLegendText}>Manual price</Text>
+                </View>
+                <View style={styles.priceSourceLegendItem}>
+                  <View style={[styles.priceSourceDot, styles.priceSourceDotGovt]} />
+                  <Text style={styles.priceSourceLegendText}>Govt. Price</Text>
+                </View>
+              </View>
+            </View>
           ) : (
             <Text style={styles.scaledTitle}>Instructions</Text>
           )}
@@ -611,6 +825,9 @@ export default function RecipeDetailScreen() {
               );
               const ingredientImageUrl = originalIngredient?.ingredientPhotoUrl;
               const customized = customIngredients[ingredient.ingredientId];
+              const priceSource = (
+                ingredient as typeof ingredient & { priceSource?: string | null }
+              ).priceSource;
 
               return (
                 <Pressable
@@ -661,11 +878,21 @@ export default function RecipeDetailScreen() {
                         customized?.unit ?? ingredient.unit,
                       )}
                     </Text>
-                    <Text style={styles.ingredientPrice}>
-                      {ingredient.estimatedCost != null
-                        ? `₹${ingredient.estimatedCost.toFixed(2)}`
-                        : "Price unavailable"}
-                    </Text>
+                    {ingredient.estimatedCost != null && Number.isFinite(ingredient.estimatedCost) ? (
+                      <View style={styles.ingredientPriceWrap}>
+                        <Text style={styles.ingredientPrice}>
+                          ₹{ingredient.estimatedCost.toFixed(2)}
+                        </Text>
+                        {priceSource === "GovernmentApi" ||
+                        priceSource === "Govt" ||
+                        priceSource === "Government" ? (
+                          <View style={[styles.priceSourceDot, styles.priceSourceDotGovt]} />
+                        ) : priceSource === "Admin" ||
+                          priceSource === "Manual" ? (
+                          <View style={[styles.priceSourceDot, styles.priceSourceDotManual]} />
+                        ) : null}
+                      </View>
+                    ) : null}
                   </View>
                 </Pressable>
               );
@@ -678,55 +905,293 @@ export default function RecipeDetailScreen() {
                 <View style={styles.stepNumber}>
                   <Text style={styles.stepNumberText}>{step.stepNumber}</Text>
                 </View>
-                <Text style={styles.stepDescription}>{step.description}</Text>
+                <View style={styles.instructionTextWrap}>
+                  {hasText(step.title) ? (
+                    <Text style={styles.stepTitle}>{step.title}</Text>
+                  ) : null}
+                  {hasText(step.description) ? (
+                    <Text style={styles.stepDescription}>{step.description}</Text>
+                  ) : null}
+                </View>
               </View>
             ))}
           </View>
         )}
+
       </ScrollView>
 
-      {/* FIXED FOOTER: TWO SUMMARY CARDS */}
-      <View style={styles.bottomBar}>
-        <View style={styles.bottomMetricCard}>
-          <View style={styles.bottomMetricIcon}>
-            <Ionicons
-              name="scale-outline"
-              size={21}
-              color="#1F7655"
-            />
-          </View>
+      {/* RECIPE DETAILS MODAL: opened from the info button beside the recipe name */}
+      <Modal
+        visible={showRecipeDetails}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowRecipeDetails(false)}
+      >
+        <View style={styles.recipeDetailsModalOverlay}>
+          <View style={styles.recipeDetailsModal}>
+            <View style={styles.recipeDetailsModalHeader}>
+              <View style={styles.detailsAccordionHeading}>
+                <Text style={styles.detailsAccordionTitle}>Recipe details & reviews</Text>
+                <Text style={styles.detailsAccordionSubtitle}>
+                  {[
+                    hasText(recipe.cuisine) ? recipe.cuisine : null,
+                    hasText(recipe.chefName) ? recipe.chefName : null,
+                    `${reviews.length} review${reviews.length === 1 ? "" : "s"}`,
+                  ].filter(Boolean).join(" · ")}
+                </Text>
+              </View>
+              <Pressable
+                style={styles.recipeDetailsCloseButton}
+                onPress={() => setShowRecipeDetails(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Close recipe details"
+                hitSlop={8}
+              >
+                <Ionicons name="close" size={22} color="#34423A" />
+              </Pressable>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={styles.detailsAccordionBody}>
+              <View style={styles.detailGrid}>
+                {hasText(recipe.cuisine) ? (
+                  <View style={styles.detailItem}>
+                    <Text style={styles.detailLabel}>Cuisine</Text>
+                    <Text style={styles.detailValue}>{recipe.cuisine}</Text>
+                  </View>
+                ) : null}
+                {hasText(recipe.chefName) ? (
+                  <View style={styles.detailItem}>
+                    <Text style={styles.detailLabel}>Chef</Text>
+                    <Text style={styles.detailValue}>{recipe.chefName}</Text>
+                  </View>
+                ) : null}
+                {hasText(recipe.cookingStyleName) ? (
+                  <View style={styles.detailItem}>
+                    <Text style={styles.detailLabel}>Cooking style</Text>
+                    <Text style={styles.detailValue}>{recipe.cookingStyleName}</Text>
+                  </View>
+                ) : null}
+                {recipe.baseServings != null && recipe.baseServings > 0 ? (
+                  <View style={styles.detailItem}>
+                    <Text style={styles.detailLabel}>Base servings</Text>
+                    <Text style={styles.detailValue}>{recipe.baseServings}</Text>
+                  </View>
+                ) : null}
+                {recipe.baseCookedWeightGrams != null && recipe.baseCookedWeightGrams > 0 ? (
+                  <View style={styles.detailItem}>
+                    <Text style={styles.detailLabel}>Base cooked weight</Text>
+                    <Text style={styles.detailValue}>{formatEstimatedWeight(recipe.baseCookedWeightGrams)}</Text>
+                  </View>
+                ) : null}
+                {recipe.preparationTimeMinutes != null ? (
+                  <View style={styles.detailItem}>
+                    <Text style={styles.detailLabel}>Preparation</Text>
+                    <Text style={styles.detailValue}>{recipe.preparationTimeMinutes} min</Text>
+                  </View>
+                ) : null}
+                {recipe.cookingTimeMinutes != null ? (
+                  <View style={styles.detailItem}>
+                    <Text style={styles.detailLabel}>Cooking</Text>
+                    <Text style={styles.detailValue}>{recipe.cookingTimeMinutes} min</Text>
+                  </View>
+                ) : null}
+              </View>
 
-          <View style={styles.bottomMetricText}>
-            <Text style={styles.bottomMetricLabel}>Approx. Weight</Text>
-            <Text style={styles.bottomMetricValue} numberOfLines={1}>
-              {calculation.estimatedCookedWeightGrams != null
-                ? formatEstimatedWeight(
-                    calculation.estimatedCookedWeightGrams,
-                  )
-                : "Unavailable"}
-            </Text>
+              {hasText(recipe.storageInstructions) ? (
+                <View style={styles.storageNote}>
+                  <Ionicons name="snow-outline" size={17} color="#1F7655" />
+                  <View style={styles.storageTextWrap}>
+                    <Text style={styles.storageTitle}>Storage instructions</Text>
+                    <Text style={styles.storageDescription}>{recipe.storageInstructions}</Text>
+                    {recipe.shelfLifeHours != null && recipe.shelfLifeHours > 0 ? (
+                      <Text style={styles.shelfLifeText}>
+                        Best used within {recipe.shelfLifeHours >= 24 && recipe.shelfLifeHours % 24 === 0
+                          ? `${recipe.shelfLifeHours / 24} day${recipe.shelfLifeHours / 24 === 1 ? "" : "s"}`
+                          : `${recipe.shelfLifeHours} hour${recipe.shelfLifeHours === 1 ? "" : "s"}`}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+              ) : null}
+
+              {hasText(recipe.sourceName) || hasText(recipe.sourceUrl) ? (
+                <View style={styles.sourceNote}>
+                  <Ionicons name="book-outline" size={16} color="#1F7655" />
+                  <View style={styles.storageTextWrap}>
+                    <Text style={styles.storageTitle}>Recipe source</Text>
+                    {hasText(recipe.sourceName) ? (
+                      <Text style={styles.storageDescription}>{recipe.sourceName}</Text>
+                    ) : null}
+                    {hasText(recipe.sourceUrl) ? (
+                      <Text style={styles.sourceUrl} numberOfLines={2}>{recipe.sourceUrl}</Text>
+                    ) : null}
+                  </View>
+                </View>
+              ) : null}
+
+              <View style={styles.reviewsSection}>
+                <View style={styles.reviewsHeading}>
+                  <Text style={styles.reviewsTitle}>Reviews</Text>
+                  <View style={styles.ratingSummary}>
+                    <Ionicons name="star" size={15} color="#E6A23C" />
+                    <Text style={styles.ratingSummaryText}>
+                      {reviews.length
+                        ? (reviews.reduce((sum, review) => sum + (Number(review.rating) || 0), 0) / reviews.length).toFixed(1)
+                        : "—"}
+                    </Text>
+                    <Text style={styles.reviewCountText}>({reviews.length})</Text>
+                  </View>
+                </View>
+                {reviews.length ? (
+                  reviews.map((review) => (
+                    <View key={review.id} style={styles.reviewCard}>
+                      <View style={styles.reviewTopRow}>
+                        <Text style={styles.reviewUserName}>{hasText(review.userName) ? review.userName : "User"}</Text>
+                        <View style={styles.reviewRating}>
+                          <Ionicons name="star" size={13} color="#E6A23C" />
+                          <Text style={styles.reviewRatingText}>{Number(review.rating) || 0}/5</Text>
+                        </View>
+                      </View>
+                      {hasText(review.comment) ? (
+                        <Text style={styles.reviewComment}>{review.comment}</Text>
+                      ) : null}
+                      {hasText(review.createdAt) ? (
+                        <Text style={styles.reviewDate}>
+                          {new Date(review.createdAt).toLocaleDateString()}
+                        </Text>
+                      ) : null}
+                    </View>
+                  ))
+                ) : (
+                  <Text style={styles.noReviewsText}>No reviews yet.</Text>
+                )}
+              </View>
+              </View>
+            </ScrollView>
           </View>
         </View>
+      </Modal>
 
-        <View style={styles.bottomMetricCard}>
-          <View style={styles.bottomMetricIcon}>
-            <Ionicons
-              name="wallet-outline"
-              size={21}
-              color="#1F7655"
-            />
-          </View>
+      {/* WRITE REVIEW MODAL */}
+      <Modal
+        visible={showReviewModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowReviewModal(false)}
+      >
+        <View style={styles.reviewModalOverlay}>
+          <View style={styles.reviewModal}>
+            <View style={styles.reviewModalHeader}>
+              <View style={styles.reviewModalHeading}>
+                <Text style={styles.reviewModalTitle}>Rate this recipe</Text>
+                <Text style={styles.reviewModalSubtitle} numberOfLines={2}>
+                  Share your experience with {recipe.name}.
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => setShowReviewModal(false)}
+                style={styles.reviewModalClose}
+                accessibilityRole="button"
+                accessibilityLabel="Close review form"
+                hitSlop={8}
+              >
+                <Ionicons name="close" size={22} color="#34423A" />
+              </Pressable>
+            </View>
 
-          <View style={styles.bottomMetricText}>
-            <Text style={styles.bottomMetricLabel}>Approx. Price</Text>
-            <Text style={styles.bottomMetricValue} numberOfLines={1}>
-              {calculation.estimatedTotalCost != null
-                ? `₹${calculation.estimatedTotalCost.toFixed(2)}`
-                : "Unavailable"}
+            <View style={styles.reviewStarPicker}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <Pressable
+                  key={star}
+                  onPress={() => setReviewRating(star)}
+                  hitSlop={6}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${star} star${star === 1 ? "" : "s"}`}
+                >
+                  <Ionicons
+                    name={star <= reviewRating ? "star" : "star-outline"}
+                    size={34}
+                    color="#E6A23C"
+                  />
+                </Pressable>
+              ))}
+            </View>
+            <Text style={styles.reviewRatingCaption}>
+              {["", "Poor", "Fair", "Good", "Very good", "Excellent"][reviewRating]}
             </Text>
+
+            <Text style={styles.reviewInputLabel}>Your review (optional)</Text>
+            <TextInput
+              value={reviewComment}
+              onChangeText={setReviewComment}
+              placeholder="What did you think of this recipe?"
+              placeholderTextColor="#8A938E"
+              multiline
+              maxLength={1000}
+              textAlignVertical="top"
+              style={styles.reviewCommentInput}
+            />
+            <Text style={styles.reviewCharacterCount}>
+              {reviewComment.length}/1000
+            </Text>
+
+            <View style={styles.reviewModalActions}>
+              <Pressable
+                style={styles.reviewCancelButton}
+                onPress={() => setShowReviewModal(false)}
+                disabled={isSubmittingReview}
+              >
+                <Text style={styles.reviewCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.reviewSubmitButton,
+                  isSubmittingReview && styles.reviewSubmitButtonDisabled,
+                ]}
+                onPress={handleSubmitReview}
+                disabled={isSubmittingReview}
+              >
+                <Text style={styles.reviewSubmitText}>
+                  {isSubmittingReview ? "Submitting..." : "Submit review"}
+                </Text>
+              </Pressable>
+            </View>
           </View>
         </View>
-      </View>
+      </Modal>
+
+      {/* FIXED FOOTER: show only metrics returned by the calculation API */}
+      {(calculation.estimatedCookedWeightGrams != null || calculation.estimatedTotalCost != null) ? (
+        <View style={styles.bottomBar}>
+          {calculation.estimatedCookedWeightGrams != null ? (
+            <View style={styles.bottomMetricCard}>
+              <View style={styles.bottomMetricIcon}>
+                <Ionicons name="scale-outline" size={21} color="#1F7655" />
+              </View>
+              <View style={styles.bottomMetricText}>
+                <Text style={styles.bottomMetricLabel}>Approx. Weight</Text>
+                <Text style={styles.bottomMetricValue} numberOfLines={1}>
+                  {formatEstimatedWeight(calculation.estimatedCookedWeightGrams)}
+                </Text>
+              </View>
+            </View>
+          ) : null}
+
+          {calculation.estimatedTotalCost != null ? (
+            <View style={styles.bottomMetricCard}>
+              <View style={styles.bottomMetricIcon}>
+                <Ionicons name="wallet-outline" size={21} color="#1F7655" />
+              </View>
+              <View style={styles.bottomMetricText}>
+                <Text style={styles.bottomMetricLabel}>Approx. Price</Text>
+                <Text style={styles.bottomMetricValue} numberOfLines={1}>
+                  ₹{calculation.estimatedTotalCost.toFixed(2)}
+                </Text>
+              </View>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
 
       {/* EDIT INGREDIENT MODAL */}
       <Modal
@@ -830,7 +1295,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 66,
+    height: 58,
     zIndex: 100,
     flexDirection: "row",
     alignItems: "center",
@@ -873,9 +1338,9 @@ const styles = StyleSheet.create({
   },
 
   headerIconButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
     backgroundColor: "rgba(255, 255, 255, 0.60)",
     alignItems: "center",
     justifyContent: "center",
@@ -893,25 +1358,27 @@ const styles = StyleSheet.create({
 
   mainScroll: {
     flex: 1,
-    marginTop: 66,
+    marginTop: 58,
   },
 
   mainScrollContent: {
-    paddingBottom: 12,
+    paddingBottom: 8,
   },
 
   stickyControls: {
     backgroundColor: "#F7F8F3",
-    paddingHorizontal: 18,
-    paddingTop: 8,
-    paddingBottom: 2,
+    paddingHorizontal: 14,
+    paddingTop: 6,
+    paddingBottom: 8,
     zIndex: 20,
     elevation: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E8E3",
   },
 
   /* RECIPE IMAGE */
   heroImage: {
-    height: 250,
+    height: 170,
     backgroundColor: "#E7F1EA",
     alignItems: "center",
     justifyContent: "center",
@@ -923,6 +1390,288 @@ const styles = StyleSheet.create({
     height: "100%",
   },
 
+  /* COMPACT RECIPE INTRO */
+  recipeOverview: {
+    backgroundColor: "#F7F8F3",
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 8,
+  },
+  quickMetaRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 9,
+  },
+  quickMetaItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingRight: 3,
+  },
+  quickMetaText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#34423A",
+  },
+  moreTagsText: {
+    alignSelf: "center",
+    color: "#68736D",
+    fontSize: 11,
+    fontWeight: "700",
+    paddingHorizontal: 4,
+  },
+  moreTagsButton: {
+    alignSelf: "center",
+    justifyContent: "center",
+    paddingVertical: 4,
+  },
+  detailsAccordion: {
+    marginHorizontal: 14,
+    marginTop: 14,
+    marginBottom: 18,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: "#E5E8E3",
+    overflow: "hidden",
+  },
+  detailsAccordionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    gap: 10,
+  },
+  detailsAccordionIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 11,
+    backgroundColor: "#E7F1EA",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  detailsAccordionHeading: {
+    flex: 1,
+    minWidth: 0,
+  },
+  detailsAccordionTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#17231E",
+  },
+  detailsAccordionSubtitle: {
+    fontSize: 11,
+    color: "#68736D",
+    marginTop: 3,
+  },
+  detailsAccordionBody: {
+    borderTopWidth: 1,
+    borderTopColor: "#E5E8E3",
+    paddingHorizontal: 2,
+    paddingBottom: 12,
+  },
+  detailGrid: {
+    paddingTop: 6,
+  },
+  detailItem: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+    gap: 18,
+    paddingVertical: 11,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#E7EBE7",
+  },
+  detailLabel: {
+    flex: 1,
+    fontSize: 13,
+    color: "#68736D",
+    fontWeight: "500",
+  },
+  detailValue: {
+    flex: 1,
+    fontSize: 13,
+    color: "#17231E",
+    fontWeight: "700",
+    textAlign: "right",
+  },
+  recipeHeadingRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+  recipeHeadingText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  recipeDescription: {
+    color: "#65736A",
+    fontSize: 14,
+    lineHeight: 21,
+    marginTop: 8,
+  },
+  tagList: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 5,
+    marginTop: 8,
+  },
+  tagChip: {
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 100,
+    backgroundColor: "#E4F0E8",
+    borderWidth: 1,
+    borderColor: "#D3E5D9",
+  },
+  tagChipText: {
+    color: "#1F7655",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  recipeFacts: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 9,
+  },
+  recipeFact: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E5E8E3",
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    maxWidth: "100%",
+  },
+  recipeFactText: {
+    color: "#34423A",
+    fontSize: 12,
+    fontWeight: "600",
+    flexShrink: 1,
+  },
+  sourceNote: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    paddingTop: 14,
+    marginTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "#E7EBE7",
+  },
+  sourceUrl: {
+    color: "#52645A",
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: 3,
+  },
+  reviewsSection: {
+    marginTop: 14,
+  },
+  reviewsHeading: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  reviewsTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: "#17231E",
+  },
+  ratingSummary: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  ratingSummaryText: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#17231E",
+  },
+  reviewCountText: {
+    fontSize: 12,
+    color: "#68736D",
+  },
+  reviewCard: {
+    backgroundColor: "transparent",
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#E7EBE7",
+  },
+  reviewTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  reviewUserName: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#17231E",
+  },
+  reviewRating: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  reviewRatingText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#52645A",
+  },
+  reviewComment: {
+    color: "#52645A",
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: 6,
+  },
+  reviewDate: {
+    color: "#8A938E",
+    fontSize: 10,
+    marginTop: 6,
+  },
+  noReviewsText: {
+    fontSize: 12,
+    color: "#68736D",
+    paddingVertical: 8,
+  },
+  storageNote: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    paddingTop: 14,
+    marginTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "#E7EBE7",
+  },
+  storageTextWrap: {
+    flex: 1,
+    minWidth: 0,
+  },
+  storageTitle: {
+    color: "#1F7655",
+    fontSize: 12,
+    fontWeight: "800",
+    marginBottom: 3,
+  },
+  storageDescription: {
+    color: "#34423A",
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  shelfLifeText: {
+    color: "#68736D",
+    fontSize: 11,
+    fontWeight: "600",
+    marginTop: 5,
+  },
+
   heroEmoji: {
     fontSize: 80,
     fontWeight: "700",
@@ -930,22 +1679,193 @@ const styles = StyleSheet.create({
   },
 
   ingredientsContent: {
-    backgroundColor: "#FFFFFF",
-    marginHorizontal: 6,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: "#E5E8E3",
-    paddingHorizontal: 12,
-    paddingVertical: 2,
+    backgroundColor: "transparent",
+    marginHorizontal: 14,
+    marginVertical: 12,
+    paddingHorizontal: 0,
   },
 
   instructionsContent: {
-    paddingHorizontal: 18,
-    paddingBottom: 12,
+    paddingHorizontal: 14,
+    paddingBottom: 8,
   },
 
   titleSection: {
     marginBottom: 16,
+  },
+
+  recipeInfoButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "transparent",
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 8,
+    flexShrink: 0,
+  },
+  writeReviewInline: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 10,
+    paddingVertical: 3,
+  },
+  writeReviewInlineText: {
+    color: "#1F7655",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  reviewModalOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(12, 22, 17, 0.48)",
+  },
+  reviewModal: {
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 22,
+    paddingBottom: Platform.OS === "ios" ? 34 : 22,
+  },
+  reviewModalHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+    paddingBottom: 18,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#E7EBE7",
+  },
+  reviewModalHeading: {
+    flex: 1,
+    minWidth: 0,
+  },
+  reviewModalTitle: {
+    fontSize: 21,
+    fontWeight: "800",
+    color: "#17231E",
+  },
+  reviewModalSubtitle: {
+    color: "#68736D",
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: 5,
+  },
+  reviewModalClose: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F2F4F1",
+  },
+  reviewStarPicker: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 12,
+    marginTop: 22,
+  },
+  reviewRatingCaption: {
+    textAlign: "center",
+    color: "#8A6A28",
+    fontSize: 13,
+    fontWeight: "700",
+    marginTop: 8,
+    marginBottom: 22,
+  },
+  reviewInputLabel: {
+    color: "#34423A",
+    fontSize: 13,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  reviewCommentInput: {
+    minHeight: 112,
+    maxHeight: 180,
+    borderWidth: 1,
+    borderColor: "#DCE3DD",
+    borderRadius: 12,
+    paddingHorizontal: 13,
+    paddingVertical: 12,
+    color: "#17231E",
+    fontSize: 14,
+    lineHeight: 20,
+    backgroundColor: "#FBFCFA",
+  },
+  reviewCharacterCount: {
+    alignSelf: "flex-end",
+    color: "#8A938E",
+    fontSize: 11,
+    marginTop: 5,
+  },
+  reviewModalActions: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 18,
+  },
+  reviewCancelButton: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 46,
+    borderRadius: 10,
+    backgroundColor: "#F1F4F0",
+  },
+  reviewCancelText: {
+    color: "#52645A",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  reviewSubmitButton: {
+    flex: 1.3,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 46,
+    borderRadius: 10,
+    backgroundColor: "#1F7655",
+  },
+  reviewSubmitButtonDisabled: {
+    opacity: 0.6,
+  },
+  reviewSubmitText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  recipeDetailsModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(12, 22, 17, 0.48)",
+    justifyContent: "flex-end",
+  },
+  recipeDetailsModal: {
+    maxHeight: "86%",
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 18,
+    paddingHorizontal: 16,
+    paddingBottom: Platform.OS === "ios" ? 30 : 18,
+    overflow: "hidden",
+  },
+  recipeDetailsModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E8E3",
+    marginBottom: 2,
+  },
+  recipeDetailsCloseButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#F1F4F0",
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   recipeTitle: {
@@ -969,16 +1889,16 @@ const styles = StyleSheet.create({
   /* SCALING CONTROLS */
   scalingCard: {
   width: "100%",
-  minHeight: 58,
+  minHeight: 48,
   flexDirection: "row",
   alignItems: "center",
   justifyContent: "space-between",
   backgroundColor: "#FFFFFF",
-  borderRadius: 14,
+  borderRadius: 12,
   borderWidth: 1,
   borderColor: "#E5E8E3",
-  paddingHorizontal: 20,
-  paddingVertical: 24,
+  paddingHorizontal: 12,
+  paddingVertical: 8,
   gap: 8,
   elevation: 2,
   shadowColor: "#17231E",
@@ -1016,7 +1936,7 @@ const styles = StyleSheet.create({
   scalingSubtitle: {
     fontSize: 10,
     color: "#68736D",
-    marginTop: 3,
+    marginTop: 1,
   },
 
   servingButtons: {
@@ -1027,9 +1947,9 @@ const styles = StyleSheet.create({
   },
 
   servingBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 11,
+    width: 29,
+    height: 29,
+    borderRadius: 9,
     backgroundColor: "#1F7655",
     alignItems: "center",
     justifyContent: "center",
@@ -1040,8 +1960,8 @@ const styles = StyleSheet.create({
   },
 
   servingCount: {
-    width: 46,
-    height: 34,
+    width: 42,
+    height: 30,
     borderWidth: 1,
     borderColor: "#D9E1DB",
     borderRadius: 10,
@@ -1057,16 +1977,16 @@ const styles = StyleSheet.create({
   /* TABS */
   tabContainer: {
     flexDirection: "row",
-    backgroundColor: "#E7F1EA",
-    borderRadius: 14,
-    padding: 10,
-    marginBottom: 14,
-    marginTop:10,
+    backgroundColor: "#E9EDE8",
+    borderRadius: 9,
+    padding: 3,
+    marginBottom: 8,
+    marginTop: 7,
   },
 
   tab: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 7,
     alignItems: "center",
     borderRadius: 11,
   },
@@ -1074,7 +1994,7 @@ const styles = StyleSheet.create({
   tabActive: {
     backgroundColor: "#FFFFFF",
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 7,
     alignItems: "center",
     borderRadius: 11,
   },
@@ -1091,24 +2011,66 @@ const styles = StyleSheet.create({
   },
 
   /* INGREDIENTS */
+  scaledTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 6,
+    marginBottom: 7,
+  },
+
   scaledTitle: {
+    flexShrink: 1,
     fontSize: 15,
     fontWeight: "800",
     color: "#17231E",
-    marginBottom: 10,
+  },
+
+  priceSourceLegend: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+
+  priceSourceLegendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+
+  priceSourceDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+
+  priceSourceDotManual: {
+    backgroundColor: "#D64545",
+  },
+
+  priceSourceDotGovt: {
+    backgroundColor: "#1F9D65",
+  },
+
+  priceSourceLegendText: {
+    fontSize: 9,
+    lineHeight: 12,
+    fontWeight: "700",
+    color: "#68736D",
   },
 
   ingredientsList: {
-    paddingHorizontal: 12,
-    paddingVertical: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 1,
   },
 
   ingredientRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 11,
+    paddingVertical: 15,
+    paddingHorizontal: 4,
     borderBottomWidth: 1,
-    borderBottomColor: "#F0F2ED",
+    borderBottomColor: "#e3e3e3",
     gap: 10,
   },
 
@@ -1117,9 +2079,9 @@ const styles = StyleSheet.create({
   },
 
   ingredientIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 100,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     backgroundColor: "#E7F1EA",
     alignItems: "center",
     justifyContent: "center",
@@ -1149,13 +2111,13 @@ const styles = StyleSheet.create({
   ingredientBase: {
     fontSize: 11,
     color: "#68736D",
-    marginTop: 4,
+    marginTop: 2,
   },
 
   ingredientQuantityContainer: {
     alignItems: "flex-end",
     justifyContent: "center",
-    gap: 4,
+    gap: 2,
   },
 
   ingredientQuantity: {
@@ -1164,10 +2126,32 @@ const styles = StyleSheet.create({
     color: "#087443",
   },
 
+  ingredientPriceWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 4,
+  },
+
   ingredientPrice: {
     fontSize: 11,
     fontWeight: "600",
     color: "#68736D",
+  },
+
+  ingredientPriceSource: {
+    fontSize: 9,
+    lineHeight: 11,
+    fontWeight: "700",
+    color: "#68736D",
+  },
+
+  ingredientPriceSourceGovt: {
+    color: "#1F7655",
+  },
+
+  ingredientPriceSourceManual: {
+    color: "#7A6A43",
   },
 
   /* INSTRUCTIONS */
@@ -1179,18 +2163,18 @@ const styles = StyleSheet.create({
   instructionRow: {
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: 11,
+    gap: 9,
     backgroundColor: "#FFFFFF",
-    borderRadius: 13,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: "#E5E8E3",
     padding: 12,
   },
 
   stepNumber: {
-    width: 28,
-    height: 28,
-    borderRadius: 9,
+    width: 25,
+    height: 25,
+    borderRadius: 8,
     backgroundColor: "#E7F1EA",
     alignItems: "center",
     justifyContent: "center",
@@ -1202,11 +2186,21 @@ const styles = StyleSheet.create({
     color: "#1F7655",
   },
 
-  stepDescription: {
+  instructionTextWrap: {
     flex: 1,
+    minWidth: 0,
+  },
+  stepTitle: {
+    color: "#17231E",
+    fontSize: 14,
+    lineHeight: 19,
+    fontWeight: "800",
+    marginBottom: 4,
+  },
+  stepDescription: {
     fontSize: 13,
-    lineHeight: 20,
-    color: "#34423A",
+    lineHeight: 18,
+    color: "#52645A",
   },
 
   /* FIXED FOOTER */
@@ -1214,9 +2208,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(255, 255, 255, 0.97)",
-    paddingHorizontal: 12,
-    paddingTop: 6,
-    paddingBottom: Platform.OS === "ios" ? 5 : 7,
+    paddingHorizontal: 10,
+    paddingTop: 5,
+    paddingBottom: Platform.OS === "ios" ? 4 : 5,
     borderTopWidth: 0,
     gap: 8,
   },
@@ -1227,18 +2221,18 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#F7F8F3",
-    borderRadius: 13,
+    borderRadius: 11,
     borderWidth: 1,
     borderColor: "#E5E8E3",
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    gap: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    gap: 6,
   },
 
   bottomMetricIcon: {
-    width: 29,
-    height: 29,
-    borderRadius: 9,
+    width: 25,
+    height: 25,
+    borderRadius: 8,
     backgroundColor: "#E7F1EA",
     alignItems: "center",
     justifyContent: "center",
@@ -1291,7 +2285,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#1F7655",
     marginTop: 8,
-    marginBottom: 20,
+    marginBottom: 14,
   },
 
   ingredientModalLabel: {

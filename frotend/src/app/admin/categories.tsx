@@ -27,6 +27,7 @@ import type { CategoryResponse } from "../../types/category";
 import SearchBar from "../../components/common/SearchBar";
 
 import ScreenLoader from "../../components/common/ScreenLoader";
+import LottieView from "lottie-react-native";
 
 import { useRouter } from "expo-router";
 
@@ -707,8 +708,14 @@ export default function AdminCategoriesScreen() {
         <View style={styles.successOverlay}>
           <View style={styles.deleteConfirmModal}>
             <View style={styles.deleteIconContainer}>
-              <Ionicons name="trash-outline" size={30} color="#B83A30" />
-            </View>
+              <LottieView
+                              source={require("../../../assets/animations/Delete Bin.json")}
+                              autoPlay
+                              loop={!deleting}
+                              resizeMode="contain"
+                              style={styles.deleteAnimation}
+                            />
+                            </View>
             <Text style={styles.successTitle}>Delete Category?</Text>
             <Text style={styles.successMessage}>
               Are you sure you want to delete "{deletingCategoryName}"?
@@ -1212,13 +1219,19 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   deleteIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+
     backgroundColor: "#FDECEC",
+
     alignItems: "center",
+
     justifyContent: "center",
-    marginBottom: 14,
+
+    alignSelf: "center",
+
+    marginBottom: 16,
   },
   deleteCancelButton: {
     flex: 1,
@@ -1280,5 +1293,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
     color: "#FFFFFF",
+  },
+    deleteAnimation: {
+    width: 100,
+    height: 100,
   },
 });

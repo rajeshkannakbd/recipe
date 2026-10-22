@@ -22,6 +22,10 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen
+        name="function-plan-detail"
+        options={{ href: null }}
+      />
+      <Tabs.Screen
         name="categories"
         options={{
           title: "Home",
@@ -45,6 +49,15 @@ export default function TabsLayout() {
           title: "Favorites",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="heart-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="function-planner"
+        options={{
+          title: "Event's",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="calendar-outline" size={size} color={color} />
           ),
         }}
       />

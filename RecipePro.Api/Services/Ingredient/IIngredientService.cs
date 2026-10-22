@@ -21,4 +21,6 @@ public interface IIngredientService
     Task<IngredientResponse?> UploadImageAsync(
         long id,
         IFormFile file);
+
+    
 }   

@@ -11,6 +11,7 @@ using RecipePro.Api.Services.Ingredient;
 using RecipePro.Api.Services.Recipe;
 using RecipePro.Api.Configuration;
 using RecipePro.Api.Services.Images;
+using RecipePro.Api.Services.Prices;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -68,6 +69,9 @@ builder.Services.AddScoped<PasswordHasher<ApplicationUser>>();
 
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<IIngredientService, IngredientService>();
+builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient<IMandiPriceService,DataGovMandiPriceService>();
+
 builder.Services.AddScoped<IRecipeService, RecipeService>();
 
 builder.Services

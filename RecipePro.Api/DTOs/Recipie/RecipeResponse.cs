@@ -1,4 +1,6 @@
+
 namespace RecipePro.Api.DTOs.Recipe;
+using RecipePro.Api.DTOs.RecipeTag;
 
 public class RecipeResponse
 {
@@ -24,9 +26,34 @@ public class RecipeResponse
 
     public DateTime? UpdatedAt { get; set; }
 
-    public List<RecipeIngredientResponse> Ingredients { get; set; }
-        = new();
+    // Recipe metadata
+    public string? Cuisine { get; set; }
 
-    public List<RecipeProcedureResponse> Procedures { get; set; }
-        = new();
+    public string? MealType { get; set; }
+
+    public long? ChefId { get; set; }
+
+    public string? ChefName { get; set; }
+
+    public long? CookingStyleId { get; set; }
+
+    public string? CookingStyleName { get; set; }
+
+    public int? PreparationTimeMinutes { get; set; }
+
+    public int? CookingTimeMinutes { get; set; }
+
+    public string? StorageInstructions { get; set; }
+
+    public int? ShelfLifeHours { get; set; }
+
+    public string? SourceName { get; set; }
+
+    public string? SourceUrl { get; set; }
+
+    public List<RecipeTagResponse> Tags { get; set; } = new();
+
+    public List<RecipeIngredientResponse> Ingredients { get; set; } = new();
+
+    public List<RecipeProcedureResponse> Procedures { get; set; } = new();
 }

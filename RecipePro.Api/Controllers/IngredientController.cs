@@ -65,6 +65,13 @@ public class IngredientController : ControllerBase
                 message = ex.Message
             });
         }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new
+            {
+                message = ex.Message
+            });
+        }
     }
 
     [HttpPut("{id:long}")]
@@ -88,6 +95,13 @@ public class IngredientController : ControllerBase
         catch (InvalidOperationException ex)
         {
             return Conflict(new
+            {
+                message = ex.Message
+            });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new
             {
                 message = ex.Message
             });

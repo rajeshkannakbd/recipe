@@ -5,6 +5,8 @@ using RecipePro.Api.Services.Images;
 
 using Microsoft.AspNetCore.Http;
 
+using RecipePro.Api.Models.Enums;
+
 
 namespace RecipePro.Api.Services.Ingredient;
 
@@ -37,7 +39,22 @@ public class IngredientService : IIngredientService
                 PurchaseQuantity = x.PurchaseQuantity,
                 PurchaseUnit = x.PurchaseUnit,
                 CreatedAt = x.CreatedAt,
-                UpdatedAt = x.UpdatedAt
+                UpdatedAt = x.UpdatedAt,
+                
+                IngredientType = x.IngredientType,
+
+                WastageQuantity = x.WastageQuantity,
+                WastageUnit = x.WastageUnit,
+
+                IsCautionRequired = x.IsCautionRequired,
+                CautionMessage = x.CautionMessage,
+
+                StorageInstructions = x.StorageInstructions,
+                ShelfLifeDays = x.ShelfLifeDays,
+
+                Brand = x.Brand,
+                Notes = x.Notes,
+                Status = x.Status,
             })
             .ToListAsync();
     }
@@ -56,7 +73,22 @@ public class IngredientService : IIngredientService
                 PurchaseQuantity = x.PurchaseQuantity,
                 PurchaseUnit = x.PurchaseUnit,
                 CreatedAt = x.CreatedAt,
-                UpdatedAt = x.UpdatedAt
+                UpdatedAt = x.UpdatedAt,
+                
+                IngredientType = x.IngredientType,
+
+                WastageQuantity = x.WastageQuantity,
+                WastageUnit = x.WastageUnit,
+
+                IsCautionRequired = x.IsCautionRequired,
+                CautionMessage = x.CautionMessage,
+
+                StorageInstructions = x.StorageInstructions,
+                ShelfLifeDays = x.ShelfLifeDays,
+
+                Brand = x.Brand,
+                Notes = x.Notes,
+                Status = x.Status,
             })
             .FirstOrDefaultAsync();
     }
@@ -74,7 +106,26 @@ public class IngredientService : IIngredientService
             throw new InvalidOperationException(
                 "An ingredient with this name already exists.");
         }
+        
+        if (!Enum.IsDefined(typeof(IngredientDietType),
+                            request.IngredientType))
+        {
+            throw new ArgumentException(
+                "Select a valid ingredient type.");
+        }
 
+        if (request.IsCautionRequired &&
+            string.IsNullOrWhiteSpace(request.CautionMessage))
+        {
+            throw new ArgumentException(
+                "Enter a caution message when the warning is enabled.");
+        }
+        if (!Enum.IsDefined(typeof(IngredientStatus), request.Status))
+        {
+            throw new ArgumentException(
+                "Select a valid ingredient status.");
+        }
+    
         var ingredient = new Models.Ingredient
         {
             Name = normalizedName,
@@ -83,7 +134,34 @@ public class IngredientService : IIngredientService
                         : request.PhotoUrl.Trim(),
             PurchasePrice = request.PurchasePrice,
             PurchaseQuantity = request.PurchaseQuantity,
-            PurchaseUnit = request.PurchaseUnit?.Trim()
+            PurchaseUnit = request.PurchaseUnit?.Trim(),
+            IngredientType = request.IngredientType,
+            WastageQuantity = request.WastageQuantity,
+            WastageUnit = request.WastageUnit?.Trim(),
+
+            IsCautionRequired = request.IsCautionRequired,
+
+            CautionMessage = request.IsCautionRequired
+                ? request.CautionMessage?.Trim()
+                : null,
+
+            StorageInstructions =
+                string.IsNullOrWhiteSpace(request.StorageInstructions)
+                    ? null
+                    : request.StorageInstructions.Trim(),
+
+            ShelfLifeDays = request.ShelfLifeDays,
+
+            Brand = string.IsNullOrWhiteSpace(request.Brand)
+                ? null
+                : request.Brand.Trim(),
+
+            Notes = string.IsNullOrWhiteSpace(request.Notes)
+                ? null
+                : request.Notes.Trim(),
+
+            Status = request.Status,
+
         };
 
         _context.Ingredients.Add(ingredient);
@@ -126,6 +204,32 @@ public class IngredientService : IIngredientService
         ingredient.PurchasePrice = request.PurchasePrice;
         ingredient.PurchaseQuantity = request.PurchaseQuantity;
         ingredient.PurchaseUnit = request.PurchaseUnit?.Trim();
+        ingredient.IngredientType = request.IngredientType;
+
+        ingredient.WastageQuantity = request.WastageQuantity;
+        ingredient.WastageUnit = request.WastageUnit?.Trim();
+
+        ingredient.IsCautionRequired = request.IsCautionRequired;
+
+        ingredient.CautionMessage = request.IsCautionRequired
+            ? request.CautionMessage?.Trim()
+            : null;
+
+        ingredient.StorageInstructions =
+            string.IsNullOrWhiteSpace(request.StorageInstructions)
+                ? null
+                : request.StorageInstructions.Trim();
+
+        ingredient.ShelfLifeDays = request.ShelfLifeDays;
+
+        ingredient.Brand = string.IsNullOrWhiteSpace(request.Brand)
+            ? null
+            : request.Brand.Trim();
+
+        ingredient.Notes = string.IsNullOrWhiteSpace(request.Notes)
+            ? null
+            : request.Notes.Trim();
+
 
         await _context.SaveChangesAsync();
 
@@ -170,7 +274,24 @@ public class IngredientService : IIngredientService
             PurchaseQuantity = ingredient.PurchaseQuantity,
         PurchaseUnit = ingredient.PurchaseUnit,
             CreatedAt = ingredient.CreatedAt,
-            UpdatedAt = ingredient.UpdatedAt
+            UpdatedAt = ingredient.UpdatedAt,
+            
+            IngredientType = ingredient.IngredientType,
+
+            WastageQuantity = ingredient.WastageQuantity,
+            WastageUnit = ingredient.WastageUnit,
+
+            IsCautionRequired = ingredient.IsCautionRequired,
+            CautionMessage = ingredient.CautionMessage,
+
+            StorageInstructions = ingredient.StorageInstructions,
+            ShelfLifeDays = ingredient.ShelfLifeDays,
+
+            Brand = ingredient.Brand,
+            Notes = ingredient.Notes,
+            Status = ingredient.Status,
+
+
         };
     }
 
@@ -194,5 +315,7 @@ public class IngredientService : IIngredientService
     await _context.SaveChangesAsync();
 
     return MapToResponse(ingredient);
+
+
 }
 }

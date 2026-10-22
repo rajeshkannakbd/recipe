@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 
 import {
   View,
@@ -8,6 +8,9 @@ import {
   Pressable,
   StyleSheet,
   Image,
+  ImageBackground,
+  Animated,
+  Easing,
 } from "react-native";
 
 import { useRouter } from "expo-router";
@@ -21,6 +24,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { categoryApi } from "../../api/categoryApi";
 
 import { recipeApi } from "../../api/recipeApi";
+import { get } from "../../api/client";
 
 import type { CategoryResponse } from "../../types/category";
 
@@ -47,6 +51,18 @@ const CATEGORY_IMAGES: Record<string, string> = {
     "https://res.cloudinary.com/ktlem6cf/image/upload/v1791379591/images_4.jpg",
 };
 
+const COLORS = {
+  background: "#F7F8F3",
+  surface: "#FFFFFF",
+  primary: "#1F7655",
+  primaryDark: "#15543C",
+  paleGreen: "#E7F1EA",
+  text: "#17231E",
+  muted: "#68736D",
+  border: "#E5E8E3",
+  orange: "#F2A541",
+};
+
 type MealType =
   | "all"
   | "breakfast"
@@ -56,6 +72,58 @@ type MealType =
   | "beverages";
 
 type FoodType = "all" | "veg" | "nonveg";
+
+type RecipeReview = {
+  id?: number;
+  recipeId?: number;
+  userId?: number;
+  userName?: string;
+  rating?: number | null;
+  comment?: string | null;
+  createdAt?: string;
+};
+
+type RecipeWithOptionalRating = RecipeResponse & {
+  rating?: number | null;
+  averageRating?: number | null;
+  averageRatingValue?: number | null;
+  ratingAverage?: number | null;
+  averageReviewRating?: number | null;
+  reviews?: Array<{ rating?: number | null }>;
+  reviewCount?: number | null;
+  totalReviews?: number | null;
+};
+
+function cleanText(value: unknown): string {
+  if (typeof value !== "string") return "";
+  const text = value.trim();
+  if (!text || ["null", "undefined", "nil", "n/a", "na"].includes(text.toLowerCase())) return "";
+  return text;
+}
+
+function getRecipeRating(recipe: RecipeResponse): number | null {
+  const item = recipe as RecipeWithOptionalRating;
+  const candidates = [item.averageRating, item.averageRatingValue, item.ratingAverage, item.averageReviewRating, item.rating];
+  for (const candidate of candidates) {
+    const value = Number(candidate);
+    if (candidate != null && Number.isFinite(value) && value > 0 && value <= 5) return value;
+  }
+  if (Array.isArray(item.reviews) && item.reviews.length > 0) {
+    const ratings = item.reviews
+      .map((review) => Number(review.rating))
+      .filter((rating) => Number.isFinite(rating) && rating >= 1 && rating <= 5);
+    if (ratings.length > 0) return ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length;
+  }
+  return null;
+}
+
+function getReviewCount(recipe: RecipeResponse): number {
+  const item = recipe as RecipeWithOptionalRating;
+  const count = Number(item.reviewCount ?? item.totalReviews);
+  if (Number.isFinite(count) && count > 0) return count;
+  return Array.isArray(item.reviews) ? item.reviews.length : 0;
+}
+
 
 const NON_VEG_INGREDIENT_KEYWORDS = [
   "egg",
@@ -110,9 +178,16 @@ const NON_VEG_INGREDIENT_KEYWORDS = [
 export default function CategoriesScreen() {
   const router = useRouter();
 
+  const heroOpacity = useRef(new Animated.Value(0)).current;
+  const heroTranslateY = useRef(new Animated.Value(18)).current;
+  const heroArtScale = useRef(new Animated.Value(0.88)).current;
+  const heroButtonScale = useRef(new Animated.Value(1)).current;
+
   const [categories, setCategories] = useState<CategoryResponse[]>([]);
 
   const [recipes, setRecipes] = useState<RecipeResponse[]>([]);
+
+  const [reviewsByRecipeId, setReviewsByRecipeId] = useState<Record<string, RecipeReview[]>>({});
 
   const [search, setSearch] = useState("");
 
@@ -121,7 +196,7 @@ export default function CategoriesScreen() {
   const [activeMeal, setActiveMeal] = useState<MealType>("all");
 
   const [activeFood, setActiveFood] = useState<FoodType>("all");
-
+  const [isSelected, setIsSelected] = useState<boolean>(false);
   const load = useCallback(async () => {
     try {
       const [cats, recs] = await Promise.all([
@@ -131,8 +206,52 @@ export default function CategoriesScreen() {
       ]);
 
       setCategories(cats);
-
       setRecipes(recs);
+
+      // Reviews are returned by a separate endpoint, not by GET /api/recipes.
+      // Load them separately so Popular Recipes can show real ratings/counts.
+      const publishedRecipes = recs.filter((recipe) => {
+        const status = String(recipe.status ?? "").trim().toLowerCase();
+        return !status || status === "published" || status === "2";
+      });
+
+      const reviewEntries = await Promise.all(
+        publishedRecipes.map(async (recipe) => {
+          try {
+            const response = await get<unknown>(`/recipes/${recipe.id}/reviews`);
+            let payload = response as unknown;
+
+            if (payload && typeof payload === "object" && !Array.isArray(payload)) {
+              const wrapper = payload as {
+                items?: unknown;
+                data?: unknown;
+                reviews?: unknown;
+              };
+              payload = wrapper.items ?? wrapper.reviews ?? wrapper.data ?? payload;
+            }
+
+            const reviewList = Array.isArray(payload)
+              ? payload
+              : payload && typeof payload === "object" && "rating" in payload
+                ? [payload]
+                : [];
+
+            return [
+              String(recipe.id),
+              reviewList.filter(
+                (review): review is RecipeReview =>
+                  !!review && typeof review === "object" && "rating" in review,
+              ),
+            ] as const;
+          } catch (reviewError) {
+            // Keep the home screen usable if reviews are unavailable for a recipe.
+            console.warn(`Unable to load reviews for recipe ${recipe.id}:`, reviewError);
+            return [String(recipe.id), []] as const;
+          }
+        }),
+      );
+
+      setReviewsByRecipeId(Object.fromEntries(reviewEntries));
     } catch (e) {
       console.error(
         "LOAD CATEGORIES ERROR:",
@@ -147,6 +266,38 @@ export default function CategoriesScreen() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (loading) return;
+
+    heroOpacity.setValue(0);
+    heroTranslateY.setValue(18);
+    heroArtScale.setValue(0.88);
+
+    const entrance = Animated.parallel([
+      Animated.timing(heroOpacity, {
+        toValue: 1,
+        duration: 460,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(heroTranslateY, {
+        toValue: 0,
+        duration: 460,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.spring(heroArtScale, {
+        toValue: 1,
+        speed: 14,
+        bounciness: 3,
+        useNativeDriver: true,
+      }),
+    ]);
+
+    entrance.start();
+    return () => entrance.stop();
+  }, [loading, heroOpacity, heroTranslateY, heroArtScale]);
 
   const selectedCategoryName = useMemo(() => {
     switch (activeMeal) {
@@ -292,28 +443,40 @@ export default function CategoriesScreen() {
   }, [categories, search, selectedCategoryName]);
 
   const popularRecipes = useMemo(() => {
-    return categories
+    const published = recipes.filter((recipe) => {
+      const status = String(recipe.status ?? "").trim().toLowerCase();
+      return !status || status === "published" || status === "2";
+    });
 
-      .map((cat) => {
-        const catRecipes = recipes.filter((r) => r.categoryId === cat.id);
+    const getReviews = (recipe: RecipeResponse) => reviewsByRecipeId[String(recipe.id)] ?? [];
+    const getLiveRating = (recipe: RecipeResponse): number | null => {
+      const ratings = getReviews(recipe)
+        .map((review) => Number(review.rating))
+        .filter((rating) => Number.isFinite(rating) && rating >= 1 && rating <= 5);
+      if (ratings.length > 0) {
+        return ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length;
+      }
+      return getRecipeRating(recipe);
+    };
+    const getLiveReviewCount = (recipe: RecipeResponse) => {
+      const count = getReviews(recipe).length;
+      return count > 0 ? count : getReviewCount(recipe);
+    };
 
-        return catRecipes.length > 0
-          ? {
-              category: cat,
+    return [...published]
+      .sort((a, b) => {
+        const ratingA = getLiveRating(a) ?? -1;
+        const ratingB = getLiveRating(b) ?? -1;
+        if (ratingA !== ratingB) return ratingB - ratingA;
 
-              recipe: catRecipes[0],
-            }
-          : null;
+        const reviewsA = getLiveReviewCount(a);
+        const reviewsB = getLiveReviewCount(b);
+        if (reviewsA !== reviewsB) return reviewsB - reviewsA;
+
+        return cleanText(a.name).localeCompare(cleanText(b.name));
       })
-
-      .filter(Boolean)
-
-      .slice(0, 4) as {
-      category: CategoryResponse;
-
-      recipe: RecipeResponse;
-    }[];
-  }, [categories, recipes]);
+      .slice(0, 8);
+  }, [recipes, reviewsByRecipeId]);
 
   const handleMealPress = (meal: MealType) => {
     setActiveMeal(meal);
@@ -336,9 +499,16 @@ export default function CategoriesScreen() {
       {/* Fixed white header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <Text style={styles.greeting}>All Recipes</Text>
+           <Text style={styles.brandName}>RecipePro</Text>
+            <Text style={styles.brandCaption}>PLAN · COOK · SCALE</Text>
         </View>
-        <View style={styles.searchContainer}>
+        
+        <Text style={styles.headingg}>What are we cooking today?</Text>
+        
+        <View style={[
+  styles.searchContainer, 
+  isSelected && styles.selectedBorder
+]}>
           <SearchBar
             value={search}
             onChangeText={setSearch}
@@ -347,86 +517,192 @@ export default function CategoriesScreen() {
         </View>
       </View>
 
+ 
       <FlatList
         ListHeaderComponent={
           <View>
-            <View style={styles.scrollSectionHeader}>
-              <Text style={styles.sectionTitle}>Popular Recipes</Text>
+                 <View>
+                  <Animated.View
+                    style={[
+                      styles.heroEntrance,
+                      {
+                        opacity: heroOpacity,
+                        transform: [{ translateY: heroTranslateY }],
+                      },
+                    ]}
+                  >
+                    <ImageBackground
+                      source={{
+                        uri: "https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=1400&q=85",
+                      }}
+                      style={styles.hero}
+                      imageStyle={styles.heroImage}
+                      resizeMode="cover"
+                    >
+                      <LinearGradient
+                        colors={["rgba(13, 45, 29, 0.86)", "rgba(13, 45, 29, 0.54)"]}
+                        start={{ x: 0, y: 0.5 }}
+                        end={{ x: 1, y: 0.5 }}
+                        style={styles.heroShade}
+                      >
+                        <View style={styles.heroRow}>
+                          <View style={styles.heroCopy}>
+                            <Text style={styles.heroEyebrow}>YOUR NEXT FAVOURITE</Text>
+                            <Text style={styles.heroTitle}>Good food,{"\n"}made simple.</Text>
+                            <Text style={styles.heroDescription}>
+                              Explore recipes, cooking styles and meal ideas.
+                            </Text>
+                            <Animated.View
+                              style={[
+                                styles.heroButtonAnimated,
+                                { transform: [{ scale: heroButtonScale }] },
+                              ]}
+                            >
+                              <Pressable
+                                style={styles.heroButton}
+                                onPress={() => router.push("/(tabs)/all-recipes")}
+                                onPressIn={() =>
+                                  Animated.spring(heroButtonScale, {
+                                    toValue: 0.96,
+                                    speed: 22,
+                                    bounciness: 2,
+                                    useNativeDriver: true,
+                                  }).start()
+                                }
+                                onPressOut={() =>
+                                  Animated.spring(heroButtonScale, {
+                                    toValue: 1,
+                                    speed: 18,
+                                    bounciness: 3,
+                                    useNativeDriver: true,
+                                  }).start()
+                                }
+                                accessibilityRole="button"
+                              >
+                                <Text style={styles.heroButtonText}>Explore recipes</Text>
+                                <Ionicons name="arrow-forward" size={16} color={COLORS.primaryDark} />
+                              </Pressable>
+                            </Animated.View>
+                          </View>
+                          <Animated.View
+                            style={[
+                              styles.heroArt,
+                              { transform: [{ scale: heroArtScale }] },
+                            ]}
+                          >
+                            <Ionicons name="restaurant-outline" size={62} color="#FFFFFF" />
+                            <View style={styles.heroLeaf}>
+                              <Ionicons name="leaf" size={23} color="#FFFFFF" />
+                            </View>
+                          </Animated.View>
+                        </View>
+                      </LinearGradient>
+                    </ImageBackground>
+                  </Animated.View>
+
+            <View style={styles.popularSectionHeader}>
+              <View style={styles.popularSectionCopy}>
+                <Text style={styles.sectionTitle}>Popular recipes</Text>
+                <Text style={styles.popularSectionSubtitle}>Top-rated recipes first</Text>
+              </View>
               <Pressable
-                onPress={() => {
-                  router.push("/(tabs)/all-recipes");
-                }}
+                onPress={() => router.push("/(tabs)/all-recipes")}
                 hitSlop={8}
+                style={styles.popularViewAll}
               >
-                <Text style={styles.viewAllText}>View All</Text>
+                <Text style={styles.viewAllText}>View all</Text>
+                <Ionicons name="chevron-forward" size={14} color={COLORS.primary} />
               </Pressable>
             </View>
-            <FlatList
-              horizontal
-              data={popularRecipes}
-              keyExtractor={(item) => `popular-${item.recipe.id}`}
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.horizontalList}
-              renderItem={({ item }) => (
-                <Pressable
-                  style={styles.popularCard}
-                  onPress={() =>
-                    router.push({
-                      pathname: "/recipe/[id]",
-
-                      params: {
-                        id: String(item.recipe.id),
-                      },
-                    })
-                  }
-                >
-                  <View style={styles.popularImage}>
-                    {item.recipe.photoUrl ? (
-                      <Image
-                        source={{
-                          uri: item.recipe.photoUrl,
-                        }}
-                        style={{
-                          width: "100%",
-
-                          height: "100%",
-
-                          borderRadius: 14,
-                        }}
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <Text style={styles.popularEmoji}>
-                        {item.recipe.name.charAt(0)}
+            {popularRecipes.length > 0 ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.popularCardsContent}
+              >
+                {popularRecipes.map((recipe) => {
+                  const recipeReviews = reviewsByRecipeId[String(recipe.id)] ?? [];
+                  const validRatings = recipeReviews
+                    .map((review) => Number(review.rating))
+                    .filter((value) => Number.isFinite(value) && value >= 1 && value <= 5);
+                  const rating = validRatings.length > 0
+                    ? validRatings.reduce((sum, value) => sum + value, 0) / validRatings.length
+                    : getRecipeRating(recipe);
+                  const reviewCount = recipeReviews.length > 0
+                    ? recipeReviews.length
+                    : getReviewCount(recipe);
+                  const photoUrl = cleanText(recipe.photoUrl);
+                  return (
+                    <Pressable
+                      key={recipe.id}
+                      style={styles.popularCard}
+                      onPress={() =>
+                        router.push({
+                          pathname: "/recipe/[id]",
+                          params: { id: String(recipe.id) },
+                        })
+                      }
+                    >
+                      <View style={styles.popularImageWrap}>
+                        {photoUrl ? (
+                          <Image source={{ uri: photoUrl }} style={styles.popularImageActual} resizeMode="cover" />
+                        ) : (
+                          <View style={styles.popularImageFallback}>
+                            <Ionicons name="restaurant-outline" size={38} color={COLORS.primary} />
+                          </View>
+                        )}
+                        <View style={styles.popularBadge}>
+                          <Ionicons name="sparkles" size={12} color={COLORS.primary} />
+                          <Text style={styles.popularBadgeText}>Popular</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.popularName} numberOfLines={2}>
+                        {cleanText(recipe.name) || "Untitled recipe"}
                       </Text>
-                    )}
-                  </View>
+                      <Text style={styles.popularCategory} numberOfLines={1}>
+                        {cleanText(recipe.categoryName) || "Recipe"}
+                      </Text>
+                      <View style={styles.ratingRow}>
+                        {rating !== null ? (
+                          <>
+                            <Ionicons name="star" size={14} color={COLORS.orange} />
+                            <Text style={styles.ratingText}>{rating.toFixed(1)}</Text>
+                            {reviewCount > 0 && <Text style={styles.reviewCount}>({reviewCount})</Text>}
+                          </>
+                        ) : (
+                          <>
+                            <Ionicons name="time-outline" size={14} color={COLORS.muted} />
+                            <Text style={styles.reviewCount}>Discover this recipe</Text>
+                          </>
+                        )}
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            ) : (
+              <View style={styles.popularEmptyState}>
+                <Ionicons name="restaurant-outline" size={24} color={COLORS.muted} />
+                <Text style={styles.popularEmptyText}>Published recipes will appear here when available.</Text>
+              </View>
+            )}
 
-                  <Text style={styles.popularName} numberOfLines={1}>
-                    {item.recipe.name}
-                  </Text>
-
-                  <Text style={styles.popularMeta}>
-                    {item.recipe.baseServings} servings
-                  </Text>
-                </Pressable>
-              )}
-            />
-
-            <View style={styles.scrollSectionHeader}>
-              <Text style={styles.sectionTitle}>
-                {activeFood === "veg"
-                  ? "Vegetarian Recipes"
-                  : activeFood === "nonveg"
-                    ? "Non-Vegetarian Recipes"
-                    : activeMeal === "breakfast"
-                      ? "Breakfast - Tiffin"
-                      : activeMeal === "lunch"
-                        ? "Lunch - Meals"
-                        : activeMeal === "dinner"
-                          ? "Dinner - Tiffin"
-                          : "Categories"}
-              </Text>
+              <View style={styles.scrollSectionHeader}>
+                <Text style={styles.sectionTitle}>
+                  {/* Keep your existing section-title condition here */}
+                  {activeFood === "veg"
+                    ? "Vegetarian Recipes"
+                    : activeFood === "nonveg"
+                      ? "Non-Vegetarian Recipes"
+                      : activeMeal === "breakfast"
+                        ? "Breakfast - Tiffin"
+                        : activeMeal === "lunch"
+                          ? "Lunch - Meals"
+                          : activeMeal === "dinner"
+                            ? "Dinner - Tiffin"
+                            : "Categories"}
+                </Text>
+              </View>
             </View>
           </View>
         }
@@ -518,7 +794,7 @@ export default function CategoriesScreen() {
 
             .toLowerCase();
 
-          const imageUrl = CATEGORY_IMAGES[categoryKey];
+          const imageUrl = category.imageUrl;
 
           const recipeCount = recipes.filter(
             (r) => r.categoryId === category.id,
@@ -604,6 +880,7 @@ export default function CategoriesScreen() {
           </View>
         }
       />
+      
     </SafeAreaView>
   );
 }
@@ -648,10 +925,10 @@ const styles = StyleSheet.create({
 
     justifyContent: "space-between",
 
-    alignItems: "center",
+    alignItems:"flex-start",
 
-    marginBottom: 16,
-    paddingTop: 8,
+    marginBottom: 8,
+    paddingTop: 4,
   },
 
   title: {
@@ -659,7 +936,7 @@ const styles = StyleSheet.create({
 
     fontWeight: "800",
 
-    color: "#17231E",
+    color: "#065534",
   },
 
   addButton: {
@@ -687,7 +964,15 @@ const styles = StyleSheet.create({
   },
 
   searchContainer: {
-    marginBottom: 10,
+    marginBottom: 5,
+    marginTop:8,
+    borderColor: '#2f681a',
+    borderWidth: 1 ,
+    borderRadius:10,
+  },
+    selectedBorder: {
+    borderColor: '#007aff', // Turns blue on selection
+    borderWidth: 2          // Makes the border thicker on selection
   },
 
   greeting: {
@@ -808,65 +1093,51 @@ const styles = StyleSheet.create({
     color: "#1F7655",
   },
 
-  horizontalList: {
-    paddingRight: 20,
-
-    marginBottom: 16,
-  },
-
-  popularCard: {
-    width: 140,
-
-    marginRight: 12,
-
-    backgroundColor: "#fff",
-
-    borderRadius: 20,
-
-    borderWidth: 1,
-
-    borderColor: "#E5E8E3",
-
-    padding: 10,
-  },
-
-  popularImage: {
-    width: "100%",
-
-    height: 100,
-
-    borderRadius: 14,
-
-    backgroundColor: "#E7F1EA",
-
+  popularSectionHeader: {
+    flexDirection: "row",
     alignItems: "center",
-
-    justifyContent: "center",
-
-    marginBottom: 8,
-
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    marginTop: 14,
+    marginBottom: 12,
+  },
+  popularSectionCopy: { flex: 1, paddingRight: 8 },
+  popularSectionSubtitle: { color: COLORS.muted, fontSize: 13, lineHeight: 18, marginTop: 4 },
+  popularViewAll: { flexDirection: "row", alignItems: "center", gap: 2, paddingVertical: 5 },
+  popularCardsContent: { paddingHorizontal: 2, paddingRight: 20, paddingBottom: 4 },
+  popularCard: {
+    width: 188,
+    backgroundColor: COLORS.surface,
+    borderRadius: 19,
+    padding: 10,
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  popularImageWrap: {
+    height: 118,
+    borderRadius: 13,
     overflow: "hidden",
+    backgroundColor: COLORS.paleGreen,
+    position: "relative",
   },
-
-  popularEmoji: {
-    fontSize: 36,
+  popularImageActual: { width: "100%", height: "100%" },
+  popularImageFallback: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: COLORS.paleGreen },
+  popularBadge: {
+    position: "absolute", left: 8, top: 8, flexDirection: "row", alignItems: "center", gap: 4,
+    backgroundColor: "rgba(255,255,255,0.95)", borderRadius: 10, paddingHorizontal: 7, paddingVertical: 5,
   },
-
-  popularName: {
-    fontSize: 13,
-
-    fontWeight: "700",
-
-    color: "#17231E",
+  popularBadgeText: { color: COLORS.primary, fontSize: 10, fontWeight: "800" },
+  popularName: { color: COLORS.text, fontSize: 15, lineHeight: 20, fontWeight: "800", marginTop: 10, minHeight: 2 },
+  popularCategory: { color: COLORS.muted, fontSize: 12, lineHeight: 17, marginTop: 4 },
+  ratingRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 8 },
+  ratingText: { color: COLORS.text, fontSize: 12, fontWeight: "800" },
+  reviewCount: { color: COLORS.muted, fontSize: 11, lineHeight: 15 },
+  popularEmptyState: {
+    marginHorizontal: 20, padding: 20, borderRadius: 16, backgroundColor: COLORS.surface,
+    flexDirection: "row", alignItems: "center", gap: 10,
   },
-
-  popularMeta: {
-    fontSize: 11,
-
-    color: "#68736D",
-
-    marginTop: 2,
-  },
+  popularEmptyText: { color: COLORS.muted, fontSize: 12, flex: 1, lineHeight: 18 },
 
   categoryCard: {
     width: "48%",
@@ -1068,5 +1339,73 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     color: "#1F7655",
+  },
+    brandName: { color: "#0e5c23", fontSize: 17, fontWeight: "800", letterSpacing: 0.2 },
+  brandCaption: { color: "#444242", fontSize: 9, fontWeight: "700", letterSpacing: 1.2, marginTop: 3 },
+  headingg: { color: "#313730", fontSize: 22, lineHeight: 29, fontWeight: "800", letterSpacing: -0.25 },
+    heroEntrance: {
+    marginHorizontal: 2,
+    marginTop: 2,
+    marginBottom: 2,
+  },
+  hero: {
+    minHeight: 206,
+    borderRadius: 24,
+    overflow: "hidden",
+    backgroundColor: COLORS.primaryDark,
+  },
+  heroImage: {
+    borderRadius: 24,
+  },
+  heroShade: {
+    flex: 1,
+    minHeight: 206,
+    padding: 20,
+    backgroundColor: "rgba(13, 45, 29, 0.22)",
+  },
+  heroRow: {
+    flex: 1,
+    minHeight: 164,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  heroCopy: { flex: 1, zIndex: 1, alignItems: "flex-start" },
+  heroEyebrow: { color: "#D3E8DA", fontSize: 10, lineHeight: 14, fontWeight: "800", letterSpacing: 1.2 },
+  heroTitle: { color: COLORS.surface, fontSize: 27, lineHeight: 32, fontWeight: "800", letterSpacing: -0.4, marginTop: 8 },
+  heroDescription: { color: "#F0F6F1", fontSize: 13, lineHeight: 19, marginTop: 8, maxWidth: 215 },
+  heroButtonAnimated: {
+    alignSelf: "flex-start",
+    marginTop: 14,
+  },
+  heroButton: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+  },
+  heroButtonText: { color: COLORS.primaryDark, fontSize: 13, lineHeight: 18, fontWeight: "800" },
+  heroArt: {
+    width: 82,
+    minHeight: 120,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 4,
+    opacity: 0.94,
+  },
+  heroLeaf: {
+    position: "absolute",
+    right: 0,
+    top: 8,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "rgba(62, 140, 105, 0.92)",
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

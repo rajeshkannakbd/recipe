@@ -1,7 +1,9 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
 using RecipePro.Api.DTOs.Recipe;
 using RecipePro.Api.Services.Recipe;
 using Microsoft.AspNetCore.Authorization;
+using RecipePro.Api.Data;
 
 
 namespace RecipePro.Api.Controllers;
@@ -11,10 +13,15 @@ namespace RecipePro.Api.Controllers;
 public class RecipeController : ControllerBase
 {
     private readonly IRecipeService _recipeService;
+    private readonly AppDbContext _context;
 
-    public RecipeController(IRecipeService recipeService)
+    public RecipeController(
+        AppDbContext context,
+        IRecipeService recipeService)
     {
+        _context = context;
         _recipeService = recipeService;
+        
     }
 
     [HttpPost]
@@ -161,5 +168,21 @@ public class RecipeController : ControllerBase
                 {
                     return StatusCode(502, new { message = ex.Message });
                 }
+            }
+
+            // GET: api/recipes/cuisines
+            [HttpGet("cuisines")]
+            public async Task<ActionResult<IEnumerable<string>>> GetCuisines(
+                CancellationToken cancellationToken)
+            {
+                var cuisines = await _context.Recipes
+                    .AsNoTracking()
+                    .Where(r => r.Cuisine != null && r.Cuisine.Trim() != "")
+                    .Select(r => r.Cuisine!.Trim())
+                    .Distinct()
+                    .OrderBy(c => c)
+                    .ToListAsync(cancellationToken);
+
+                return Ok(cuisines);
             }
 }
