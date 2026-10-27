@@ -1,17 +1,18 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useCallback, useMemo, useState } from "react";
+import AppText from "../../components/common/AppText";
 
 import {
-  View,
-  Text,
+  Alert,
   FlatList,
+  Image,
+  Modal,
+  Platform,
   Pressable,
   StyleSheet,
-  Alert,
-  Modal,
-  Image,
+  View,
 } from "react-native";
 
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -26,8 +27,8 @@ import type { RecipeResponse } from "../../types/recipe";
 
 import SearchBar from "../../components/common/SearchBar";
 
-import ScreenLoader from "../../components/common/ScreenLoader";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import ScreenLoader from "../../components/common/ScreenLoader";
 
 type FilterTab = "all" | "published" | "draft";
 
@@ -56,43 +57,60 @@ export default function AdminRecipesScreen() {
 
   const insets = useSafeAreaInsets();
 
-  const load = useCallback(async () => {
+  // Fetch the latest recipes from the backend.
+  // silent=true is used for background refreshes so temporary network errors
+  // do not repeatedly interrupt the user with alert popups.
+  const load = useCallback(async (silent = false) => {
     try {
-      setRecipes(await recipeApi.getAll());
+      const latestRecipes = await recipeApi.getAll();
+      setRecipes(latestRecipes);
     } catch (e) {
-      console.error(
-        "LOAD RECIPES ERROR:",
+      console.error("LOAD RECIPES ERROR:", e);
 
-        e,
-      );
-
-      if (e instanceof ApiError) {
-        Alert.alert(
-          `Load Failed (${e.status})`,
-
-          e.message,
-        );
-      } else if (e instanceof Error) {
-        Alert.alert(
-          "Error",
-
-          e.message,
-        );
-      } else {
-        Alert.alert(
-          "Error",
-
-          "Unable to load recipes.",
-        );
+      if (!silent) {
+        if (e instanceof ApiError) {
+          Alert.alert(`Load Failed (${e.status})`, e.message);
+        } else if (e instanceof Error) {
+          Alert.alert("Error", e.message);
+        } else {
+          Alert.alert("Error", "Unable to load recipes.");
+        }
       }
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  // Refresh immediately whenever this screen becomes active, then poll every
+  // 5 seconds while it remains focused. The interval is cleaned up on blur.
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      let requestInProgress = false;
+
+      const refreshRecipes = async (silent: boolean) => {
+        if (!active || requestInProgress || deleting) return;
+
+        requestInProgress = true;
+        try {
+          await load(silent);
+        } finally {
+          requestInProgress = false;
+        }
+      };
+
+      void refreshRecipes(false);
+
+      const intervalId = setInterval(() => {
+        void refreshRecipes(true);
+      }, 5000);
+
+      return () => {
+        active = false;
+        clearInterval(intervalId);
+      };
+    }, [load, deleting]),
+  );
 
   const filtered = useMemo(() => {
     let result = recipes;
@@ -198,34 +216,42 @@ export default function AdminRecipesScreen() {
 
     label: string;
   }[] = [
-    {
-      key: "all",
+      {
+        key: "all",
 
-      label: "All",
-    },
+        label: "All",
+      },
 
-    {
-      key: "published",
+      {
+        key: "published",
 
-      label: "Published",
-    },
+        label: "Published",
+      },
 
-    {
-      key: "draft",
+      {
+        key: "draft",
 
-      label: "Draft",
-    },
-  ];
+        label: "Draft",
+      },
+    ];
 
   if (loading) {
     return <ScreenLoader />;
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+    <SafeAreaView style={styles.container} edges={[]}>
+      <View
+        style={[
+          styles.header,
+          { paddingTop: Platform.OS === "web" ? 8 : 8 },
+        ]}
+      >
         <View style={styles.headerTop}>
-          <Text style={styles.title}>Manage Recipes</Text>
+          <View style={{ flexDirection: "column" }}>
+            <AppText variant="pageTitle" style={styles.title}>Manage Recipes</AppText>
+            <AppText variant="label" style={styles.brandCaption}>ADMIN WORKSPACE</AppText>
+          </View>
 
           <Pressable
             style={styles.addButton}
@@ -233,7 +259,7 @@ export default function AdminRecipesScreen() {
           >
             <Ionicons name="add" size={20} color="#fff" />
 
-            <Text style={styles.addButtonText}>Add</Text>
+            <AppText variant="button" style={styles.addButtonText}>Add</AppText>
           </Pressable>
         </View>
 
@@ -252,7 +278,8 @@ export default function AdminRecipesScreen() {
               style={[styles.tab, activeTab === tab.key && styles.tabActive]}
               onPress={() => setActiveTab(tab.key)}
             >
-              <Text
+              <AppText
+                variant="label"
                 style={[
                   styles.tabText,
 
@@ -260,7 +287,7 @@ export default function AdminRecipesScreen() {
                 ]}
               >
                 {tab.label}
-              </Text>
+              </AppText>
             </Pressable>
           ))}
         </View>
@@ -306,18 +333,99 @@ export default function AdminRecipesScreen() {
                     }
                   />
                 ) : (
-                  <Text style={styles.recipeEmoji}>{item.name.charAt(0)}</Text>
+                  <AppText variant="cardTitle" style={styles.recipeEmoji}>{item.name.charAt(0)}</AppText>
                 )}
               </View>
 
               <View style={styles.recipeInfo}>
-                <Text style={styles.recipeName} numberOfLines={1}>
-                  {item.name}
-                </Text>
+                <View style={styles.recipeHeadingRow}>
+                  <AppText variant="cardTitle" style={styles.recipeName} numberOfLines={2}>
+                    {item.name}
+                  </AppText>
+                  <View style={styles.recipeActions}>
+                    <Pressable
+                      style={styles.actionButton}
+                      onPress={(event) => {
+                        event.stopPropagation();
+                        router.push({
+                          pathname: "/admin/edit-recipe/[id]",
+                          params: { id: String(item.id) },
+                        });
+                      }}
+                      hitSlop={6}
+                    >
+                      <Ionicons name="create-outline" size={19} color="#53605A" />
+                    </Pressable>
+                    <Pressable
+                      style={styles.actionButton}
+                      onPress={(event) => {
+                        event.stopPropagation();
+                        handleDelete(item.id, item.name);
+                      }}
+                      disabled={deleting}
+                      hitSlop={6}
+                    >
+                      <Ionicons name="trash-outline" size={19} color="#B33B31" />
+                    </Pressable>
+                  </View>
+                </View>
 
-                <Text style={styles.recipeMeta}>
-                  {item.categoryName} · {item.baseServings} servings
-                </Text>
+                <AppText variant="subtitle" style={styles.recipeMeta} numberOfLines={1}>
+                  {item.categoryName || "Uncategorized"}
+                  {(item as any).mealType ? ` · ${(item as any).mealType}` : ""}
+                </AppText>
+
+                <View style={styles.recipeDetailRow}>
+                  <Ionicons name="people-outline" size={12} color="#68736D" />
+                  <AppText variant="helper" style={styles.recipeDetailText}>
+                    {item.baseServings} servings
+                  </AppText>
+                  {(item as any).baseCookedWeightGrams != null &&
+                    Number((item as any).baseCookedWeightGrams) > 0 ? (
+                    <>
+                      <AppText variant="helper" style={styles.detailSeparator}>·</AppText>
+                      <Ionicons name="scale-outline" size={12} color="#68736D" />
+                      <AppText variant="helper" style={styles.recipeDetailText}>
+                        {Number((item as any).baseCookedWeightGrams) >= 1000
+                          ? `${(Number((item as any).baseCookedWeightGrams) / 1000).toLocaleString("en-IN", { maximumFractionDigits: 2 })} kg cooked`
+                          : `${Number((item as any).baseCookedWeightGrams).toLocaleString("en-IN", { maximumFractionDigits: 0 })} g cooked`}
+                      </AppText>
+                    </>
+                  ) : null}
+                </View>
+
+                {((item as any).preparationTimeMinutes != null ||
+                  (item as any).cookingTimeMinutes != null ||
+                  (item as any).cuisine) ? (
+                  <View style={styles.recipeDetailRow}>
+                    {/* {(item as any).cuisine ? (
+                      <>
+                        <Ionicons name="restaurant-outline" size={12} color="#68736D" />
+                        <AppText variant="helper" style={styles.recipeDetailText} numberOfLines={1}>
+                          {(item as any).cuisine}
+                        </AppText>
+                      </>
+                    ) : null} */}
+                    {(item as any).preparationTimeMinutes != null ||
+                      (item as any).cookingTimeMinutes != null ? (
+                      <>
+                        {/* {(item as any).cuisine ? <AppText variant="helper" style={styles.detailSeparator}>·</AppText> : null} */}
+                        <Ionicons name="time-outline" size={12} color="#68736D" />
+                        <AppText variant="helper" style={styles.recipeDetailText} numberOfLines={1}>
+                          {[
+                            (item as any).preparationTimeMinutes != null
+                              ? `Prep ${(item as any).preparationTimeMinutes}m`
+                              : null,
+                            (item as any).cookingTimeMinutes != null
+                              ? `Cook ${(item as any).cookingTimeMinutes}m`
+                              : null,
+                          ].filter(Boolean).join(" · ")}
+                        </AppText>
+                      </>
+                    ) : null}
+                    
+                  </View>
+                ) : null}
 
                 <View
                   style={[
@@ -328,7 +436,8 @@ export default function AdminRecipesScreen() {
                       : styles.draftBadge,
                   ]}
                 >
-                  <Text
+                  <AppText
+                    variant="label"
                     style={[
                       styles.statusText,
 
@@ -338,52 +447,22 @@ export default function AdminRecipesScreen() {
                     ]}
                   >
                     {item.status}
-                  </Text>
+                  </AppText>
                 </View>
               </View>
             </Pressable>
 
-            <View style={styles.recipeActions}>
-              <Pressable
-                style={styles.actionButton}
-                onPress={() =>
-                  router.push({
-                    pathname: "/admin/edit-recipe/[id]",
-
-                    params: {
-                      id: String(item.id),
-                    },
-                  })
-                }
-              >
-                <Ionicons name="create-outline" size={20} color="#53605A" />
-              </Pressable>
-
-              <Pressable
-                style={styles.actionButton}
-                onPress={() =>
-                  handleDelete(
-                    item.id,
-
-                    item.name,
-                  )
-                }
-                disabled={deleting}
-              >
-                <Ionicons name="trash-outline" size={20} color="#B33B31" />
-              </Pressable>
-            </View>
           </View>
         )}
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Ionicons name="restaurant-outline" size={48} color="#C5C9C4" />
 
-            <Text style={styles.emptyTitle}>No recipes found</Text>
+            <AppText variant="sectionTitle" style={styles.emptyTitle}>No recipes found</AppText>
 
-            <Text style={styles.emptyText}>
+            <AppText variant="body" style={styles.emptyText}>
               Create your first recipe to get started
-            </Text>
+            </AppText>
           </View>
         }
       />
@@ -410,11 +489,11 @@ export default function AdminRecipesScreen() {
               />
             </View>
 
-            <Text style={styles.deleteTitle}>Delete Recipe?</Text>
+            <AppText variant="sectionTitle" style={styles.deleteTitle}>Delete Recipe?</AppText>
 
-            <Text style={styles.deleteMessage}>
+            <AppText variant="body" style={styles.deleteMessage}>
               Are you sure you want to delete "{deleteName}"?
-            </Text>
+            </AppText>
 
             <View style={styles.deleteActions}>
               <Pressable
@@ -426,7 +505,7 @@ export default function AdminRecipesScreen() {
                 }}
                 disabled={deleting}
               >
-                <Text style={styles.deleteCancelText}>Cancel</Text>
+                <AppText variant="button" style={styles.deleteCancelText}>Cancel</AppText>
               </Pressable>
 
               <Pressable
@@ -434,9 +513,9 @@ export default function AdminRecipesScreen() {
                 onPress={confirmDelete}
                 disabled={deleting}
               >
-                <Text style={styles.deleteConfirmText}>
+                <AppText variant="button" style={styles.deleteConfirmText}>
                   {deleting ? "Deleting..." : "Delete"}
-                </Text>
+                </AppText>
               </Pressable>
             </View>
           </View>
@@ -453,13 +532,13 @@ export default function AdminRecipesScreen() {
             <View style={styles.successIconContainer}>
               <Ionicons name="checkmark-circle" size={52} color="#1F7655" />
             </View>
-            <Text style={styles.successTitle}>{successTitle}</Text>
-            <Text style={styles.successMessage}>{successMessage}</Text>
+            <AppText variant="sectionTitle" style={styles.successTitle}>{successTitle}</AppText>
+            <AppText variant="body" style={styles.successMessage}>{successMessage}</AppText>
             <Pressable
               style={styles.successButton}
               onPress={() => setSuccessModalVisible(false)}
             >
-              <Text style={styles.successButtonText}>Continue</Text>
+              <AppText variant="button" style={styles.successButtonText}>Continue</AppText>
             </Pressable>
           </View>
         </View>
@@ -503,9 +582,6 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    fontSize: 24,
-
-    fontWeight: "800",
 
     color: "#17231E",
   },
@@ -528,10 +604,7 @@ const styles = StyleSheet.create({
 
   addButtonText: {
     color: "#fff",
-
-    fontSize: 14,
-
-    fontWeight: "700",
+    fontWeight: 700,
   },
 
   searchContainer: {
@@ -563,9 +636,6 @@ const styles = StyleSheet.create({
   },
 
   tabText: {
-    fontSize: 13,
-
-    fontWeight: "600",
 
     color: "#68736D",
   },
@@ -576,34 +646,27 @@ const styles = StyleSheet.create({
 
   recipeCard: {
     flexDirection: "row",
-
     alignItems: "center",
-
     backgroundColor: "#fff",
-
     borderRadius: 20,
-
     borderWidth: 1,
-
     borderColor: "#E5E8E3",
-
-    padding: 12,
-
+    padding: 8,
     marginBottom: 12,
+    marginHorizontal:0,
   },
 
   recipeContent: {
     flex: 1,
-
     flexDirection: "row",
-
     alignItems: "center",
+    minWidth: 0,
   },
 
   recipeImage: {
-    width: 56,
+    width: 112,
 
-    height: 56,
+    height: 150,
 
     borderRadius: 14,
 
@@ -623,33 +686,55 @@ const styles = StyleSheet.create({
   },
 
   recipeEmoji: {
-    fontSize: 24,
-
-    fontWeight: "700",
 
     color: "#1F7655",
   },
 
   recipeInfo: {
     flex: 1,
+    minWidth: 0,
+    marginLeft: 11,
+  },
 
-    marginLeft: 12,
+  recipeHeadingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 3,
+    minWidth: 0,
   },
 
   recipeName: {
-    fontSize: 15,
-
-    fontWeight: "700",
-
     color: "#17231E",
+    flex: 1,
+    minWidth: 0,
   },
 
   recipeMeta: {
-    fontSize: 12,
-
     color: "#68736D",
+    marginTop: 3,
+  },
 
-    marginTop: 2,
+  recipeDetailRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "nowrap",
+    overflow:"hidden",
+    gap: 4,
+    marginTop: 6,
+    minWidth: 0,
+    justifyContent: "flex-start",
+  },
+
+  recipeDetailText: {
+    color: "#68736D",
+    flexShrink: 1,
+  },
+
+  detailSeparator: {
+    color: "#A0AAA2",
+    marginHorizontal: 1,
+
   },
 
   statusBadge: {
@@ -661,7 +746,7 @@ const styles = StyleSheet.create({
 
     borderRadius: 8,
 
-    marginTop: 4,
+    marginTop: 10,
   },
 
   publishedBadge: {
@@ -673,9 +758,6 @@ const styles = StyleSheet.create({
   },
 
   statusText: {
-    fontSize: 11,
-
-    fontWeight: "600",
   },
 
   publishedText: {
@@ -687,15 +769,15 @@ const styles = StyleSheet.create({
   },
 
   recipeActions: {
-    marginLeft: 8,
-
     flexDirection: "row",
-
     alignItems: "center",
+    justifyContent: "flex-end",
+    flexShrink: 0,
   },
 
   actionButton: {
-    padding: 8,
+    padding: 4,
+    marginLeft: 2,
   },
 
   emptyState: {
@@ -705,9 +787,6 @@ const styles = StyleSheet.create({
   },
 
   emptyTitle: {
-    fontSize: 18,
-
-    fontWeight: "700",
 
     color: "#17231E",
 
@@ -715,7 +794,6 @@ const styles = StyleSheet.create({
   },
 
   emptyText: {
-    fontSize: 14,
 
     color: "#68736D",
 
@@ -768,9 +846,6 @@ const styles = StyleSheet.create({
   },
 
   deleteTitle: {
-    fontSize: 20,
-
-    fontWeight: "800",
 
     color: "#17231E",
 
@@ -778,9 +853,6 @@ const styles = StyleSheet.create({
   },
 
   deleteMessage: {
-    fontSize: 14,
-
-    lineHeight: 21,
 
     color: "#68736D",
 
@@ -810,9 +882,6 @@ const styles = StyleSheet.create({
   },
 
   deleteCancelText: {
-    fontSize: 15,
-
-    fontWeight: "700",
 
     color: "#17231E",
   },
@@ -830,9 +899,6 @@ const styles = StyleSheet.create({
   },
 
   deleteConfirmText: {
-    fontSize: 15,
-
-    fontWeight: "700",
 
     color: "#FFFFFF",
   },
@@ -862,14 +928,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   successTitle: {
-    fontSize: 20,
-    fontWeight: "800",
     color: "#17231E",
     textAlign: "center",
   },
   successMessage: {
-    fontSize: 14,
-    lineHeight: 21,
     color: "#68736D",
     textAlign: "center",
     marginTop: 8,
@@ -883,8 +945,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   successButtonText: {
-    fontSize: 15,
-    fontWeight: "700",
     color: "#FFFFFF",
+  },
+  brandCaption: {
+    letterSpacing: 1.6,
+    color: "#829087",
+    marginTop: 2,
   },
 });

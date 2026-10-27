@@ -10,6 +10,8 @@ public class FunctionPlan : AuditableEntity
 
     public string? Notes { get; set; }
 
+    public string? UserId { get; set; }
+
     public ICollection<FunctionPlanRecipe> Recipes { get; set; }
         = new List<FunctionPlanRecipe>();
 }

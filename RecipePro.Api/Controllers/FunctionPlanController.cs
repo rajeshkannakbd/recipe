@@ -1,3 +1,5 @@
+
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -7,6 +9,7 @@ using RecipePro.Api.Models;
 
 namespace RecipePro.Api.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/function-plans")]
 public class FunctionPlanController : ControllerBase
@@ -19,12 +22,24 @@ public class FunctionPlanController : ControllerBase
     }
 
     // GET: api/function-plans
+    // Returns only the logged-in user's function plans.
     [HttpGet]
     public async Task<ActionResult<List<FunctionPlanResponse>>> GetAll(
         CancellationToken cancellationToken)
     {
+        var userId = GetCurrentUserId();
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized(new
+            {
+                message = "User ID not found in login token."
+            });
+        }
+
         var plans = await _context.FunctionPlans
             .AsNoTracking()
+            .Where(x => x.UserId == userId)
             .Include(x => x.Recipes)
                 .ThenInclude(x => x.Recipe)
             .OrderByDescending(x => x.CreatedAt)
@@ -34,27 +49,55 @@ public class FunctionPlanController : ControllerBase
     }
 
     // GET: api/function-plans/1
+    // Returns a plan only if it belongs to the logged-in user.
     [HttpGet("{id:long}")]
     public async Task<ActionResult<FunctionPlanResponse>> GetById(
         long id,
         CancellationToken cancellationToken)
     {
-        var plan = await LoadPlanAsync(id, cancellationToken);
+        var userId = GetCurrentUserId();
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized(new
+            {
+                message = "User ID not found in login token."
+            });
+        }
+
+        var plan = await LoadPlanAsync(
+            id,
+            userId,
+            cancellationToken);
 
         if (plan is null)
         {
-            return NotFound(new { message = "Function plan not found." });
+            return NotFound(new
+            {
+                message = "Function plan not found."
+            });
         }
 
         return Ok(MapResponse(plan));
     }
 
     // POST: api/function-plans
+    // Creates a function plan owned by the logged-in user.
     [HttpPost]
     public async Task<ActionResult<FunctionPlanResponse>> Create(
         [FromBody] FunctionPlanRequest request,
         CancellationToken cancellationToken)
     {
+        var userId = GetCurrentUserId();
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized(new
+            {
+                message = "User ID not found in login token."
+            });
+        }
+
         var validationError = ValidateRequest(request);
 
         if (validationError is not null)
@@ -75,12 +118,12 @@ public class FunctionPlanController : ControllerBase
             });
         }
 
-        var recipes = await _context.Recipes
+        var existingRecipeIds = await _context.Recipes
             .Where(x => recipeIds.Contains(x.Id))
             .Select(x => x.Id)
             .ToListAsync(cancellationToken);
 
-        if (recipes.Count != recipeIds.Count)
+        if (existingRecipeIds.Count != recipeIds.Count)
         {
             return BadRequest(new
             {
@@ -93,6 +136,10 @@ public class FunctionPlanController : ControllerBase
             Name = request.Name.Trim(),
             EventDate = request.EventDate,
             Notes = NormalizeOptionalText(request.Notes),
+
+            // Never take the owner ID from the request body.
+            UserId = userId,
+
             Recipes = request.Recipes.Select(item =>
                 new FunctionPlanRecipe
                 {
@@ -102,30 +149,57 @@ public class FunctionPlanController : ControllerBase
         };
 
         _context.FunctionPlans.Add(plan);
+
         await _context.SaveChangesAsync(cancellationToken);
 
-        var savedPlan = await LoadPlanAsync(plan.Id, cancellationToken);
+        var savedPlan = await LoadPlanAsync(
+            plan.Id,
+            userId,
+            cancellationToken);
+
+        if (savedPlan is null)
+        {
+            return Problem(
+                title: "Function plan saved",
+                detail: "The saved function plan could not be loaded.");
+        }
 
         return CreatedAtAction(
             nameof(GetById),
             new { id = plan.Id },
-            MapResponse(savedPlan!));
+            MapResponse(savedPlan));
     }
 
     // PUT: api/function-plans/1
+    // Updates only a plan owned by the logged-in user.
     [HttpPut("{id:long}")]
     public async Task<ActionResult<FunctionPlanResponse>> Update(
         long id,
         [FromBody] FunctionPlanRequest request,
         CancellationToken cancellationToken)
     {
+        var userId = GetCurrentUserId();
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized(new
+            {
+                message = "User ID not found in login token."
+            });
+        }
+
         var plan = await _context.FunctionPlans
             .Include(x => x.Recipes)
-            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+            .FirstOrDefaultAsync(
+                x => x.Id == id && x.UserId == userId,
+                cancellationToken);
 
         if (plan is null)
         {
-            return NotFound(new { message = "Function plan not found." });
+            return NotFound(new
+            {
+                message = "Function plan not found."
+            });
         }
 
         var validationError = ValidateRequest(request);
@@ -148,12 +222,12 @@ public class FunctionPlanController : ControllerBase
             });
         }
 
-        var existingIds = await _context.Recipes
+        var existingRecipeIds = await _context.Recipes
             .Where(x => recipeIds.Contains(x.Id))
             .Select(x => x.Id)
             .ToListAsync(cancellationToken);
 
-        if (existingIds.Count != recipeIds.Count)
+        if (existingRecipeIds.Count != recipeIds.Count)
         {
             return BadRequest(new
             {
@@ -181,44 +255,88 @@ public class FunctionPlanController : ControllerBase
 
         await _context.SaveChangesAsync(cancellationToken);
 
-        var updatedPlan = await LoadPlanAsync(id, cancellationToken);
+        var updatedPlan = await LoadPlanAsync(
+            id,
+            userId,
+            cancellationToken);
 
-        return Ok(MapResponse(updatedPlan!));
+        if (updatedPlan is null)
+        {
+            return NotFound(new
+            {
+                message = "Function plan not found."
+            });
+        }
+
+        return Ok(MapResponse(updatedPlan));
     }
 
     // DELETE: api/function-plans/1
+    // Deletes only a plan owned by the logged-in user.
     [HttpDelete("{id:long}")]
     public async Task<IActionResult> Delete(
         long id,
         CancellationToken cancellationToken)
     {
+        var userId = GetCurrentUserId();
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized(new
+            {
+                message = "User ID not found in login token."
+            });
+        }
+
         var plan = await _context.FunctionPlans
-            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+            .FirstOrDefaultAsync(
+                x => x.Id == id && x.UserId == userId,
+                cancellationToken);
 
         if (plan is null)
         {
-            return NotFound(new { message = "Function plan not found." });
+            return NotFound(new
+            {
+                message = "Function plan not found."
+            });
         }
 
         _context.FunctionPlans.Remove(plan);
+
         await _context.SaveChangesAsync(cancellationToken);
 
         return NoContent();
     }
 
+    // Loads a plan only when its owner matches the authenticated user.
     private Task<FunctionPlan?> LoadPlanAsync(
         long id,
+        string userId,
         CancellationToken cancellationToken)
     {
         return _context.FunctionPlans
             .AsNoTracking()
+            .Where(x => x.Id == id && x.UserId == userId)
             .Include(x => x.Recipes)
                 .ThenInclude(x => x.Recipe)
-            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    private string? GetCurrentUserId()
+    {
+        return User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub")
+            ?? User.FindFirstValue("userId")
+            ?? User.FindFirstValue("id");
     }
 
     private static string? ValidateRequest(FunctionPlanRequest request)
     {
+        if (request is null)
+        {
+            return "Request body is required.";
+        }
+
         if (string.IsNullOrWhiteSpace(request.Name))
         {
             return "Function plan name is required.";
@@ -242,7 +360,9 @@ public class FunctionPlanController : ControllerBase
 
     private static string? NormalizeOptionalText(string? value)
     {
-        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        return string.IsNullOrWhiteSpace(value)
+            ? null
+            : value.Trim();
     }
 
     private static FunctionPlanResponse MapResponse(FunctionPlan plan)
@@ -255,6 +375,7 @@ public class FunctionPlanController : ControllerBase
             Notes = plan.Notes,
             CreatedAt = plan.CreatedAt,
             UpdatedAt = plan.UpdatedAt,
+
             Recipes = plan.Recipes
                 .OrderBy(x => x.Id)
                 .Select(x => new FunctionPlanRecipeResponse

@@ -22,10 +22,16 @@ export default function CategoryCard({ category, index, onPress }: Props) {
           {categoryLetter(category.name)}
         </Text>
       </View>
-      <Text numberOfLines={2} className="mt-3 text-lg font-bold text-recipe-dark">
+      <Text
+        numberOfLines={2}
+        className="mt-3 text-lg font-bold text-recipe-dark"
+      >
         {category.name}
       </Text>
-      <Text numberOfLines={2} className="mt-1 text-sm leading-5 text-recipe-muted">
+      <Text
+        numberOfLines={2}
+        className="mt-1 text-sm leading-5 text-recipe-muted"
+      >
         {category.description || "Explore recipes in this category"}
       </Text>
     </Pressable>

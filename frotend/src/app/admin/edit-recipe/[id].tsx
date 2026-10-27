@@ -1,17 +1,16 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import {
-  View,
-  Text,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
-  Alert,
   TextInput,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  Modal,
+  View,
 } from "react-native";
 
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -43,9 +42,73 @@ import {
   type RecipeStatus,
 } from "../../../types/recipe";
 
+import AppText from "../../../components/common/AppText";
 import ScreenLoader from "../../../components/common/ScreenLoader";
 
 const UNITS = ["g", "kg", "ml", "l", "pcs", "tbsp", "tsp", "cup"];
+
+const UNIT_GROUPS: Record<string, string[]> = {
+  g: ["g", "kg"],
+  kg: ["kg", "g"],
+  ml: ["ml", "l"],
+  l: ["l", "ml"],
+  pcs: ["pcs"],
+  tbsp: ["tbsp", "tsp", "cup"],
+  tsp: ["tsp", "tbsp", "cup"],
+  cup: ["cup", "tbsp", "tsp"],
+};
+
+function getIngredientDefinedUnit(
+  ingredient: IngredientResponse | undefined,
+): string {
+  if (!ingredient) return "g";
+
+  const raw = ingredient as unknown as Record<string, unknown>;
+  const candidates = [
+    raw.purchaseUnit,
+    raw.purchaseUnitName,
+    raw.unit,
+    raw.defaultUnit,
+    raw.measurementUnit,
+    raw.baseUnit,
+    raw.unitOfMeasure,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate !== "string") continue;
+    const normalized = candidate.trim().toLowerCase();
+    const match = UNITS.find((unit) => unit.toLowerCase() === normalized);
+    if (match) return match;
+    if (normalized === "gram" || normalized === "grams") return "g";
+    if (normalized === "kilogram" || normalized === "kilograms") return "kg";
+    if (
+      normalized === "milliliter" ||
+      normalized === "milliliters" ||
+      normalized === "millilitre" ||
+      normalized === "millilitres"
+    )
+      return "ml";
+    if (
+      normalized === "liter" ||
+      normalized === "liters" ||
+      normalized === "litre" ||
+      normalized === "litres"
+    )
+      return "l";
+    if (
+      normalized === "piece" ||
+      normalized === "pieces" ||
+      normalized === "pc"
+    )
+      return "pcs";
+  }
+
+  return "g";
+}
+
+function getCompatibleUnits(definedUnit: string): string[] {
+  return UNIT_GROUPS[definedUnit] ?? [definedUnit];
+}
 
 const AUTH_TOKEN_KEY = "recipepro_token";
 
@@ -222,7 +285,7 @@ export default function EditRecipeScreen() {
       setIngredients(ings);
 
       const apiBaseUrl = (
-        process.env.EXPO_PUBLIC_API_BASE_URL || "http://localhost:5204/api"
+        process.env.EXPO_PUBLIC_API_BASE_URL || "http://192.168.1.37:5204/api"
       ).replace(/\/$/, "");
       const token = await getStoredAuthToken();
       const getLookup = async (
@@ -249,16 +312,19 @@ export default function EditRecipeScreen() {
           return [];
         }
       };
-      // Cuisine is stored as Recipe.Cuisine; there is no cuisines table/controller.
-      // Build the options from cuisine values already saved on recipes.
-      const [chefs, cookingStyles, recipes, tags] = await Promise.all([
-        getLookup("chefs"),
-        getLookup("cooking-styles"),
-        recipeApi.getAll().catch(() => [] as RecipeResponse[]),
-        getLookup("recipe-tags"),
-      ]);
+      // Prefer the cuisine lookup stored in the database. If that endpoint is
+      // unavailable in this backend version, fall back to cuisines already
+      // saved on recipes so existing values remain selectable.
+      const [chefs, cookingStyles, recipes, tags, databaseCuisines] =
+        await Promise.all([
+          getLookup("chefs"),
+          getLookup("cooking-styles"),
+          recipeApi.getAll().catch(() => [] as RecipeResponse[]),
+          getLookup("recipe-tags"),
+          getLookup("cuisines"),
+        ]);
 
-      const cuisineNames = Array.from(
+      const recipeCuisineNames = Array.from(
         new Set(
           recipes
             .map((recipe) => String((recipe as any).cuisine ?? "").trim())
@@ -266,10 +332,10 @@ export default function EditRecipeScreen() {
         ),
       ).sort((a, b) => a.localeCompare(b));
 
-      const cuisines = cuisineNames.map((name, index) => ({
-        id: index + 1,
-        name,
-      }));
+      const cuisines =
+        databaseCuisines.length > 0
+          ? databaseCuisines
+          : recipeCuisineNames.map((name, index) => ({ id: index + 1, name }));
 
       setMetadataOptions({ chefs, cookingStyles, cuisines, tags });
 
@@ -437,6 +503,23 @@ export default function EditRecipeScreen() {
     }
   }, [id, isNew]);
 
+  // Refresh shared reference data without reloading the whole form.
+  // This avoids overwriting unsaved edits while keeping categories and
+  // ingredients up to date when another user changes them.
+  const refreshReferenceData = useCallback(async () => {
+    try {
+      const [latestCategories, latestIngredients] = await Promise.all([
+        categoryApi.getAll(),
+        ingredientApi.getAll(),
+      ]);
+
+      setCategories(latestCategories);
+      setIngredients(latestIngredients);
+    } catch (error) {
+      console.warn("Unable to refresh categories and ingredients:", error);
+    }
+  }, []);
+
   const createMetadataOption = async (
     kind: "chef" | "cookingStyle" | "cuisine" | "tag",
   ) => {
@@ -507,7 +590,7 @@ export default function EditRecipeScreen() {
     setCreatingMetadata(kind);
     try {
       const apiBaseUrl = (
-        process.env.EXPO_PUBLIC_API_BASE_URL || "http://localhost:5204/api"
+        process.env.EXPO_PUBLIC_API_BASE_URL || "http://192.168.1.37:5204/api"
       ).replace(/\/$/, "");
       const token = await getStoredAuthToken();
       const path =
@@ -545,10 +628,10 @@ export default function EditRecipeScreen() {
       const saved = {
         id: Number(
           result?.id ??
-            result?.Id ??
-            result?.chefId ??
-            result?.cookingStyleId ??
-            result?.tagId,
+          result?.Id ??
+          result?.chefId ??
+          result?.cookingStyleId ??
+          result?.tagId,
         ),
         name: String(result?.name ?? result?.Name ?? newName),
       };
@@ -594,15 +677,35 @@ export default function EditRecipeScreen() {
     }
   };
 
+  // Load the form when this screen becomes active.
   useFocusEffect(
     useCallback(() => {
       void load();
     }, [load]),
   );
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  // Poll categories and ingredients every 5 seconds while this screen is
+  // focused. Do not call load() repeatedly: it resets form fields and could
+  // erase unsaved user input.
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+
+      const refreshSafely = async () => {
+        if (!isActive || saving || successModalVisible) return;
+        await refreshReferenceData();
+      };
+
+      const intervalId = setInterval(() => {
+        void refreshSafely();
+      }, 5000);
+
+      return () => {
+        isActive = false;
+        clearInterval(intervalId);
+      };
+    }, [refreshReferenceData, saving, successModalVisible]),
+  );
 
   const filteredIngredients = useMemo(() => {
     const query = ingredientSearch.trim().toLowerCase();
@@ -650,7 +753,7 @@ export default function EditRecipeScreen() {
     if (!selectedImage) return;
 
     const apiBaseUrl = (
-      process.env.EXPO_PUBLIC_API_BASE_URL || "http://localhost:5204/api"
+      process.env.EXPO_PUBLIC_API_BASE_URL || "http://192.168.1.37:5204/api"
     ).replace(/\/$/, "");
 
     const formData = new FormData();
@@ -750,6 +853,7 @@ export default function EditRecipeScreen() {
       formIngredients.length === 0 ||
       procedures.length === 0
     ) {
+      await load();
       showMessage(
         "Validation",
 
@@ -770,7 +874,7 @@ export default function EditRecipeScreen() {
       value: string,
     ): Promise<{ id: number; name: string }> => {
       const apiBaseUrl = (
-        process.env.EXPO_PUBLIC_API_BASE_URL || "http://localhost:5204/api"
+        process.env.EXPO_PUBLIC_API_BASE_URL || "http://192.168.1.37:5204/api"
       ).replace(/\/$/, "");
       const token = await getStoredAuthToken();
       const response = await fetch(`${apiBaseUrl}/${path}`, {
@@ -784,7 +888,11 @@ export default function EditRecipeScreen() {
       const responseText = await response.text();
       let payload: any = {};
       if (responseText) {
-        try { payload = JSON.parse(responseText); } catch { payload = {}; }
+        try {
+          payload = JSON.parse(responseText);
+        } catch {
+          payload = {};
+        }
       }
       // If a tag was created by another request or was missing from the
       // initially loaded options, reuse the existing tag instead of failing
@@ -797,10 +905,12 @@ export default function EditRecipeScreen() {
           const lookupPayload = await lookupResponse.json();
           const allTags = Array.isArray(lookupPayload)
             ? lookupPayload
-            : lookupPayload?.items ?? lookupPayload?.data ?? [];
-          const existingTag = allTags.find((item: any) =>
-            String(item.name ?? item.Name ?? "").trim().toLowerCase() ===
-            value.trim().toLowerCase(),
+            : (lookupPayload?.items ?? lookupPayload?.data ?? []);
+          const existingTag = allTags.find(
+            (item: any) =>
+              String(item.name ?? item.Name ?? "")
+                .trim()
+                .toLowerCase() === value.trim().toLowerCase(),
           );
           const existingId = Number(existingTag?.id ?? existingTag?.Id);
           if (existingTag && Number.isInteger(existingId) && existingId > 0) {
@@ -812,15 +922,25 @@ export default function EditRecipeScreen() {
         }
       }
       if (!response.ok) {
-        throw new Error(`Could not save new ${path === "cooking-styles" ? "cooking style" : path === "recipe-tags" ? "tag" : "chef"}: ${payload?.message ?? payload?.title ?? responseText ?? response.status}`);
+        throw new Error(
+          `Could not save new ${path === "cooking-styles" ? "cooking style" : path === "recipe-tags" ? "tag" : "chef"}: ${payload?.message ?? payload?.title ?? responseText ?? response.status}`,
+        );
       }
       const result = payload?.data ?? payload?.item ?? payload;
       const saved = {
-        id: Number(result?.id ?? result?.Id ?? result?.chefId ?? result?.cookingStyleId ?? result?.tagId),
+        id: Number(
+          result?.id ??
+          result?.Id ??
+          result?.chefId ??
+          result?.cookingStyleId ??
+          result?.tagId,
+        ),
         name: String(result?.name ?? result?.Name ?? value),
       };
       if (!Number.isInteger(saved.id) || saved.id <= 0) {
-        throw new Error(`The ${path} endpoint did not return the new record ID.`);
+        throw new Error(
+          `The ${path} endpoint did not return the new record ID.`,
+        );
       }
       return saved;
     };
@@ -900,7 +1020,8 @@ export default function EditRecipeScreen() {
         // Only describe it as newly saved if it was not already present in
         // the loaded options (the helper can also resolve a 409 duplicate).
         const wasAlreadyKnown = currentTagOptions.some(
-          (item) => item.id === saved.id ||
+          (item) =>
+            item.id === saved.id ||
             item.name.trim().toLowerCase() === saved.name.trim().toLowerCase(),
         );
         if (!wasAlreadyKnown) {
@@ -909,7 +1030,10 @@ export default function EditRecipeScreen() {
         currentTagOptions.unshift(saved);
         setMetadataOptions((previous) => ({
           ...previous,
-          tags: [saved, ...previous.tags.filter((item) => item.id !== saved.id)],
+          tags: [
+            saved,
+            ...previous.tags.filter((item) => item.id !== saved.id),
+          ],
         }));
       }
       // Keep IDs unique even if the user typed a duplicate or selected a chip.
@@ -1031,7 +1155,7 @@ export default function EditRecipeScreen() {
         Object.values(nutrition).some((value) => value.trim() !== "")
       ) {
         const apiBaseUrl = (
-          process.env.EXPO_PUBLIC_API_BASE_URL || "http://localhost:5204/api"
+          process.env.EXPO_PUBLIC_API_BASE_URL || "http://192.168.1.37:5204/api"
         ).replace(/\/$/, "");
         const token = await getStoredAuthToken();
         const nutritionPayload = {
@@ -1103,7 +1227,6 @@ export default function EditRecipeScreen() {
       }
 
       setSuccessAction(isNew ? "list" : "back");
-
       setSuccessModalVisible(true);
     } catch (error) {
       console.error("Unable to save recipe:", error);
@@ -1152,7 +1275,7 @@ export default function EditRecipeScreen() {
     if (successAction === "list") {
       router.replace("/admin/recipes");
     } else if (successAction === "back") {
-      router.back();
+      router.replace("/admin/recipes");
     }
 
     setSuccessAction(null);
@@ -1203,7 +1326,7 @@ export default function EditRecipeScreen() {
 
         quantity: "1",
 
-        unit: "g",
+        unit: getIngredientDefinedUnit(ingredientToAdd),
       },
 
       ...previous,
@@ -1277,7 +1400,10 @@ export default function EditRecipeScreen() {
   if (loading) return <ScreenLoader />;
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <SafeAreaView
+      style={styles.container}
+      edges={Platform.OS === "web" ? ["top"] : ["left", "right", "bottom"]}
+    >
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.keyboardView}
@@ -1287,18 +1413,18 @@ export default function EditRecipeScreen() {
             <Ionicons name="arrow-back" size={24} color="#17231E" />
           </Pressable>
 
-          <Text style={styles.headerTitle}>
+          <AppText style={styles.headerTitle}>
             {isNew ? "Create Recipe" : "Edit Recipe"}
-          </Text>
+          </AppText>
 
           <Pressable onPress={handleSave} disabled={saving}>
-            <Text style={styles.saveText}>
+            <AppText style={styles.saveText}>
               {saving
                 ? uploadingImage
                   ? "Uploading image..."
                   : "Saving..."
                 : "Save"}
-            </Text>
+            </AppText>
           </Pressable>
         </View>
 
@@ -1308,7 +1434,7 @@ export default function EditRecipeScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.form}>
-            <Text style={styles.label}>Recipe Title</Text>
+            <AppText style={styles.label}>Recipe Title</AppText>
 
             <TextInput
               style={styles.input}
@@ -1318,7 +1444,7 @@ export default function EditRecipeScreen() {
               placeholderTextColor="#8A938E"
             />
 
-            <Text style={styles.label}>Category</Text>
+            <AppText style={styles.label}>Category</AppText>
 
             <ScrollView
               horizontal
@@ -1342,7 +1468,7 @@ export default function EditRecipeScreen() {
                       ]}
                       onPress={() => setCategoryId(category.id)}
                     >
-                      <Text
+                      <AppText
                         style={[
                           styles.chipText,
 
@@ -1350,7 +1476,7 @@ export default function EditRecipeScreen() {
                         ]}
                       >
                         {category.name}
-                      </Text>
+                      </AppText>
                     </Pressable>
                   ))}
               </View>
@@ -1358,7 +1484,7 @@ export default function EditRecipeScreen() {
 
             <View style={styles.row}>
               <View style={styles.flex1}>
-                <Text style={styles.label}>Base Servings</Text>
+                <AppText style={styles.label}>Base Servings</AppText>
 
                 <TextInput
                   style={styles.input}
@@ -1371,7 +1497,7 @@ export default function EditRecipeScreen() {
               </View>
 
               <View style={styles.flex1}>
-                <Text style={styles.label}>Status</Text>
+                <AppText style={styles.label}>Status</AppText>
 
                 <View style={styles.statusToggle}>
                   <Pressable
@@ -1382,16 +1508,16 @@ export default function EditRecipeScreen() {
                     ]}
                     onPress={() => setStatus(RECIPE_STATUS.DRAFT)}
                   >
-                    <Text
+                    <AppText
                       style={[
                         styles.statusText,
 
                         status === RECIPE_STATUS.DRAFT &&
-                          styles.statusTextActive,
+                        styles.statusTextActive,
                       ]}
                     >
                       Draft
-                    </Text>
+                    </AppText>
                   </Pressable>
 
                   <Pressable
@@ -1399,26 +1525,26 @@ export default function EditRecipeScreen() {
                       styles.statusBtn,
 
                       status === RECIPE_STATUS.PUBLISHED &&
-                        styles.statusBtnActive,
+                      styles.statusBtnActive,
                     ]}
                     onPress={() => setStatus(RECIPE_STATUS.PUBLISHED)}
                   >
-                    <Text
+                    <AppText
                       style={[
                         styles.statusText,
 
                         status === RECIPE_STATUS.PUBLISHED &&
-                          styles.statusTextActive,
+                        styles.statusTextActive,
                       ]}
                     >
                       Published
-                    </Text>
+                    </AppText>
                   </Pressable>
                 </View>
               </View>
             </View>
 
-            <Text style={styles.label}>Base Cooked Weight (grams)</Text>
+            <AppText style={styles.label}>Base Cooked Weight (grams)</AppText>
 
             <TextInput
               style={styles.input}
@@ -1429,19 +1555,19 @@ export default function EditRecipeScreen() {
               placeholderTextColor="#8A938E"
             />
 
-            <Text style={styles.helperText}>
+            <AppText style={styles.helperText}>
               Total weight of the cooked recipe for the base servings.
-            </Text>
+            </AppText>
 
             <View style={styles.detailsHero}>
               <View style={styles.detailsHeroIcon}>
                 <Ionicons name="options-outline" size={22} color="#FFFFFF" />
               </View>
               <View style={styles.detailsHeroCopy}>
-                <Text style={styles.detailsHeroTitle}>Recipe details</Text>
-                <Text style={styles.detailsHeroSubtitle}>
+                <AppText style={styles.detailsHeroTitle}>Recipe details</AppText>
+                <AppText style={styles.detailsHeroSubtitle}>
                   Make this recipe easier to discover
-                </Text>
+                </AppText>
                 <View style={styles.detailsSummaryRow}>
                   {!!chefId && (
                     <View style={styles.summaryPill}>
@@ -1450,7 +1576,7 @@ export default function EditRecipeScreen() {
                         size={12}
                         color="#DDF4E7"
                       />
-                      <Text style={styles.summaryPillText}>Chef added</Text>
+                      <AppText style={styles.summaryPillText}>Chef</AppText>
                     </View>
                   )}
                   {!!cuisine.trim() && (
@@ -1460,9 +1586,10 @@ export default function EditRecipeScreen() {
                         size={12}
                         color="#DDF4E7"
                       />
-                      <Text style={styles.summaryPillText}>
-                        {cuisine.trim()}
-                      </Text>
+                      <AppText style={styles.summaryPillText}>
+                        {/* {cuisine.trim()} */}
+                        Cuisines
+                      </AppText>
                     </View>
                   )}
                   {!!mealType && (
@@ -1472,7 +1599,10 @@ export default function EditRecipeScreen() {
                         size={12}
                         color="#DDF4E7"
                       />
-                      <Text style={styles.summaryPillText}>{mealType}</Text>
+                      <AppText style={styles.summaryPillText}>
+                        {/* {mealType} */}
+                        MealType
+                      </AppText>
                     </View>
                   )}
                   {tagIds.length > 0 && (
@@ -1482,18 +1612,18 @@ export default function EditRecipeScreen() {
                         size={12}
                         color="#DDF4E7"
                       />
-                      <Text style={styles.summaryPillText}>
-                        {tagIds.length} tag{tagIds.length === 1 ? "" : "s"}
-                      </Text>
+                      <AppText style={styles.summaryPillText}>
+                        {tagIds.length} Tag{tagIds.length === 1 ? "" : "s"}
+                      </AppText>
                     </View>
                   )}
                   {!chefId &&
                     !cuisine.trim() &&
                     !mealType &&
                     tagIds.length === 0 && (
-                      <Text style={styles.detailsEmptySummary}>
+                      <AppText style={styles.detailsEmptySummary}>
                         Optional details · add what you know
-                      </Text>
+                      </AppText>
                     )}
                 </View>
               </View>
@@ -1502,10 +1632,10 @@ export default function EditRecipeScreen() {
                 style={styles.detailsToggle}
                 accessibilityRole="button"
               >
-                <Text style={styles.detailsToggleText}>
+                <AppText style={styles.detailsToggleText}>
                   {/* {showAdvanced ? "Hide" : "Add"} */}
                   {showAdvanced ? "Hide" : isNew ? "Add" : "Edit"}
-                </Text>
+                </AppText>
                 <Ionicons
                   name={showAdvanced ? "chevron-up" : "chevron-down"}
                   size={15}
@@ -1520,15 +1650,15 @@ export default function EditRecipeScreen() {
                     <Ionicons name="people-outline" size={16} color="#176747" />
                   </View>
                   <View>
-                    <Text style={styles.metadataGroupTitle}>
+                    <AppText style={styles.metadataGroupTitle}>
                       People & style
-                    </Text>
-                    <Text style={styles.metadataGroupSubtitle}>
+                    </AppText>
+                    <AppText style={styles.metadataGroupSubtitle}>
                       Who made it and how it is prepared
-                    </Text>
+                    </AppText>
                   </View>
                 </View>
-                <Text style={styles.label}>Chef</Text>
+                <AppText style={styles.label}>Chef</AppText>
                 <View style={styles.metadataCreateRow}>
                   <TextInput
                     style={[styles.input, styles.metadataCreateInput]}
@@ -1539,9 +1669,15 @@ export default function EditRecipeScreen() {
                     autoCapitalize="words"
                   />
                 </View>
-                {!!chefSearch.trim() && !metadataOptions.chefs.some((x) => x.name.toLowerCase() === chefSearch.trim().toLowerCase()) && (
-                  <Text style={styles.newValueLabel}>NEW · Saved when you save the recipe</Text>
-                )}
+                {!!chefSearch.trim() &&
+                  !metadataOptions.chefs.some(
+                    (x) =>
+                      x.name.toLowerCase() === chefSearch.trim().toLowerCase(),
+                  ) && (
+                    <AppText style={styles.newValueLabel}>
+                      NEW · Saved when you save the recipe
+                    </AppText>
+                  )}
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
@@ -1569,7 +1705,7 @@ export default function EditRecipeScreen() {
                           chefId === x.id && styles.optionChipSelected,
                         ]}
                       >
-                        <Text
+                        <AppText
                           style={[
                             styles.optionChipText,
                             chefId === x.id && styles.optionChipTextSelected,
@@ -1577,11 +1713,11 @@ export default function EditRecipeScreen() {
                         >
                           {chefId === x.id ? "✓ " : ""}
                           {x.name}
-                        </Text>
+                        </AppText>
                       </Pressable>
                     ))}
                 </ScrollView>
-                <Text style={styles.label}>Cooking style</Text>
+                <AppText style={styles.label}>Cooking style</AppText>
                 <View style={styles.metadataCreateRow}>
                   <TextInput
                     style={[styles.input, styles.metadataCreateInput]}
@@ -1592,9 +1728,16 @@ export default function EditRecipeScreen() {
                     autoCapitalize="words"
                   />
                 </View>
-                {!!cookingStyleSearch.trim() && !metadataOptions.cookingStyles.some((x) => x.name.toLowerCase() === cookingStyleSearch.trim().toLowerCase()) && (
-                  <Text style={styles.newValueLabel}>NEW · Saved when you save the recipe</Text>
-                )}
+                {!!cookingStyleSearch.trim() &&
+                  !metadataOptions.cookingStyles.some(
+                    (x) =>
+                      x.name.toLowerCase() ===
+                      cookingStyleSearch.trim().toLowerCase(),
+                  ) && (
+                    <AppText style={styles.newValueLabel}>
+                      NEW · Saved when you save the recipe
+                    </AppText>
+                  )}
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
@@ -1621,22 +1764,22 @@ export default function EditRecipeScreen() {
                           cookingStyleId === x.id && styles.optionChipSelected,
                         ]}
                       >
-                        <Text
+                        <AppText
                           style={[
                             styles.optionChipText,
                             cookingStyleId === x.id &&
-                              styles.optionChipTextSelected,
+                            styles.optionChipTextSelected,
                           ]}
                         >
                           {cookingStyleId === x.id ? "✓ " : ""}
                           {x.name}
-                        </Text>
+                        </AppText>
                       </Pressable>
                     ))}
                 </ScrollView>
                 <View style={styles.detailsDivider} />
-                
-                <Text style={styles.label}>Cuisine</Text>
+
+                <AppText style={styles.label}>Cuisine</AppText>
                 <View style={styles.metadataCreateRow}>
                   <TextInput
                     style={[styles.input, styles.metadataCreateInput]}
@@ -1647,9 +1790,16 @@ export default function EditRecipeScreen() {
                     autoCapitalize="words"
                   />
                 </View>
-                {!!cuisineSearch.trim() && !metadataOptions.cuisines.some((x) => x.name.toLowerCase() === cuisineSearch.trim().toLowerCase()) && (
-                  <Text style={styles.newValueLabel}>NEW · Saved with this recipe</Text>
-                )}
+                {!!cuisineSearch.trim() &&
+                  !metadataOptions.cuisines.some(
+                    (x) =>
+                      x.name.toLowerCase() ===
+                      cuisineSearch.trim().toLowerCase(),
+                  ) && (
+                    <AppText style={styles.newValueLabel}>
+                      NEW · Saved with this recipe
+                    </AppText>
+                  )}
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
@@ -1683,7 +1833,7 @@ export default function EditRecipeScreen() {
                             selected && styles.optionChipSelected,
                           ]}
                         >
-                          <Text
+                          <AppText
                             style={[
                               styles.optionChipText,
                               selected && styles.optionChipTextSelected,
@@ -1691,18 +1841,18 @@ export default function EditRecipeScreen() {
                           >
                             {selected ? "✓ " : ""}
                             {item.name}
-                          </Text>
+                          </AppText>
                         </Pressable>
                       );
                     })}
                 </ScrollView>
                 {metadataOptions.cuisines.length === 0 ? (
-                  <Text style={styles.helperText}>
+                  <AppText style={styles.helperText}>
                     No saved cuisines yet. Enter a cuisine; it will be saved
                     when you press the recipe Save button.
-                  </Text>
+                  </AppText>
                 ) : null}
-                {/* <Text style={styles.label}>Meal type</Text>
+                {/* <AppText style={styles.label}>Meal type</AppText>
                 <View style={styles.optionWrap}>
                   {[
                     "Breakfast",
@@ -1720,7 +1870,7 @@ export default function EditRecipeScreen() {
                         mealType === x && styles.optionChipSelected,
                       ]}
                     >
-                      <Text
+                      <AppText
                         style={[
                           styles.optionChipText,
                           mealType === x && styles.optionChipTextSelected,
@@ -1728,7 +1878,7 @@ export default function EditRecipeScreen() {
                       >
                         {mealType === x ? "✓ " : ""}
                         {x}
-                      </Text>
+                      </AppText>
                     </Pressable>
                   ))}
                 </View> */}
@@ -1738,15 +1888,15 @@ export default function EditRecipeScreen() {
                     <Ionicons name="time-outline" size={16} color="#176747" />
                   </View>
                   <View>
-                    <Text style={styles.metadataGroupTitle}>Timing</Text>
-                    <Text style={styles.metadataGroupSubtitle}>
+                    <AppText style={styles.metadataGroupTitle}>Timing</AppText>
+                    <AppText style={styles.metadataGroupSubtitle}>
                       A quick guide for meal planning
-                    </Text>
+                    </AppText>
                   </View>
                 </View>
                 <View style={styles.row}>
                   <View style={styles.flex1}>
-                    <Text style={styles.label}>Preparation</Text>
+                    <AppText style={styles.label}>Preparation</AppText>
                     <View style={styles.minuteInputWrap}>
                       <TextInput
                         style={styles.minuteInput}
@@ -1756,11 +1906,11 @@ export default function EditRecipeScreen() {
                         placeholder="15"
                         placeholderTextColor="#8A938E"
                       />
-                      <Text style={styles.minuteSuffix}>min</Text>
+                      <AppText style={styles.minuteSuffix}>min</AppText>
                     </View>
                   </View>
                   <View style={styles.flex1}>
-                    <Text style={styles.label}>Cooking</Text>
+                    <AppText style={styles.label}>Cooking</AppText>
                     <View style={styles.minuteInputWrap}>
                       <TextInput
                         style={styles.minuteInput}
@@ -1770,7 +1920,7 @@ export default function EditRecipeScreen() {
                         placeholder="30"
                         placeholderTextColor="#8A938E"
                       />
-                      <Text style={styles.minuteSuffix}>min</Text>
+                      <AppText style={styles.minuteSuffix}>min</AppText>
                     </View>
                   </View>
                 </View>
@@ -1784,10 +1934,10 @@ export default function EditRecipeScreen() {
                     />
                   </View>
                   <View>
-                    <Text style={styles.metadataGroupTitle}>tags</Text>
-                    <Text style={styles.metadataGroupSubtitle}>
+                    <AppText style={styles.metadataGroupTitle}>tags</AppText>
+                    <AppText style={styles.metadataGroupSubtitle}>
                       Choose tags that describe the recipe
-                    </Text>
+                    </AppText>
                   </View>
                 </View>
                 <View style={styles.metadataCreateRow}>
@@ -1806,19 +1956,24 @@ export default function EditRecipeScreen() {
                       (x) => x.name.toLowerCase() === typedTag.toLowerCase(),
                     ),
                 ) && (
-                  <Text style={styles.newValueLabel}>
-                    NEW · {parseCommaSeparatedNames(tagSearch)
-                      .filter((typedTag) =>
-                        !metadataOptions.tags.some(
-                          (x) => x.name.toLowerCase() === typedTag.toLowerCase(),
-                        ),
-                      )
-                      .join(", ")} · Saved when you save the recipe
-                  </Text>
-                )}
-                <Text style={styles.helperText}>
-                  Enter multiple tags separated by commas, for example: tasty, healthy, spicy.
-                </Text>
+                    <AppText style={styles.newValueLabel}>
+                      NEW ·{" "}
+                      {parseCommaSeparatedNames(tagSearch)
+                        .filter(
+                          (typedTag) =>
+                            !metadataOptions.tags.some(
+                              (x) =>
+                                x.name.toLowerCase() === typedTag.toLowerCase(),
+                            ),
+                        )
+                        .join(", ")}{" "}
+                      · Saved when you save the recipe
+                    </AppText>
+                  )}
+                <AppText style={styles.helperText}>
+                  Enter multiple tags separated by commas, for example: tasty,
+                  healthy, spicy.
+                </AppText>
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
@@ -1826,8 +1981,10 @@ export default function EditRecipeScreen() {
                   contentContainerStyle={styles.cuisineScroller}
                 >
                   {metadataOptions.tags
-                    .filter((x) =>
-                      !tagSearch.trim() || x.name.toLowerCase().includes(tagSearch.toLowerCase()),
+                    .filter(
+                      (x) =>
+                        !tagSearch.trim() ||
+                        x.name.toLowerCase().includes(tagSearch.toLowerCase()),
                     )
                     .map((x) => (
                       <Pressable
@@ -1844,42 +2001,42 @@ export default function EditRecipeScreen() {
                           tagIds.includes(x.id) && styles.optionChipSelected,
                         ]}
                       >
-                        <Text
+                        <AppText
                           style={[
                             styles.optionChipText,
                             tagIds.includes(x.id) &&
-                              styles.optionChipTextSelected,
+                            styles.optionChipTextSelected,
                           ]}
                         >
                           {tagIds.includes(x.id) ? "✓ " : ""}
                           {x.name}
-                        </Text>
+                        </AppText>
                       </Pressable>
                     ))}
                 </ScrollView>
                 {tagIds.length > 0 && (
-                  <Text style={styles.selectedCountText}>
+                  <AppText style={styles.selectedCountText}>
                     {tagIds.length} tag{tagIds.length === 1 ? "" : "s"} selected
-                  </Text>
+                  </AppText>
                 )}
               </View>
             )}
             <View style={styles.sectionHeaderRow}>
               <View>
-                <Text style={styles.metadataSectionTitle}>
-                  Nutrition <span style={styles.helperText}>(Optional)</span>
-                </Text>
-                <Text style={styles.helperText}>
+                <AppText style={styles.metadataSectionTitle}>
+                  Nutrition <AppText style={styles.helperText}>(Optional)</AppText >
+                </AppText>
+                <AppText style={styles.helperText}>
                   Nutrition Value of this Recipe
-                </Text>
+                </AppText>
               </View>
               <Pressable
                 onPress={() => setShowNutrition((v) => !v)}
                 style={styles.outlineSmallButton}
               >
-                <Text style={styles.outlineSmallButtonText}>
+                <AppText style={styles.outlineSmallButtonText}>
                   {showNutrition ? "Hide" : isNew ? "Add" : "Add / Edit"}
-                </Text>
+                </AppText>
               </Pressable>
             </View>
             {showNutrition && (
@@ -1896,7 +2053,7 @@ export default function EditRecipeScreen() {
                   ] as const
                 ).map(([key, label]) => (
                   <View key={key}>
-                    <Text style={styles.label}>{label}</Text>
+                    <AppText style={styles.label}>{label}</AppText>
                     <TextInput
                       style={styles.input}
                       value={nutrition[key]}
@@ -1927,16 +2084,16 @@ export default function EditRecipeScreen() {
                     )}
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.verifyTitle}>Nutrition verified</Text>
-                    <Text style={styles.helperText}>
+                    <AppText style={styles.verifyTitle}>Nutrition verified</AppText>
+                    <AppText style={styles.helperText}>
                       Only enable after checking the values.
-                    </Text>
+                    </AppText>
                   </View>
                 </Pressable>
               </View>
             )}
 
-            <Text style={styles.label}>Recipe Image</Text>
+            <AppText style={styles.label}>Recipe Image</AppText>
 
             {selectedImage?.uri || photoUrl ? (
               <View style={styles.imagePreviewContainer}>
@@ -1954,17 +2111,17 @@ export default function EditRecipeScreen() {
                 >
                   <Ionicons name="close-circle" size={24} color="#B33B31" />
 
-                  <Text style={styles.removeImageText}>
+                  <AppText style={styles.removeImageText}>
                     {selectedImage
                       ? "Cancel selected image"
                       : "Keep current image"}
-                  </Text>
+                  </AppText>
                 </Pressable>
               </View>
             ) : (
-              <Text style={styles.imageHelperText}>
+              <AppText style={styles.imageHelperText}>
                 Choose a photo from your device. JPG, PNG or WebP, up to 5 MB.
-              </Text>
+              </AppText>
             )}
 
             <Pressable
@@ -1973,16 +2130,16 @@ export default function EditRecipeScreen() {
             >
               <Ionicons name="image-outline" size={20} color="#1F7655" />
 
-              <Text style={styles.chooseImageButtonText}>
+              <AppText style={styles.chooseImageButtonText}>
                 {selectedImage
                   ? "Choose a different image"
                   : photoUrl
                     ? "Replace image"
                     : "Browse image"}
-              </Text>
+              </AppText>
             </Pressable>
 
-            <Text style={styles.label}>Description</Text>
+            <AppText style={styles.label}>Description</AppText>
 
             <TextInput
               style={[styles.input, styles.textArea]}
@@ -1994,7 +2151,7 @@ export default function EditRecipeScreen() {
               numberOfLines={3}
             />
 
-            <Text style={styles.sectionTitle}>Ingredients</Text>
+            <AppText style={styles.sectionTitle}>Ingredients</AppText>
 
             <View style={styles.ingredientSearchRow}>
               <View style={styles.ingredientSearchContainer}>
@@ -2028,12 +2185,17 @@ export default function EditRecipeScreen() {
               </View>
 
               <Pressable
-                style={styles.addIngredientButton}
+                style={[
+                  styles.addIngredientButton,
+                  !selectedSearchIngredient &&
+                  styles.addIngredientButtonDisabled,
+                ]}
                 onPress={addIngredient}
+                accessibilityRole="button"
+                accessibilityLabel="Add selected ingredient"
               >
-                
-
-                <Text style={styles.addIngredientButtonText}>Add</Text>
+                <Ionicons name="add" size={18} color="#FFFFFF" />
+                <AppText style={styles.addIngredientButtonText}>Add</AppText>
               </Pressable>
             </View>
 
@@ -2072,26 +2234,13 @@ export default function EditRecipeScreen() {
                               return;
                             }
 
-                            setFormIngredients((previous) => [
-                              {
-                                ingredientId: ingredient.id,
-
-                                quantity: "1",
-
-                                unit: "g",
-                              },
-
-                              ...previous,
-                            ]);
-
-                            setIngredientSearch("");
-
-                            setSelectedSearchIngredient(null);
-
-                            setExpandedIngredientIndex(null);
+                            // Select first, then use the adjacent Add button.
+                            // This keeps Add functional and lets the user confirm
+                            // which ingredient they are adding.
+                            setSelectedSearchIngredient(ingredient);
                           }}
                         >
-                          <Text
+                          <AppText
                             style={[
                               styles.searchResultText,
 
@@ -2099,7 +2248,7 @@ export default function EditRecipeScreen() {
                             ]}
                           >
                             {ingredient.name}
-                          </Text>
+                          </AppText>
 
                           {isSelected ? (
                             <Ionicons
@@ -2113,9 +2262,9 @@ export default function EditRecipeScreen() {
                     })}
                   </ScrollView>
                 ) : (
-                  <Text style={styles.noIngredientsText}>
+                  <AppText style={styles.noIngredientsText}>
                     No matching ingredients found.
-                  </Text>
+                  </AppText>
                 )}
               </View>
             )}
@@ -2143,9 +2292,9 @@ export default function EditRecipeScreen() {
                   style={styles.ingredientCard}
                 >
                   <View style={styles.ingredientHeader}>
-                    <Text style={styles.ingredientLabel}>
+                    <AppText style={styles.ingredientLabel}>
                       Ingredient {index + 1}
-                    </Text>
+                    </AppText>
 
                     <Pressable
                       onPress={() => removeIngredient(index)}
@@ -2170,12 +2319,12 @@ export default function EditRecipeScreen() {
                         styles.selectedChip,
                       ]}
                     >
-                      <Text
+                      <AppText
                         style={[styles.chipText, styles.chipTextActive]}
                         numberOfLines={1}
                       >
                         {selectedIngredient?.name ?? "Select ingredient"}
-                      </Text>
+                      </AppText>
                     </View>
 
                     <Pressable
@@ -2213,12 +2362,18 @@ export default function EditRecipeScreen() {
                             key={ingredient.id}
                             style={styles.chip}
                             onPress={() => {
-                              updateIngredient(
-                                index,
-
-                                "ingredientId",
-
-                                ingredient.id,
+                              setFormIngredients((previous) =>
+                                previous.map((formItem, itemIndex) =>
+                                  itemIndex === index
+                                    ? {
+                                      ...formItem,
+                                      ingredientId: ingredient.id,
+                                      unit: getIngredientDefinedUnit(
+                                        ingredient,
+                                      ),
+                                    }
+                                    : formItem,
+                                ),
                               );
 
                               setExpandedIngredientIndex(null);
@@ -2228,9 +2383,9 @@ export default function EditRecipeScreen() {
                               setSelectedSearchIngredient(null);
                             }}
                           >
-                            <Text style={styles.chipText} numberOfLines={1}>
+                            <AppText style={styles.chipText} numberOfLines={1}>
                               {ingredient.name}
-                            </Text>
+                            </AppText>
                           </Pressable>
                         ))}
                       </View>
@@ -2238,9 +2393,9 @@ export default function EditRecipeScreen() {
                   )}
 
                   {isExpanded && availableIngredients.length === 0 && (
-                    <Text style={styles.noIngredientsText}>
+                    <AppText style={styles.noIngredientsText}>
                       No other ingredients available.
-                    </Text>
+                    </AppText>
                   )}
 
                   <View style={styles.quantityRow}>
@@ -2261,7 +2416,9 @@ export default function EditRecipeScreen() {
                       keyboardShouldPersistTaps="handled"
                     >
                       <View style={styles.unitContainer}>
-                        {UNITS.map((unit) => (
+                        {getCompatibleUnits(
+                          getIngredientDefinedUnit(selectedIngredient),
+                        ).map((unit) => (
                           <Pressable
                             key={unit}
                             style={[
@@ -2273,7 +2430,7 @@ export default function EditRecipeScreen() {
                               updateIngredient(index, "unit", unit)
                             }
                           >
-                            <Text
+                            <AppText
                               style={[
                                 styles.unitText,
 
@@ -2281,7 +2438,7 @@ export default function EditRecipeScreen() {
                               ]}
                             >
                               {unit}
-                            </Text>
+                            </AppText>
                           </Pressable>
                         ))}
                       </View>
@@ -2291,18 +2448,18 @@ export default function EditRecipeScreen() {
               );
             })}
 
-            <Text style={styles.sectionTitle}>Procedure</Text>
+            <AppText style={styles.sectionTitle}>Procedure</AppText>
 
             {procedures.map((item, index) => (
               <View key={index} style={styles.procedureCard}>
                 <View style={styles.procedureHeader}>
                   <View style={styles.stepBadge}>
-                    <Text style={styles.stepBadgeText}>{item.stepNumber}</Text>
+                    <AppText style={styles.stepBadgeText}>{item.stepNumber}</AppText>
                   </View>
 
-                  <Text style={styles.procedureLabel}>
+                  <AppText style={styles.procedureLabel}>
                     Step {item.stepNumber}
-                  </Text>
+                  </AppText>
 
                   <Pressable onPress={() => removeProcedure(index)}>
                     <Ionicons name="trash-outline" size={20} color="#B33B31" />
@@ -2334,9 +2491,7 @@ export default function EditRecipeScreen() {
             ))}
 
             <Pressable style={styles.addButton} onPress={addProcedure}>
-              
-
-              <Text style={styles.addButtonText}>Add Step</Text>
+              <AppText style={styles.addButtonText}>Add Step</AppText>
             </Pressable>
 
             <Pressable
@@ -2344,7 +2499,7 @@ export default function EditRecipeScreen() {
               onPress={handleSave}
               disabled={saving}
             >
-              <Text style={styles.saveButtonText}>
+              <AppText style={styles.saveButtonText}>
                 {saving
                   ? uploadingImage
                     ? "Uploading image..."
@@ -2352,12 +2507,12 @@ export default function EditRecipeScreen() {
                   : isNew
                     ? "Create Recipe"
                     : "Save Changes"}
-              </Text>
+              </AppText>
             </Pressable>
 
             {!isNew && (
               <Pressable style={styles.deleteButton} onPress={handleDelete}>
-                <Text style={styles.deleteButtonText}>Delete Recipe</Text>
+                <AppText style={styles.deleteButtonText}>Delete Recipe</AppText>
               </Pressable>
             )}
           </View>
@@ -2376,11 +2531,11 @@ export default function EditRecipeScreen() {
               <Ionicons name="trash-outline" size={28} color="#B33B31" />
             </View>
 
-            <Text style={styles.popupTitle}>Delete Recipe?</Text>
+            <AppText style={styles.popupTitle}>Delete Recipe?</AppText>
 
-            <Text style={styles.popupMessage}>
+            <AppText style={styles.popupMessage}>
               Are you sure you want to delete "{name}"?
-            </Text>
+            </AppText>
 
             <View style={styles.popupActions}>
               <Pressable
@@ -2388,7 +2543,7 @@ export default function EditRecipeScreen() {
                 onPress={() => setDeleteModalVisible(false)}
                 disabled={deleting}
               >
-                <Text style={styles.cancelPopupText}>Cancel</Text>
+                <AppText style={styles.cancelPopupText}>Cancel</AppText>
               </Pressable>
 
               <Pressable
@@ -2399,9 +2554,9 @@ export default function EditRecipeScreen() {
                 onPress={confirmDelete}
                 disabled={deleting}
               >
-                <Text style={styles.confirmDeleteText}>
+                <AppText style={styles.confirmDeleteText}>
                   {deleting ? "Deleting..." : "Delete"}
-                </Text>
+                </AppText>
               </Pressable>
             </View>
           </View>
@@ -2420,15 +2575,15 @@ export default function EditRecipeScreen() {
               <Ionicons name="checkmark-circle" size={34} color="#1F7655" />
             </View>
 
-            <Text style={styles.popupTitle}>{successTitle}</Text>
+            <AppText style={styles.popupTitle}>{successTitle}</AppText>
 
-            <Text style={styles.popupMessage}>{successMessage}</Text>
+            <AppText style={styles.popupMessage}>{successMessage}</AppText>
 
             <Pressable
               style={styles.successPopupButton}
               onPress={closeSuccessModal}
             >
-              <Text style={styles.successPopupText}>Continue</Text>
+              <AppText style={styles.successPopupText}>Continue</AppText>
             </Pressable>
           </View>
         </View>
@@ -2616,13 +2771,9 @@ const styles = StyleSheet.create({
 
   header: {
     flexDirection: "row",
-
     alignItems: "center",
-
     justifyContent: "space-between",
-
-    paddingTop: 8,
-
+    paddingTop: Platform.OS === "web" ? 8 : 48,
     paddingBottom: 16,
   },
 
@@ -2865,6 +3016,10 @@ const styles = StyleSheet.create({
     borderRadius: 14,
 
     backgroundColor: "#1F7655",
+  },
+
+  addIngredientButtonDisabled: {
+    opacity: 0.55,
   },
 
   addIngredientButtonText: {
@@ -3203,7 +3358,14 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  newValueLabel: { color: "#A45A12", fontSize: 11, fontWeight: "700", marginTop: 5, marginBottom: 8, letterSpacing: 0.3 },
+  newValueLabel: {
+    color: "#A45A12",
+    fontSize: 11,
+    fontWeight: "700",
+    marginTop: 5,
+    marginBottom: 8,
+    letterSpacing: 0.3,
+  },
   helperText: {
     fontSize: 12,
 
@@ -3334,10 +3496,11 @@ const styles = StyleSheet.create({
   detailsHeroSubtitle: { color: "#C8E4D5", fontSize: 11, marginTop: 3 },
   detailsSummaryRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
+    // flexWrap: "wrap",
     alignItems: "center",
     gap: 5,
     marginTop: 9,
+    marginHorizontal:2,
   },
   summaryPill: {
     flexDirection: "row",

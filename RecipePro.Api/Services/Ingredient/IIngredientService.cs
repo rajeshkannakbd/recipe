@@ -22,5 +22,5 @@ public interface IIngredientService
         long id,
         IFormFile file);
 
-    
-}   
+
+}

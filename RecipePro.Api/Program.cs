@@ -70,7 +70,7 @@ builder.Services.AddScoped<PasswordHasher<ApplicationUser>>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<IIngredientService, IngredientService>();
 builder.Services.AddMemoryCache();
-builder.Services.AddHttpClient<IMandiPriceService,DataGovMandiPriceService>();
+builder.Services.AddHttpClient<IMandiPriceService, DataGovMandiPriceService>();
 
 builder.Services.AddScoped<IRecipeService, RecipeService>();
 

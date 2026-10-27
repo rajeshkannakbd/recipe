@@ -19,7 +19,7 @@ public class AppDbContext : DbContext
     public DbSet<Recipe> Recipes => Set<Recipe>();
 
     public DbSet<RecipeIngredient> RecipeIngredients => Set<RecipeIngredient>();
- 
+
     public DbSet<RecipeProcedure> RecipeProcedures => Set<RecipeProcedure>();
 
     public DbSet<ApplicationUser> ApplicationUsers => Set<ApplicationUser>();
@@ -36,7 +36,7 @@ public class AppDbContext : DbContext
 
     public DbSet<FavoriteIngredient> FavoriteIngredients { get; set; }
 
-        
+
     public DbSet<Chef> Chefs => Set<Chef>();
 
     public DbSet<CookingStyle> CookingStyles => Set<CookingStyle>();
@@ -59,8 +59,8 @@ public class AppDbContext : DbContext
 
     public DbSet<FunctionPlan> FunctionPlans => Set<FunctionPlan>();
 
-public DbSet<FunctionPlanRecipe> FunctionPlanRecipes
-    => Set<FunctionPlanRecipe>();
+    public DbSet<FunctionPlanRecipe> FunctionPlanRecipes
+        => Set<FunctionPlanRecipe>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -177,11 +177,13 @@ public DbSet<FunctionPlanRecipe> FunctionPlanRecipes
         {
             entity.HasKey(x => x.Id);
 
+            // Allow multiple saved customizations for the same recipe.
+            // Each favorite entry is identified by its own Id.
             entity.HasIndex(x => new
             {
                 x.UserId,
                 x.RecipeId
-            }).IsUnique();
+            });
 
             entity.HasOne(x => x.User)
                 .WithMany()
@@ -205,71 +207,71 @@ public DbSet<FunctionPlanRecipe> FunctionPlanRecipes
             .HasForeignKey(x => x.IngredientId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        
 
-            }
 
-            
-private static void ConfigureNewRecipeFeatures(ModelBuilder modelBuilder)
-{
-    // Chef
-    modelBuilder.Entity<Chef>(entity =>
+    }
+
+
+    private static void ConfigureNewRecipeFeatures(ModelBuilder modelBuilder)
     {
-        entity.HasKey(x => x.Id);
-        entity.Property(x => x.Name)
-            .IsRequired()
-            .HasMaxLength(150);
-        entity.Property(x => x.Biography).HasMaxLength(2000);
-        entity.Property(x => x.PhotoUrl).HasMaxLength(500);
-        entity.Property(x => x.SourceUrl).HasMaxLength(1000);
-    });
-
-    // Cooking style
-    modelBuilder.Entity<CookingStyle>(entity =>
-    {
-        entity.HasKey(x => x.Id);
-        entity.Property(x => x.Name)
-            .IsRequired()
-            .HasMaxLength(100);
-        entity.Property(x => x.Description).HasMaxLength(500);
-
-        entity.HasIndex(x => x.Name).IsUnique();
-    });
-
-    // Recipe metadata and optional relationships
-    modelBuilder.Entity<Recipe>(entity =>
-    {
-        entity.Property(x => x.Cuisine).HasMaxLength(100);
-        entity.Property(x => x.MealType).HasMaxLength(100);
-        entity.Property(x => x.StorageInstructions).HasMaxLength(1000);
-        entity.Property(x => x.SourceName).HasMaxLength(200);
-        entity.Property(x => x.SourceUrl).HasMaxLength(1000);
-
-        entity.HasOne(x => x.Chef)
-            .WithMany(x => x.Recipes)
-            .HasForeignKey(x => x.ChefId)
-            .OnDelete(DeleteBehavior.SetNull);
-
-        entity.HasOne(x => x.CookingStyle)
-            .WithMany(x => x.Recipes)
-            .HasForeignKey(x => x.CookingStyleId)
-            .OnDelete(DeleteBehavior.SetNull);
-
-        entity.HasIndex(x => x.ChefId);
-        entity.HasIndex(x => x.CookingStyleId);
-    });
-
-    modelBuilder.Entity<Cuisine>(entity =>
+        // Chef
+        modelBuilder.Entity<Chef>(entity =>
         {
             entity.HasKey(x => x.Id);
+            entity.Property(x => x.Name)
+                .IsRequired()
+                .HasMaxLength(150);
+            entity.Property(x => x.Biography).HasMaxLength(2000);
+            entity.Property(x => x.PhotoUrl).HasMaxLength(500);
+            entity.Property(x => x.SourceUrl).HasMaxLength(1000);
+        });
 
+        // Cooking style
+        modelBuilder.Entity<CookingStyle>(entity =>
+        {
+            entity.HasKey(x => x.Id);
             entity.Property(x => x.Name)
                 .IsRequired()
                 .HasMaxLength(100);
+            entity.Property(x => x.Description).HasMaxLength(500);
 
-            entity.HasIndex(x => x.Name)
-                .IsUnique();
+            entity.HasIndex(x => x.Name).IsUnique();
         });
+
+        // Recipe metadata and optional relationships
+        modelBuilder.Entity<Recipe>(entity =>
+        {
+            entity.Property(x => x.Cuisine).HasMaxLength(100);
+            entity.Property(x => x.MealType).HasMaxLength(100);
+            entity.Property(x => x.StorageInstructions).HasMaxLength(1000);
+            entity.Property(x => x.SourceName).HasMaxLength(200);
+            entity.Property(x => x.SourceUrl).HasMaxLength(1000);
+
+            entity.HasOne(x => x.Chef)
+                .WithMany(x => x.Recipes)
+                .HasForeignKey(x => x.ChefId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(x => x.CookingStyle)
+                .WithMany(x => x.Recipes)
+                .HasForeignKey(x => x.CookingStyleId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasIndex(x => x.ChefId);
+            entity.HasIndex(x => x.CookingStyleId);
+        });
+
+        modelBuilder.Entity<Cuisine>(entity =>
+            {
+                entity.HasKey(x => x.Id);
+
+                entity.Property(x => x.Name)
+                    .IsRequired()
+                    .HasMaxLength(100);
+
+                entity.HasIndex(x => x.Name)
+                    .IsUnique();
+            });
 
         modelBuilder.Entity<Recipe>()
             .HasOne(x => x.CuisineEntity)
@@ -280,99 +282,99 @@ private static void ConfigureNewRecipeFeatures(ModelBuilder modelBuilder)
         modelBuilder.Entity<Recipe>()
             .HasIndex(x => x.CuisineId);
 
-    // Nutrition: one record per recipe
-    modelBuilder.Entity<RecipeNutrition>(entity =>
-    {
-        entity.HasKey(x => x.Id);
-
-        entity.Property(x => x.CaloriesKcal).HasPrecision(10, 2);
-        entity.Property(x => x.ProteinGrams).HasPrecision(10, 2);
-        entity.Property(x => x.CarbohydratesGrams).HasPrecision(10, 2);
-        entity.Property(x => x.FatGrams).HasPrecision(10, 2);
-        entity.Property(x => x.FiberGrams).HasPrecision(10, 2);
-        entity.Property(x => x.SugarGrams).HasPrecision(10, 2);
-        entity.Property(x => x.SodiumMilligrams).HasPrecision(10, 2);
-        entity.Property(x => x.DataSource).HasMaxLength(200);
-
-        entity.HasIndex(x => x.RecipeId).IsUnique();
-
-        entity.HasOne(x => x.Recipe)
-            .WithOne(x => x.Nutrition)
-            .HasForeignKey<RecipeNutrition>(x => x.RecipeId)
-            .OnDelete(DeleteBehavior.Cascade);
-    });
-
-    // Reviews
-    modelBuilder.Entity<RecipeReview>(entity =>
-    {
-        entity.HasKey(x => x.Id);
-        entity.Property(x => x.Comment).HasMaxLength(1000);
-
-        entity.ToTable(table =>
+        // Nutrition: one record per recipe
+        modelBuilder.Entity<RecipeNutrition>(entity =>
         {
-            table.HasCheckConstraint(
-                "CK_RecipeReview_Rating",
-                "`Rating` >= 1 AND `Rating` <= 5");
+            entity.HasKey(x => x.Id);
+
+            entity.Property(x => x.CaloriesKcal).HasPrecision(10, 2);
+            entity.Property(x => x.ProteinGrams).HasPrecision(10, 2);
+            entity.Property(x => x.CarbohydratesGrams).HasPrecision(10, 2);
+            entity.Property(x => x.FatGrams).HasPrecision(10, 2);
+            entity.Property(x => x.FiberGrams).HasPrecision(10, 2);
+            entity.Property(x => x.SugarGrams).HasPrecision(10, 2);
+            entity.Property(x => x.SodiumMilligrams).HasPrecision(10, 2);
+            entity.Property(x => x.DataSource).HasMaxLength(200);
+
+            entity.HasIndex(x => x.RecipeId).IsUnique();
+
+            entity.HasOne(x => x.Recipe)
+                .WithOne(x => x.Nutrition)
+                .HasForeignKey<RecipeNutrition>(x => x.RecipeId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
-        entity.HasIndex(x => new { x.RecipeId, x.UserId })
-            .IsUnique();
-
-        entity.HasOne(x => x.Recipe)
-            .WithMany(x => x.Reviews)
-            .HasForeignKey(x => x.RecipeId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        entity.HasOne(x => x.User)
-            .WithMany()
-            .HasForeignKey(x => x.UserId)
-            .OnDelete(DeleteBehavior.Cascade);
-    });
-
-    // Recipe variations
-    modelBuilder.Entity<RecipeVariation>(entity =>
-    {
-        entity.HasKey(x => x.Id);
-        entity.Property(x => x.Name)
-            .IsRequired()
-            .HasMaxLength(100);
-        entity.Property(x => x.Description).HasMaxLength(1000);
-        entity.Property(x => x.IngredientChangesJson).HasColumnType("longtext");
-        entity.Property(x => x.ProcedureChanges).HasMaxLength(4000);
-
-        entity.HasIndex(x => x.RecipeId);
-
-        entity.HasOne(x => x.Recipe)
-            .WithMany(x => x.Variations)
-            .HasForeignKey(x => x.RecipeId)
-            .OnDelete(DeleteBehavior.Cascade);
-    });
-
-    // Ingredient substitutions
-    modelBuilder.Entity<IngredientSubstitution>(entity =>
-    {
-        entity.HasKey(x => x.Id);
-        entity.Property(x => x.Quantity).HasPrecision(18, 3);
-        entity.Property(x => x.Unit).HasMaxLength(30);
-        entity.Property(x => x.Instructions).HasMaxLength(500);
-
-        entity.HasIndex(x => new
+        // Reviews
+        modelBuilder.Entity<RecipeReview>(entity =>
         {
-            x.RecipeIngredientId,
-            x.SubstituteIngredientId
-        }).IsUnique();
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Comment).HasMaxLength(1000);
 
-        entity.HasOne(x => x.RecipeIngredient)
-            .WithMany()
-            .HasForeignKey(x => x.RecipeIngredientId)
-            .OnDelete(DeleteBehavior.Cascade);
+            entity.ToTable(table =>
+            {
+                table.HasCheckConstraint(
+                    "CK_RecipeReview_Rating",
+                    "`Rating` >= 1 AND `Rating` <= 5");
+            });
 
-        entity.HasOne(x => x.SubstituteIngredient)
-            .WithMany()
-            .HasForeignKey(x => x.SubstituteIngredientId)
-            .OnDelete(DeleteBehavior.Restrict);
-    });
-}
+            entity.HasIndex(x => new { x.RecipeId, x.UserId })
+                .IsUnique();
+
+            entity.HasOne(x => x.Recipe)
+                .WithMany(x => x.Reviews)
+                .HasForeignKey(x => x.RecipeId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Recipe variations
+        modelBuilder.Entity<RecipeVariation>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Name)
+                .IsRequired()
+                .HasMaxLength(100);
+            entity.Property(x => x.Description).HasMaxLength(1000);
+            entity.Property(x => x.IngredientChangesJson).HasColumnType("longtext");
+            entity.Property(x => x.ProcedureChanges).HasMaxLength(4000);
+
+            entity.HasIndex(x => x.RecipeId);
+
+            entity.HasOne(x => x.Recipe)
+                .WithMany(x => x.Variations)
+                .HasForeignKey(x => x.RecipeId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Ingredient substitutions
+        modelBuilder.Entity<IngredientSubstitution>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Quantity).HasPrecision(18, 3);
+            entity.Property(x => x.Unit).HasMaxLength(30);
+            entity.Property(x => x.Instructions).HasMaxLength(500);
+
+            entity.HasIndex(x => new
+            {
+                x.RecipeIngredientId,
+                x.SubstituteIngredientId
+            }).IsUnique();
+
+            entity.HasOne(x => x.RecipeIngredient)
+                .WithMany()
+                .HasForeignKey(x => x.RecipeIngredientId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(x => x.SubstituteIngredient)
+                .WithMany()
+                .HasForeignKey(x => x.SubstituteIngredientId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+    }
 
 
     private static void ConfigureCategory(ModelBuilder modelBuilder)
@@ -552,73 +554,73 @@ private static void ConfigureNewRecipeFeatures(ModelBuilder modelBuilder)
         }
     }
     private static void ConfigureFavorite(ModelBuilder modelBuilder)
-{
-    modelBuilder.Entity<Favorite>(entity =>
     {
-        entity.HasKey(x => x.Id);
-
-        entity.HasIndex(x => new
+        modelBuilder.Entity<Favorite>(entity =>
         {
-            x.UserId,
-            x.RecipeId
-        }).IsUnique();
+            entity.HasKey(x => x.Id);
 
-        entity.HasOne(x => x.User)
-            .WithMany()
-            .HasForeignKey(x => x.UserId)
-            .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(x => new
+            {
+                x.UserId,
+                x.RecipeId
+            }).IsUnique();
 
-        entity.HasOne(x => x.Recipe)
-            .WithMany()
-            .HasForeignKey(x => x.RecipeId)
-            .OnDelete(DeleteBehavior.Cascade);
-    });
-}
+            entity.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(x => x.Recipe)
+                .WithMany()
+                .HasForeignKey(x => x.RecipeId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+    }
     private static void ConfigureFunctionPlan(ModelBuilder modelBuilder)
-{
-    modelBuilder.Entity<FunctionPlan>(entity =>
     {
-        entity.HasKey(x => x.Id);
-
-        entity.Property(x => x.Name)
-            .IsRequired()
-            .HasMaxLength(150);
-
-        entity.Property(x => x.Notes)
-            .HasMaxLength(2000);
-
-        entity.HasIndex(x => x.CreatedAt);
-    });
-
-    modelBuilder.Entity<FunctionPlanRecipe>(entity =>
-    {
-        entity.HasKey(x => x.Id);
-
-        entity.Property(x => x.RequiredServings)
-            .IsRequired();
-
-        entity.ToTable(table =>
+        modelBuilder.Entity<FunctionPlan>(entity =>
         {
-            table.HasCheckConstraint(
-                "CK_FunctionPlanRecipe_RequiredServings_Positive",
-                "`RequiredServings` > 0");
+            entity.HasKey(x => x.Id);
+
+            entity.Property(x => x.Name)
+                .IsRequired()
+                .HasMaxLength(150);
+
+            entity.Property(x => x.Notes)
+                .HasMaxLength(2000);
+
+            entity.HasIndex(x => x.CreatedAt);
         });
 
-        entity.HasIndex(x => new
+        modelBuilder.Entity<FunctionPlanRecipe>(entity =>
         {
-            x.FunctionPlanId,
-            x.RecipeId
-        }).IsUnique();
+            entity.HasKey(x => x.Id);
 
-        entity.HasOne(x => x.FunctionPlan)
-            .WithMany(x => x.Recipes)
-            .HasForeignKey(x => x.FunctionPlanId)
-            .OnDelete(DeleteBehavior.Cascade);
+            entity.Property(x => x.RequiredServings)
+                .IsRequired();
 
-        entity.HasOne(x => x.Recipe)
-            .WithMany()
-            .HasForeignKey(x => x.RecipeId)
-            .OnDelete(DeleteBehavior.Restrict);
-    });
-}
+            entity.ToTable(table =>
+            {
+                table.HasCheckConstraint(
+                    "CK_FunctionPlanRecipe_RequiredServings_Positive",
+                    "`RequiredServings` > 0");
+            });
+
+            entity.HasIndex(x => new
+            {
+                x.FunctionPlanId,
+                x.RecipeId
+            }).IsUnique();
+
+            entity.HasOne(x => x.FunctionPlan)
+                .WithMany(x => x.Recipes)
+                .HasForeignKey(x => x.FunctionPlanId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(x => x.Recipe)
+                .WithMany()
+                .HasForeignKey(x => x.RecipeId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+    }
 }

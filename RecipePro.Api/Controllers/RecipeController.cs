@@ -21,7 +21,7 @@ public class RecipeController : ControllerBase
     {
         _context = context;
         _recipeService = recipeService;
-        
+
     }
 
     [HttpPost]
@@ -47,142 +47,142 @@ public class RecipeController : ControllerBase
         }
     }
 
-      [HttpGet]
-      public async Task<ActionResult<List<RecipeResponse>>> GetAll()
-      {
-          var recipes = await _recipeService.GetAllAsync();
+    [HttpGet]
+    public async Task<ActionResult<List<RecipeResponse>>> GetAll()
+    {
+        var recipes = await _recipeService.GetAllAsync();
 
-          return Ok(recipes);
-      }
+        return Ok(recipes);
+    }
 
-      [HttpGet("{id:long}")]
-      public async Task<ActionResult<RecipeResponse>> GetById(long id)
-      {
-          var recipe = await _recipeService.GetByIdAsync(id);
+    [HttpGet("{id:long}")]
+    public async Task<ActionResult<RecipeResponse>> GetById(long id)
+    {
+        var recipe = await _recipeService.GetByIdAsync(id);
 
-          if (recipe == null)
-          {
-              return NotFound(new
-              {
-                  message = "Recipe not found."
-              });
-          }
-
-          return Ok(recipe);
-      }
-      [HttpPost("{id:long}/calculate")]
-      
-          public async Task<ActionResult<RecipeCalculationResponse>> Calculate(
-              long id,
-              RecipeCalculationRequest request)
-          {
-              var result = await _recipeService.CalculateAsync(
-                  id,
-                  request);
-
-              if (result == null)
-              {
-                  return NotFound(new
-                  {
-                      message = "Recipe not found."
-                  });
-              }
-
-              return Ok(result);
-          }
-
-          [HttpPut("{id:long}")]
-          [Authorize(Roles = "Admin")]
-            public async Task<ActionResult<RecipeResponse>> Update(
-                long id,
-                RecipeRequest request)
+        if (recipe == null)
+        {
+            return NotFound(new
             {
-                try
-                {
-                    var recipe = await _recipeService.UpdateAsync(
-                        id,
-                        request);
+                message = "Recipe not found."
+            });
+        }
 
-                    if (recipe == null)
-                    {
-                        return NotFound(new
-                        {
-                            message = "Recipe not found."
-                        });
-                    }
+        return Ok(recipe);
+    }
+    [HttpPost("{id:long}/calculate")]
 
-                    return Ok(recipe);
-                }
-                catch (InvalidOperationException ex)
+    public async Task<ActionResult<RecipeCalculationResponse>> Calculate(
+            long id,
+            RecipeCalculationRequest request)
+    {
+        var result = await _recipeService.CalculateAsync(
+            id,
+            request);
+
+        if (result == null)
+        {
+            return NotFound(new
+            {
+                message = "Recipe not found."
+            });
+        }
+
+        return Ok(result);
+    }
+
+    [HttpPut("{id:long}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<RecipeResponse>> Update(
+          long id,
+          RecipeRequest request)
+    {
+        try
+        {
+            var recipe = await _recipeService.UpdateAsync(
+                id,
+                request);
+
+            if (recipe == null)
+            {
+                return NotFound(new
                 {
-                    return Conflict(new
-                    {
-                        message = ex.Message
-                    });
-                }
+                    message = "Recipe not found."
+                });
             }
 
-            [HttpDelete("{id:long}")]
-            [Authorize(Roles = "Admin")]
-            public async Task<IActionResult> Delete(long id)
+            return Ok(recipe);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new
             {
-                var deleted = await _recipeService.DeleteAsync(id);
+                message = ex.Message
+            });
+        }
+    }
 
-                if (!deleted)
-                {
-                    return NotFound(new
-                    {
-                        message = "Recipe not found."
-                    });
-                }
+    [HttpDelete("{id:long}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Delete(long id)
+    {
+        var deleted = await _recipeService.DeleteAsync(id);
 
-                return NoContent();
-            }
-            [HttpPost("{id:long}/image")]
-            [Consumes("multipart/form-data")]
-            [RequestSizeLimit(5 * 1024 * 1024)]
-            public async Task<ActionResult<RecipeResponse>> UploadImage(
-                long id,
-                IFormFile file)
+        if (!deleted)
+        {
+            return NotFound(new
             {
-                try
-                {
-                    var recipe =
-                        await _recipeService.UploadImageAsync(id, file);
+                message = "Recipe not found."
+            });
+        }
 
-                    if (recipe == null)
-                    {
-                        return NotFound(new
-                        {
-                            message = "Recipe not found."
-                        });
-                    }
+        return NoContent();
+    }
+    [HttpPost("{id:long}/image")]
+    [Consumes("multipart/form-data")]
+    [RequestSizeLimit(5 * 1024 * 1024)]
+    public async Task<ActionResult<RecipeResponse>> UploadImage(
+        long id,
+        IFormFile file)
+    {
+        try
+        {
+            var recipe =
+                await _recipeService.UploadImageAsync(id, file);
 
-                    return Ok(recipe);
-                }
-                catch (ArgumentException ex)
-                {
-                    return BadRequest(new { message = ex.Message });
-                }
-                catch (InvalidOperationException ex)
-                {
-                    return StatusCode(502, new { message = ex.Message });
-                }
-            }
-
-            // GET: api/recipes/cuisines
-            [HttpGet("cuisines")]
-            public async Task<ActionResult<IEnumerable<string>>> GetCuisines(
-                CancellationToken cancellationToken)
+            if (recipe == null)
             {
-                var cuisines = await _context.Recipes
-                    .AsNoTracking()
-                    .Where(r => r.Cuisine != null && r.Cuisine.Trim() != "")
-                    .Select(r => r.Cuisine!.Trim())
-                    .Distinct()
-                    .OrderBy(c => c)
-                    .ToListAsync(cancellationToken);
-
-                return Ok(cuisines);
+                return NotFound(new
+                {
+                    message = "Recipe not found."
+                });
             }
+
+            return Ok(recipe);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return StatusCode(502, new { message = ex.Message });
+        }
+    }
+
+    // GET: api/recipes/cuisines
+    [HttpGet("cuisines")]
+    public async Task<ActionResult<IEnumerable<string>>> GetCuisines(
+        CancellationToken cancellationToken)
+    {
+        var cuisines = await _context.Recipes
+            .AsNoTracking()
+            .Where(r => r.Cuisine != null && r.Cuisine.Trim() != "")
+            .Select(r => r.Cuisine!.Trim())
+            .Distinct()
+            .OrderBy(c => c)
+            .ToListAsync(cancellationToken);
+
+        return Ok(cuisines);
+    }
 }

@@ -1,4 +1,3 @@
-
 import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
 
@@ -15,7 +14,7 @@ export type AuthUser = {
 export async function saveAuthData(
   token: string,
   user: AuthUser,
-  rememberMe = true
+  rememberMe = true,
 ): Promise<void> {
   const userJson = JSON.stringify(user);
 

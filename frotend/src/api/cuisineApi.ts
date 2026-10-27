@@ -25,15 +25,23 @@ export const cuisineApi = {
     return normalize(unwrapItem<any>(await metadataRequest(`cuisines/${id}`)));
   },
   async create(request: CuisineRequest): Promise<CuisineRecord> {
-    return normalize(unwrapItem<any>(await metadataRequest("cuisines", {
-      method: "POST", body: JSON.stringify(request),
-    })));
+    return normalize(
+      unwrapItem<any>(
+        await metadataRequest("cuisines", {
+          method: "POST",
+          body: JSON.stringify(request),
+        }),
+      ),
+    );
   },
   async update(id: number, request: CuisineRequest): Promise<CuisineRecord> {
     const result = await metadataRequest<any>(`cuisines/${id}`, {
-      method: "PUT", body: JSON.stringify(request),
+      method: "PUT",
+      body: JSON.stringify(request),
     });
-    return result == null ? { id, ...request } as CuisineRecord : normalize(unwrapItem<any>(result));
+    return result == null
+      ? ({ id, ...request } as CuisineRecord)
+      : normalize(unwrapItem<any>(result));
   },
   async delete(id: number): Promise<void> {
     await metadataRequest<void>(`cuisines/${id}`, { method: "DELETE" });

@@ -4,7 +4,7 @@ import * as SecureStore from "expo-secure-store";
 const AUTH_TOKEN_KEY = "recipepro_token";
 
 export const API_BASE_URL = (
-  process.env.EXPO_PUBLIC_API_BASE_URL || "http://localhost:5204/api"
+  process.env.EXPO_PUBLIC_API_BASE_URL || "http://192.168.1.37:5204/api"
 ).replace(/\/$/, "");
 
 export async function getAuthToken(): Promise<string | null> {
@@ -79,7 +79,7 @@ export async function metadataRequest<T>(
 export function unwrapList<T>(payload: any): T[] {
   const list = Array.isArray(payload)
     ? payload
-    : payload?.items ?? payload?.data ?? payload?.results ?? [];
+    : (payload?.items ?? payload?.data ?? payload?.results ?? []);
   if (!Array.isArray(list)) return [];
   return list;
 }

@@ -1,4 +1,5 @@
 import { ActivityIndicator, Pressable, Text } from "react-native";
+import AppText from "./AppText";
 
 interface Props {
   title: string;
@@ -44,7 +45,7 @@ export default function AppButton({
       {loading ? (
         <ActivityIndicator color={variant === "primary" ? "#fff" : "#1F7655"} />
       ) : (
-        <Text className={`text-base font-bold ${text}`}>{title}</Text>
+        <AppText variant="button" className={`text-base font-bold ${text}`}>{title}</AppText>
       )}
     </Pressable>
   );

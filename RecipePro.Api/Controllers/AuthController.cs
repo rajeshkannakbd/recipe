@@ -55,58 +55,58 @@ public class AuthController : ControllerBase
 
     [HttpPost("login")]
 
-public async Task<IActionResult> Login(LoginRequest request)
-{
-    var email = request.Email.Trim().ToLowerInvariant();
-
-    var user = await _db.ApplicationUsers
-        .SingleOrDefaultAsync(x => x.Email == email);
-
-    // Email does not exist.
-    if (user == null)
+    public async Task<IActionResult> Login(LoginRequest request)
     {
-        return Unauthorized(new
-        {
-            message = "Email address is incorrect."
-        });
-    }
+        var email = request.Email.Trim().ToLowerInvariant();
 
-    // Account is inactive.
-    if (!user.IsActive)
-    {
-        return Unauthorized(new
-        {
-            message = "Your account is inactive. Please contact the administrator."
-        });
-    }
+        var user = await _db.ApplicationUsers
+            .SingleOrDefaultAsync(x => x.Email == email);
 
-    // Verify password.
-    var result = _hasher.VerifyHashedPassword(
-        user,
-        user.PasswordHash,
-        request.Password
-    );
-
-    // Password is incorrect.
-    if (result == PasswordVerificationResult.Failed)
-    {
-        return Unauthorized(new
+        // Email does not exist.
+        if (user == null)
         {
-            message = "Password is incorrect."
-        });
-    }
-
-    // Login successful.
-    return Ok(new
-    {
-        token = _jwt.CreateToken(user),
-        user = new
-        {
-            user.Id,
-            user.Name,
-            user.Email,
-            user.Role
+            return Unauthorized(new
+            {
+                message = "Email address is incorrect."
+            });
         }
-    });
-}
+
+        // Account is inactive.
+        if (!user.IsActive)
+        {
+            return Unauthorized(new
+            {
+                message = "Your account is inactive. Please contact the administrator."
+            });
+        }
+
+        // Verify password.
+        var result = _hasher.VerifyHashedPassword(
+            user,
+            user.PasswordHash,
+            request.Password
+        );
+
+        // Password is incorrect.
+        if (result == PasswordVerificationResult.Failed)
+        {
+            return Unauthorized(new
+            {
+                message = "Password is incorrect."
+            });
+        }
+
+        // Login successful.
+        return Ok(new
+        {
+            token = _jwt.CreateToken(user),
+            user = new
+            {
+                user.Id,
+                user.Name,
+                user.Email,
+                user.Role
+            }
+        });
+    }
 }

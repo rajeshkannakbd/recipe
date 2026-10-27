@@ -2,7 +2,6 @@ import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 
 import {
   View,
-  Text,
   FlatList,
   ScrollView,
   Pressable,
@@ -33,6 +32,7 @@ import type { RecipeResponse } from "../../types/recipe";
 import SearchBar from "../../components/common/SearchBar";
 
 import ScreenLoader from "../../components/common/ScreenLoader";
+import AppText from "@/components/common/AppText";
 
 const CATEGORY_IMAGES: Record<string, string> = {
   tiffin:
@@ -499,13 +499,13 @@ export default function CategoriesScreen() {
       {/* Fixed white header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
-           <Text style={styles.brandName}>RecipePro</Text>
-            <Text style={styles.brandCaption}>PLAN · COOK · SCALE</Text>
+           <AppText variant="pageTitle" style={styles.brandName}>RecipePro</AppText>
+            <AppText variant="label" style={styles.brandCaption}>PLAN · COOK · SCALE</AppText>
         </View>
         
-        <Text style={styles.headingg}>What are we cooking today?</Text>
+        <AppText variant="sectionTitle" style={styles.headingg}>What are we cooking today?</AppText>
         
-        <View style={[
+        {/* <View style={[
   styles.searchContainer, 
   isSelected && styles.selectedBorder
 ]}>
@@ -514,7 +514,7 @@ export default function CategoriesScreen() {
             onChangeText={setSearch}
             placeholder="Search categories..."
           />
-        </View>
+        </View> */}
       </View>
 
  
@@ -547,11 +547,11 @@ export default function CategoriesScreen() {
                       >
                         <View style={styles.heroRow}>
                           <View style={styles.heroCopy}>
-                            <Text style={styles.heroEyebrow}>YOUR NEXT FAVOURITE</Text>
-                            <Text style={styles.heroTitle}>Good food,{"\n"}made simple.</Text>
-                            <Text style={styles.heroDescription}>
+                            <AppText variant="label" style={styles.heroEyebrow}>YOUR NEXT FAVOURITE</AppText>
+                            <AppText variant="pageTitle" style={styles.heroTitle}>Good food,{"\n"}made simple.</AppText>
+                            <AppText variant="body" style={styles.heroDescription}>
                               Explore recipes, cooking styles and meal ideas.
-                            </Text>
+                            </AppText>
                             <Animated.View
                               style={[
                                 styles.heroButtonAnimated,
@@ -579,7 +579,7 @@ export default function CategoriesScreen() {
                                 }
                                 accessibilityRole="button"
                               >
-                                <Text style={styles.heroButtonText}>Explore recipes</Text>
+                                <AppText variant="button" style={styles.heroButtonText}>Explore recipes</AppText>
                                 <Ionicons name="arrow-forward" size={16} color={COLORS.primaryDark} />
                               </Pressable>
                             </Animated.View>
@@ -602,15 +602,15 @@ export default function CategoriesScreen() {
 
             <View style={styles.popularSectionHeader}>
               <View style={styles.popularSectionCopy}>
-                <Text style={styles.sectionTitle}>Popular recipes</Text>
-                <Text style={styles.popularSectionSubtitle}>Top-rated recipes first</Text>
+                <AppText variant="sectionTitle" style={styles.sectionTitle}>Popular recipes</AppText>
+                <AppText variant="subtitle" style={styles.popularSectionSubtitle}>Top-rated recipes first</AppText>
               </View>
               <Pressable
                 onPress={() => router.push("/(tabs)/all-recipes")}
                 hitSlop={8}
                 style={styles.popularViewAll}
               >
-                <Text style={styles.viewAllText}>View all</Text>
+                <AppText variant="button" style={styles.viewAllText}>View all</AppText>
                 <Ionicons name="chevron-forward" size={14} color={COLORS.primary} />
               </Pressable>
             </View>
@@ -653,26 +653,26 @@ export default function CategoriesScreen() {
                         )}
                         <View style={styles.popularBadge}>
                           <Ionicons name="sparkles" size={12} color={COLORS.primary} />
-                          <Text style={styles.popularBadgeText}>Popular</Text>
+                          <AppText variant="label" style={styles.popularBadgeText}>Popular</AppText>
                         </View>
                       </View>
-                      <Text style={styles.popularName} numberOfLines={2}>
+                      <AppText variant="cardTitle" style={styles.popularName} numberOfLines={2}>
                         {cleanText(recipe.name) || "Untitled recipe"}
-                      </Text>
-                      <Text style={styles.popularCategory} numberOfLines={1}>
+                      </AppText>
+                      <AppText variant="helper" style={styles.popularCategory} numberOfLines={1}>
                         {cleanText(recipe.categoryName) || "Recipe"}
-                      </Text>
+                      </AppText>
                       <View style={styles.ratingRow}>
                         {rating !== null ? (
                           <>
                             <Ionicons name="star" size={14} color={COLORS.orange} />
-                            <Text style={styles.ratingText}>{rating.toFixed(1)}</Text>
-                            {reviewCount > 0 && <Text style={styles.reviewCount}>({reviewCount})</Text>}
+                            <AppText variant="label" style={styles.ratingText}>{rating.toFixed(1)}</AppText>
+                            {reviewCount > 0 && <AppText variant="helper" style={styles.reviewCount}>({reviewCount})</AppText>}
                           </>
                         ) : (
                           <>
                             <Ionicons name="time-outline" size={14} color={COLORS.muted} />
-                            <Text style={styles.reviewCount}>Discover this recipe</Text>
+                            <AppText variant="helper" style={styles.reviewCount}>Discover this recipe</AppText>
                           </>
                         )}
                       </View>
@@ -683,12 +683,12 @@ export default function CategoriesScreen() {
             ) : (
               <View style={styles.popularEmptyState}>
                 <Ionicons name="restaurant-outline" size={24} color={COLORS.muted} />
-                <Text style={styles.popularEmptyText}>Published recipes will appear here when available.</Text>
+                <AppText variant="body" style={styles.popularEmptyText}>Published recipes will appear here when available.</AppText>
               </View>
             )}
 
               <View style={styles.scrollSectionHeader}>
-                <Text style={styles.sectionTitle}>
+                <AppText variant="sectionTitle" style={styles.sectionTitle}>
                   {/* Keep your existing section-title condition here */}
                   {activeFood === "veg"
                     ? "Vegetarian Recipes"
@@ -701,7 +701,7 @@ export default function CategoriesScreen() {
                           : activeMeal === "dinner"
                             ? "Dinner - Tiffin"
                             : "Categories"}
-                </Text>
+                </AppText>
               </View>
             </View>
           </View>
@@ -714,9 +714,9 @@ export default function CategoriesScreen() {
             : "recipes-list"
         }
         data={
-          activeMeal === "all" && activeFood === "all"
+          (activeMeal === "all" && activeFood === "all"
             ? filtered
-            : filteredRecipes
+            : filteredRecipes) as CategoryResponse[]
         }
         numColumns={activeMeal === "all" && activeFood === "all" ? 2 : 1}
         columnWrapperStyle={
@@ -726,7 +726,7 @@ export default function CategoriesScreen() {
         }
         renderItem={({ item }) => {
           if (activeMeal !== "all" || activeFood !== "all") {
-            const recipe = item as RecipeResponse;
+            const recipe = item as unknown as RecipeResponse;
 
             return (
               <Pressable
@@ -755,24 +755,24 @@ export default function CategoriesScreen() {
                       resizeMode="cover"
                     />
                   ) : (
-                    <Text style={styles.recipeFallbackText}>
+                    <AppText variant="pageTitle" style={styles.recipeFallbackText}>
                       {recipe.name.charAt(0)}
-                    </Text>
+                    </AppText>
                   )}
                 </View>
 
                 <View style={styles.recipeInfo}>
-                  <Text style={styles.recipeName} numberOfLines={1}>
+                  <AppText variant="cardTitle" style={styles.recipeName} numberOfLines={1}>
                     {recipe.name}
-                  </Text>
+                  </AppText>
 
-                  <Text style={styles.recipeMeta} numberOfLines={1}>
+                  <AppText variant="helper" style={styles.recipeMeta} numberOfLines={1}>
                     {recipe.categoryName} · {recipe.baseServings} servings
-                  </Text>
+                  </AppText>
 
                   <View style={styles.recipeBottom}>
                     <View style={styles.statusBadge}>
-                      <Text style={styles.statusText}>{recipe.status}</Text>
+                      <AppText variant="label" style={styles.statusText}>{recipe.status}</AppText>
                     </View>
 
                     <Ionicons
@@ -835,16 +835,16 @@ export default function CategoriesScreen() {
                   />
                 ) : (
                   <View style={styles.categoryImageFallback}>
-                    <Text style={styles.categoryFallbackText}>
+                    <AppText variant="pageTitle" style={styles.categoryFallbackText}>
                       {category.name.charAt(0)}
-                    </Text>
+                    </AppText>
                   </View>
                 )}
               </View>
 
-              <Text style={styles.categoryName}>{category.name}</Text>
+              <AppText variant="cardTitle" style={styles.categoryName}>{category.name}</AppText>
 
-              <Text style={styles.categoryCount}>{recipeCount} recipes</Text>
+              <AppText variant="helper" style={styles.categoryCount}>{recipeCount} recipes</AppText>
             </Pressable>
           );
         }}
@@ -862,21 +862,21 @@ export default function CategoriesScreen() {
               color="#C5C9C4"
             />
 
-            <Text style={styles.emptyTitle}>No recipes found</Text>
+            <AppText variant="sectionTitle" style={styles.emptyTitle}>No recipes found</AppText>
 
-            <Text style={styles.emptyText}>
+            <AppText variant="body" style={styles.emptyText}>
               {activeMeal === "breakfast"
                 ? "No Tiffin recipes are available for breakfast."
                 : activeMeal === "lunch"
                   ? "No Meals recipes are available for lunch."
                   : activeMeal === "dinner"
                     ? "No Tiffin recipes are available for dinner."
-                    : activeMeal === "veg"
+                    : activeFood === "veg"
                       ? "No vegetarian recipes are available."
-                      : activeMeal === "nonveg"
+                      : activeFood === "nonveg"
                         ? "No non-vegetarian recipes are available."
                         : "No categories found."}
-            </Text>
+            </AppText>
           </View>
         }
       />
@@ -1335,11 +1335,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-  viewAllText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#1F7655",
-  },
     brandName: { color: "#0e5c23", fontSize: 17, fontWeight: "800", letterSpacing: 0.2 },
   brandCaption: { color: "#444242", fontSize: 9, fontWeight: "700", letterSpacing: 1.2, marginTop: 3 },
   headingg: { color: "#313730", fontSize: 22, lineHeight: 29, fontWeight: "800", letterSpacing: -0.25 },

@@ -1,4 +1,3 @@
-
 /** Numeric values must match RecipePro.Api.Models.Enums. */
 export enum IngredientType {
   Veg = 1,

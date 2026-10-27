@@ -1,15 +1,14 @@
-
 import React from "react";
 import {
   Pressable,
   StyleSheet,
-  Text,
   View,
   useWindowDimensions,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import LottieView from "lottie-react-native";
+import AppText from "@/components/common/AppText";
 
 export default function NotFoundScreen() {
   const router = useRouter();
@@ -48,17 +47,15 @@ export default function NotFoundScreen() {
         </View>
 
         <View style={styles.textContainer}>
-          <Text style={styles.errorCode}>404</Text>
+          <AppText variant="label" style={styles.errorCode}>404</AppText>
 
-          <Text style={styles.title}>
-            Oops! Page not found
-          </Text>
+          <AppText variant="pageTitle" style={styles.title}>Oops! Page not found</AppText>
 
-          <Text style={styles.description}>
+          <AppText variant="body" style={styles.description}>
             Looks like this recipe took a wrong turn.
             {"\n"}
             Let's get you back to something delicious!
-          </Text>
+          </AppText>
         </View>
 
         <View style={styles.buttonContainer}>
@@ -71,9 +68,7 @@ export default function NotFoundScreen() {
             accessibilityRole="button"
             accessibilityLabel="Go to home"
           >
-            <Text style={styles.homeButtonText}>
-              Go to Home
-            </Text>
+            <AppText variant="button" style={styles.homeButtonText}>Go to Home</AppText>
           </Pressable>
 
           <Pressable
@@ -85,15 +80,11 @@ export default function NotFoundScreen() {
             accessibilityRole="button"
             accessibilityLabel="Go back to the previous screen"
           >
-            <Text style={styles.backButtonText}>
-              Go Back
-            </Text>
+            <AppText variant="button" style={styles.backButtonText}>Go Back</AppText>
           </Pressable>
         </View>
 
-        <Text style={styles.footer}>
-          RecipePro · Made for food lovers
-        </Text>
+        <AppText variant="helper" style={styles.footer}>RecipePro · Made for food lovers</AppText>
       </View>
     </View>
   );

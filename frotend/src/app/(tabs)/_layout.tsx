@@ -30,7 +30,7 @@ export default function TabsLayout() {
         options={{
           title: "Home",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
+            <Ionicons name="home-outline" size={size} color={color as string} />
           ),
         }}
       />
@@ -39,7 +39,7 @@ export default function TabsLayout() {
         options={{
           title: "All Recipes",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="restaurant-outline" size={size} color={color} />
+            <Ionicons name="restaurant-outline" size={size} color={color as string} />
           ),
         }}
       />
@@ -48,7 +48,7 @@ export default function TabsLayout() {
         options={{
           title: "Favorites",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="heart-outline" size={size} color={color} />
+            <Ionicons name="heart-outline" size={size} color={color as string} />
           ),
         }}
       />
@@ -57,7 +57,7 @@ export default function TabsLayout() {
         options={{
           title: "Event's",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="calendar-outline" size={size} color={color} />
+            <Ionicons name="calendar-outline" size={size} color={color as string} />
           ),
         }}
       />
@@ -66,7 +66,7 @@ export default function TabsLayout() {
         options={{
           title: "Profile",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size} color={color} />
+            <Ionicons name="person-outline" size={size} color={color as string} />
           ),
         }}
       />

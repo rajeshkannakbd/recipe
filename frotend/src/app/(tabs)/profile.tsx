@@ -1,21 +1,20 @@
-import { useCallback, useState, useEffect, useRef } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect, useRouter } from "expo-router";
+import * as SecureStore from "expo-secure-store";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-  ScrollView,
-  Platform,
   ActivityIndicator,
   Alert,
-  Modal,
   Animated,
   Easing,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  View,
 } from "react-native";
-import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
-import * as SecureStore from "expo-secure-store";
+import AppText from "../../components/common/AppText";
 const USER_KEY = "recipepro_user";
 const TOKEN_KEY = "recipepro_token";
 type UserProfile = {
@@ -29,8 +28,7 @@ async function getStoredUser(): Promise<UserProfile | null> {
     let userJson: string | null;
     if (Platform.OS === "web") {
       userJson =
-        sessionStorage.getItem(USER_KEY) ??
-        localStorage.getItem(USER_KEY);
+        sessionStorage.getItem(USER_KEY) ?? localStorage.getItem(USER_KEY);
     } else {
       userJson = await SecureStore.getItemAsync(USER_KEY);
     }
@@ -100,29 +98,26 @@ export default function ProfileScreen() {
       return () => {
         active = false;
       };
-    }, [])
+    }, []),
   );
-const performLogout = async () => {
-  try {
-    setLoggingOut(true);
-    // Clear authentication data
-    await clearAuthData();
-    // Navigate to login
-    router.replace("/login");
-  } catch (error) {
-    console.error("Logout error:", error);
-    if (Platform.OS === "web") {
-      window.alert("Unable to log out. Please try again.");
-    } else {
-      Alert.alert(
-        "Logout Error",
-        "Unable to log out. Please try again."
-      );
+  const performLogout = async () => {
+    try {
+      setLoggingOut(true);
+      // Clear authentication data
+      await clearAuthData();
+      // Navigate to login
+      router.replace("/login");
+    } catch (error) {
+      console.error("Logout error:", error);
+      if (Platform.OS === "web") {
+        window.alert("Unable to log out. Please try again.");
+      } else {
+        Alert.alert("Logout Error", "Unable to log out. Please try again.");
+      }
+    } finally {
+      setLoggingOut(false);
     }
-  } finally {
-    setLoggingOut(false);
-  }
-};
+  };
   const handleLogout = () => {
     if (!loggingOut) {
       setLogoutModalVisible(true);
@@ -188,118 +183,95 @@ const performLogout = async () => {
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.eyebrow}>RECIPEPRO</Text>
-            <Text style={styles.title}>My Profile</Text>
-            <Text style={styles.headerSubtitle}>
+            <AppText variant="helper" style={styles.eyebrow}>RECIPEPRO</AppText>
+            <AppText variant="pageTitle" style={styles.title}>My Profile</AppText>
+            <AppText variant="subtitle" style={styles.headerSubtitle}>
               Manage your account and preferences
-            </Text>
+            </AppText>
           </View>
-          <View style={styles.headerIcon}>
-            <Ionicons
-              name="person-circle-outline"
-              size={27}
-              color="#19734F"
-            />
-          </View>
+          {/* <View style={styles.headerIcon}>
+            <Ionicons name="person-circle-outline" size={27} color="#19734F" />
+          </View> */}
         </View>
         {/* Profile Card */}
         <View style={styles.profileCard}>
           <View style={styles.profileTop}>
             <View style={styles.avatar}>
-              <Ionicons
-                name="person"
-                size={36}
-                color="#19734F"
-              />
+              <Ionicons name="person" size={36} color="#19734F" />
             </View>
             <View style={styles.profileInfo}>
-              <Text style={styles.welcomeLabel}>
-                WELCOME BACK
-              </Text>
-              <Text style={styles.userName} numberOfLines={1}>
+              <AppText variant="label" style={styles.welcomeLabel}>WELCOME BACK</AppText>
+              <AppText variant="cardTitle" style={styles.userName} numberOfLines={1}>
                 {loading
                   ? "Loading profile..."
                   : user?.name?.trim() || "RecipePro User"}
-              </Text>
+              </AppText>
               <View style={styles.memberBadge}>
                 <View style={styles.statusDot} />
-                <Text style={styles.memberBadgeText}>
+                <AppText variant="label" style={styles.memberBadgeText}>
                   {user?.role
-                    ? user.role.charAt(0).toUpperCase() +
-                      user.role.slice(1)
+                    ? user.role.charAt(0).toUpperCase() + user.role.slice(1)
                     : "Member"}
-                </Text>
+                </AppText>
               </View>
             </View>
           </View>
           <View style={styles.cardDivider} />
           <View style={styles.detailRow}>
             <View style={styles.detailIcon}>
-              <Ionicons
-                name="mail-outline"
-                size={19}
-                color="#19734F"
-              />
+              <Ionicons name="mail-outline" size={19} color="#19734F" />
             </View>
             <View style={styles.detailInfo}>
-              <Text style={styles.detailLabel}>
-                Email Address
-              </Text>
+              <AppText variant="label" style={styles.detailLabel}>Email Address</AppText>
               {loading ? (
-                <ActivityIndicator
-                  size="small"
-                  color="#19734F"
-                />
+                <ActivityIndicator size="small" color="#19734F" />
               ) : (
-                <Text style={styles.detailValue}>
+                <AppText variant="body" style={styles.detailValue}>
                   {user?.email || "Email not available"}
-                </Text>
+                </AppText>
               )}
             </View>
           </View>
         </View>
         {/* Account Menu */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>
-            Your Account
-          </Text>
-          <Text style={styles.sectionCaption}>
-            Quick access
-          </Text>
+          <AppText variant="sectionTitle" style={styles.sectionTitle}>Your Account</AppText>
+          {/* <AppText variant="helper" style={styles.sectionCaption}>Quick access</AppText> */}
+
         </View>
+
         <View style={styles.menuContainer}>
           {menuItems.map((item, index) => (
             <Pressable
               key={item.label}
               style={({ pressed }) => [
                 styles.menuItem,
+                // Explicit native row sizing prevents global styles from
+                // collapsing the account items on iOS/Android.
+                Platform.OS === "web"
+                  ? styles.menuItemWeb
+                  : styles.menuItemNative,
                 pressed && styles.menuItemPressed,
-                index === menuItems.length - 1 &&
-                  styles.lastMenuItem,
+                index === menuItems.length - 1 && styles.lastMenuItem,
               ]}
               onPress={() => router.push(item.route as any)}
               accessibilityRole="button"
             >
-              <View style={styles.menuIconContainer}>
+              <View style={styles.menuRowContent}>
+                <View style={styles.menuIconContainer}>
+                  <Ionicons name={item.icon as any} size={21} color="#19734F" />
+                </View>
+                <View style={styles.menuInfo}>
+                  <AppText variant="body" style={styles.menuLabel}>{item.label}</AppText>
+                  <AppText variant="helper" style={styles.menuSubtitle}>{item.subtitle}</AppText>
+                </View>
                 <Ionicons
-                  name={item.icon as any}
-                  size={21}
-                  color="#19734F"
+                  name="chevron-forward"
+                  size={19}
+                  color="#8A948D"
+                  style={styles.menuChevron}
                 />
               </View>
-              <View style={styles.menuInfo}>
-                <Text style={styles.menuLabel}>
-                  {item.label}
-                </Text>
-                <Text style={styles.menuSubtitle}>
-                  {item.subtitle}
-                </Text>
-              </View>
-              <Ionicons
-                name="chevron-forward"
-                size={19}
-                color="#8A948D"
-              />
             </Pressable>
           ))}
         </View>
@@ -307,8 +279,14 @@ const performLogout = async () => {
         <Pressable
           style={({ pressed }) => [
             styles.logoutButton,
+            {
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              alignSelf: "stretch",
+              width: "100%",
+            },
             pressed && styles.logoutPressed,
-            { transform: [{ scale: logoutScale }] },
           ]}
           onPressIn={() =>
             Animated.spring(logoutScale, {
@@ -333,24 +311,14 @@ const performLogout = async () => {
           {loggingOut ? (
             <ActivityIndicator color="#B33B31" />
           ) : (
-            <>
-              <Ionicons
-                name="log-out-outline"
-                size={21}
-                color="#B33B31"
-              />
-              <Text style={styles.logoutText}>
-                Log Out
-              </Text>
-            </>
+            <View style={styles.logoutContent}>
+              <Ionicons name="log-out-outline" size={21} color="#B33B31" />
+              <AppText variant="button" style={[styles.logoutText, { marginLeft: 9 }]}>Log Out</AppText>
+            </View>
           )}
         </Pressable>
-        <Text style={styles.footerText}>
-          Made with care for food lovers
-        </Text>
-        <Text style={styles.versionText}>
-          RecipePro
-        </Text>
+        <AppText variant="helper" style={styles.footerText}>Made with care for food lovers</AppText>
+        <AppText variant="helper" style={styles.versionText}>RecipePro</AppText>
       </Animated.ScrollView>
       <Modal
         visible={logoutModalVisible}
@@ -366,10 +334,10 @@ const performLogout = async () => {
             <View style={styles.logoutIconContainer}>
               <Ionicons name="log-out-outline" size={28} color="#B33B31" />
             </View>
-            <Text style={styles.logoutModalTitle}>Log Out?</Text>
-            <Text style={styles.logoutModalMessage}>
+            <AppText variant="sectionTitle" style={styles.logoutModalTitle}>Log Out?</AppText>
+            <AppText variant="body" style={styles.logoutModalMessage}>
               Are you sure you want to log out of your RecipePro account?
-            </Text>
+            </AppText>
             <View style={styles.logoutModalActions}>
               <Pressable
                 style={styles.logoutCancelButton}
@@ -377,7 +345,7 @@ const performLogout = async () => {
                 disabled={loggingOut}
                 accessibilityRole="button"
               >
-                <Text style={styles.logoutCancelText}>Cancel</Text>
+                <AppText variant="button" style={styles.logoutCancelText}>Cancel</AppText>
               </Pressable>
               <Pressable
                 style={styles.logoutConfirmButton}
@@ -388,7 +356,7 @@ const performLogout = async () => {
                 disabled={loggingOut}
                 accessibilityRole="button"
               >
-                <Text style={styles.logoutConfirmText}>Log Out</Text>
+                <AppText variant="button" style={styles.logoutConfirmText}>Log Out</AppText>
               </Pressable>
             </View>
           </View>
@@ -403,6 +371,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#F7F8F3",
   },
   scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 40,
@@ -442,6 +411,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   profileCard: {
+    width: "100%",
+    alignSelf: "stretch",
     backgroundColor: "#FFFFFF",
     borderRadius: 22,
     padding: 21,
@@ -464,6 +435,7 @@ const styles = StyleSheet.create({
   },
   profileInfo: {
     flex: 1,
+    minWidth: 0,
   },
   welcomeLabel: {
     fontSize: 10,
@@ -520,6 +492,7 @@ const styles = StyleSheet.create({
   },
   detailInfo: {
     flex: 1,
+    minWidth: 0,
   },
   detailLabel: {
     fontSize: 12,
@@ -527,6 +500,7 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   detailValue: {
+    flexShrink: 1,
     fontSize: 14,
     lineHeight: 20,
     fontWeight: "600",
@@ -548,20 +522,58 @@ const styles = StyleSheet.create({
     color: "#68736D",
   },
   menuContainer: {
+    width: "100%",
+    alignSelf: "stretch",
     backgroundColor: "#FFFFFF",
     borderRadius: 20,
     borderWidth: 1,
     borderColor: "#E3E6E0",
     overflow: "hidden",
     marginBottom: 22,
+    paddingVertical:12,
+  },
+  menuRowContent: {
+    width: "100%",
+    flexDirection: "row",
+    flexWrap: "nowrap",
+    alignItems: "center",
+    paddingVertical:10,
+    paddingHorizontal:20,
+
   },
   menuItem: {
+    alignSelf: "stretch",
     flexDirection: "row",
+    flexWrap: "nowrap",
     alignItems: "center",
+    justifyContent: "flex-start",
     paddingHorizontal: 14,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
+    paddingVertical: 12,
+    minHeight: 70,
+
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "#EDF0EA",
+  },
+  menuItemNative: {
+    alignSelf: "stretch",
+    flexDirection: "row",
+    flexWrap: "nowrap",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    minHeight: 70,
+  },
+  menuItemWeb: {
+    alignSelf: "stretch",
+    flexDirection: "row",
+    flexWrap: "nowrap",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+
+    minHeight: 70,
   },
   menuItemPressed: {
     backgroundColor: "#F4F7F2",
@@ -572,6 +584,7 @@ const styles = StyleSheet.create({
   menuIconContainer: {
     width: 43,
     height: 43,
+    flexShrink: 0,
     borderRadius: 14,
     backgroundColor: "#EAF3EC",
     alignItems: "center",
@@ -580,33 +593,55 @@ const styles = StyleSheet.create({
   },
   menuInfo: {
     flex: 1,
+    minWidth: 0,
+    flexShrink: 1,
+    justifyContent: "center",
+  },
+  menuChevron: {
+    flexShrink: 0,
+    marginLeft: 8,
   },
   menuLabel: {
+    flexShrink: 1,
     fontSize: 14,
     lineHeight: 19,
-    fontWeight: "700",
+    fontWeight: "500",
     color: "#17231E",
   },
   menuSubtitle: {
+    flexShrink: 1,
     fontSize: 12,
     lineHeight: 17,
     color: "#68736D",
     marginTop: 4,
   },
   logoutButton: {
-    height: 54,
+    width: "100%",
+    minHeight: 58,
+    alignSelf: "stretch",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 9,
+    paddingHorizontal: 18,
     backgroundColor: "#FFFFFF",
     borderRadius: 16,
     borderWidth: 1,
     borderColor: "#F0D8D3",
+    marginTop: 4,
   },
+
+  logoutContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "center",
+    gap: 9,
+  },
+
   logoutPressed: {
     backgroundColor: "#FFF3F1",
   },
+
   logoutText: {
     fontSize: 15,
     fontWeight: "700",

@@ -1,31 +1,29 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { Feather, Ionicons } from "@expo/vector-icons";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-  ScrollView,
-  Image,
   Alert,
-  Platform,
-  Modal,
-  RefreshControl,
-  useWindowDimensions,
   Animated,
   Easing,
+  Image,
+  Modal,
+  Platform,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  useWindowDimensions,
+  View
 } from "react-native";
-import { Feather } from '@expo/vector-icons';
-import { clearAuthData } from "../../utils/authStorage";
-import { useFocusEffect, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
-import { recipeApi } from "../../api/recipeApi";
-import { ingredientApi } from "../../api/ingredientApi";
 import { categoryApi } from "../../api/categoryApi";
-import type { RecipeResponse } from "../../types/recipe";
-import type { IngredientResponse } from "../../types/ingredient";
-import type { CategoryResponse } from "../../types/category";
+import { ingredientApi } from "../../api/ingredientApi";
+import { recipeApi } from "../../api/recipeApi";
+import AppText from "../../components/common/AppText";
 import ScreenLoader from "../../components/common/ScreenLoader";
+import type { CategoryResponse } from "../../types/category";
+import type { IngredientResponse } from "../../types/ingredient";
+import type { RecipeResponse } from "../../types/recipe";
+import { clearAuthData } from "../../utils/authStorage";
 
 type ActionItem = {
   title: string;
@@ -201,7 +199,7 @@ export default function AdminDashboardScreen() {
       tint: "#F0EAFE",
     },
     {
-      title: "Manage metadata",
+      title: "Recipe & Chef Directory",
       subtitle: "Manage chefs, cooking styles, cuisines and recipe tags",
       icon: "options-outline",
       route: "/admin/metadata",
@@ -220,15 +218,20 @@ export default function AdminDashboardScreen() {
   if (loading) return <ScreenLoader />;
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top"]}>
-      <View style={styles.topBar}>
+    <SafeAreaView style={styles.safeArea} edges={[]}>
+      <View
+        style={[
+          styles.topBar,
+          { paddingTop: Platform.OS === "web" ? 8 : 8 },
+        ]}
+      >
         <View style={styles.brandRow}>
           <View style={styles.brandMark}>
-            <Ionicons name="leaf" size={22} color="#FFFFFF" />
+            <Image source={require('../../../assets/logo1.png')} style={styles.logoImage}  />
           </View>
           <View>
-            <Text style={styles.brandName}>RecipePro</Text>
-            <Text style={styles.brandCaption}>ADMIN WORKSPACE</Text>
+            <AppText variant="pageTitle" style={styles.brandName}>RecipePro</AppText>
+            <AppText variant="label" style={styles.brandCaption}>ADMIN WORKSPACE</AppText>
           </View>
         </View>
         <Pressable
@@ -237,7 +240,7 @@ export default function AdminDashboardScreen() {
           style={styles.topLogoutButton}
           onPress={() => setLogoutModalVisible(true)}
         >
-          <Ionicons name="log-out-outline" size={19} color="#53645A" />
+          <Ionicons name="log-out-outline" size={19} color="#f17618" />
         </Pressable>
       </View>
 
@@ -258,18 +261,18 @@ export default function AdminDashboardScreen() {
         }
       >
         <View style={styles.greetingBlock}>
-          <Text style={styles.eyebrow}>OVERVIEW</Text>
-          <Text style={styles.pageTitle}>Good to see you, Admin.</Text>
-          <Text style={styles.pageSubtitle}>
+          <AppText variant="label" style={styles.eyebrow}>OVERVIEW</AppText>
+          <AppText variant="pageTitle" style={styles.pageTitle}>Good to see you, Admin.</AppText>
+          <AppText variant="subtitle" style={styles.pageSubtitle}>
             Here’s what’s happening with your recipe platform.
-          </Text>
+          </AppText>
         </View>
 
         <View style={styles.heroBanner}>
           <Animated.Image
             source={{ uri: heroImages[heroImageIndex] }}
             style={[
-              StyleSheet.absoluteFillObject,
+              { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 } as const,
               styles.heroImage,
               { opacity: heroImageOpacity },
             ]}
@@ -279,19 +282,23 @@ export default function AdminDashboardScreen() {
             <View style={styles.heroCopy}>
               <View style={styles.heroBadge}>
                 <Ionicons name="sparkles-outline" size={13} color="#E4F6E9" />
-                <Text style={styles.heroBadgeText}>YOUR KITCHEN, ORGANIZED</Text>
+                <AppText variant="label" style={styles.heroBadgeText}>
+                  YOUR KITCHEN, ORGANIZED
+                </AppText>
               </View>
-              <Text style={[styles.heroTitle, compact && styles.heroTitleCompact]}>
+              <AppText variant="pageTitle"
+                style={[styles.heroTitle, compact && styles.heroTitleCompact]}
+              >
                 Build something{"\n"}delicious today.
-              </Text>
-              <Text style={styles.heroDescription}>
+              </AppText>
+              <AppText variant="body" style={styles.heroDescription}>
                 Create, organize and publish recipes in one place.
-              </Text>
+              </AppText>
               <Pressable
                 style={styles.heroButton}
                 onPress={() => router.push("/admin/edit-recipe/new" as any)}
               >
-                <Text style={styles.heroButtonText}>Create recipe</Text>
+                <AppText variant="button" style={styles.heroButtonText}>Create recipe</AppText>
                 <Ionicons name="arrow-forward" size={16} color="#174A34" />
               </Pressable>
             </View>
@@ -300,12 +307,12 @@ export default function AdminDashboardScreen() {
 
         <View style={styles.sectionHeading}>
           <View>
-            <Text style={styles.sectionTitle}>Platform overview</Text>
-            <Text style={styles.sectionSubtitle}>Your content at a glance</Text>
+            <AppText variant="sectionTitle" style={styles.sectionTitle}>Platform overview</AppText>
+            <AppText variant="subtitle" style={styles.sectionSubtitle}>Your content at a glance</AppText>
           </View>
           {/* <View style={styles.liveBadge}>
             <View style={styles.liveDot} />
-            <Text style={styles.liveBadgeText}>LIVE DATA</Text>
+            <AppText variant="label" style={styles.liveBadgeText}>LIVE DATA</AppText>
           </View> */}
         </View>
 
@@ -320,9 +327,9 @@ export default function AdminDashboardScreen() {
               </View>
               <Feather name="arrow-up-right" size={18} color="#719080" />
             </View>
-            <Text style={styles.statValue}>{recipes.length}</Text>
-            <Text style={styles.statLabel}>Total recipes</Text>
-            <Text style={styles.statFoot}>{publishedCount} published</Text>
+            <AppText variant="sectionTitle" style={styles.statValue}>{recipes.length}</AppText>
+            <AppText variant="label" style={styles.statLabel}>Total recipes</AppText>
+            <AppText variant="helper" style={styles.statFoot}>{publishedCount} published</AppText>
           </Pressable>
 
           <Pressable
@@ -335,9 +342,9 @@ export default function AdminDashboardScreen() {
               </View>
               <Feather name="arrow-up-right" size={18} color="#9BA69F" />
             </View>
-            <Text style={styles.statValue}>{ingredients.length}</Text>
-            <Text style={styles.statLabel}>Ingredients</Text>
-            <Text style={styles.statFoot}>Available in your library</Text>
+            <AppText variant="sectionTitle" style={styles.statValue}>{ingredients.length}</AppText>
+            <AppText variant="label" style={styles.statLabel}>Ingredients</AppText>
+            <AppText variant="helper" style={styles.statFoot}>Available in your library</AppText>
           </Pressable>
 
           <Pressable
@@ -350,28 +357,38 @@ export default function AdminDashboardScreen() {
               </View>
               <Feather name="arrow-up-right" size={18} color="#9BA69F" />
             </View>
-            <Text style={styles.statValue}>{categories.length}</Text>
-            <Text style={styles.statLabel}>Categories</Text>
-            <Text style={styles.statFoot}>Organize your recipes</Text>
+            <AppText variant="sectionTitle" style={styles.statValue}>{categories.length}</AppText>
+            <AppText variant="label" style={styles.statLabel}>Categories</AppText>
+            <AppText variant="helper" style={styles.statFoot}>Organize your recipes</AppText>
           </Pressable>
 
           <View style={[styles.statCard, styles.statCardWarm]}>
             <View style={styles.statTopRow}>
               <View style={[styles.statIcon, { backgroundColor: "#FFF0D8" }]}>
-                <Ionicons name="checkmark-done-outline" size={20} color="#9A5B17" />
+                <Ionicons
+                  name="checkmark-done-outline"
+                  size={20}
+                  color="#9A5B17"
+                />
               </View>
-              <Ionicons name="shield-checkmark-outline" size={18} color="#B59A73" />
+              <Ionicons
+                name="shield-checkmark-outline"
+                size={18}
+                color="#B59A73"
+              />
             </View>
-            <Text style={styles.statValue}>{publishedCount}</Text>
-            <Text style={styles.statLabel}>Published recipes</Text>
-            <Text style={styles.statFoot}>Visible to your audience</Text>
+            <AppText variant="sectionTitle" style={styles.statValue}>{publishedCount}</AppText>
+            <AppText variant="label" style={styles.statLabel}>Published recipes</AppText>
+            <AppText variant="helper" style={styles.statFoot}>Visible to your audience</AppText>
           </View>
         </View>
 
         <View style={styles.sectionHeading}>
           <View>
-            <Text style={styles.sectionTitle}>Quick actions</Text>
-            <Text style={styles.sectionSubtitle}>Jump straight into your workflow</Text>
+            <AppText variant="sectionTitle" style={styles.sectionTitle}>Quick actions</AppText>
+            <AppText variant="subtitle" style={styles.sectionSubtitle}>
+              Jump straight into your workflow
+            </AppText>
           </View>
         </View>
 
@@ -385,28 +402,34 @@ export default function AdminDashboardScreen() {
               ]}
               onPress={() => router.push(action.route as any)}
             >
-              <View style={[styles.actionIcon, { backgroundColor: action.tint }]}>
-                <Ionicons name={action.icon} size={22} color={action.tone} />
+              <View style={styles.actionRowContent}>
+                <View
+                  style={[styles.actionIcon, { backgroundColor: action.tint }]}
+                >
+                  <Ionicons name={action.icon} size={22} color={action.tone} />
+                </View>
+                <View style={styles.actionCopy}>
+                  <AppText variant="cardTitle" style={styles.actionTitle}>{action.title}</AppText>
+                  <AppText variant="subtitle" style={styles.actionSubtitle}>{action.subtitle}</AppText>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color="#9AA69F" />
               </View>
-              <View style={styles.actionCopy}>
-                <Text style={styles.actionTitle}>{action.title}</Text>
-                <Text style={styles.actionSubtitle}>{action.subtitle}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color="#9AA69F" />
             </Pressable>
           ))}
         </View>
 
         <View style={styles.sectionHeading}>
           <View>
-            <Text style={styles.sectionTitle}>Recently added recipes</Text>
-            <Text style={styles.sectionSubtitle}>Your latest recipe collection</Text>
+            <AppText variant="sectionTitle" style={styles.sectionTitle}>Recently added recipes</AppText>
+            <AppText variant="subtitle" style={styles.sectionSubtitle}>
+              Your latest recipe collection
+            </AppText>
           </View>
           <Pressable
             style={styles.viewAllButton}
             onPress={() => router.push("/admin/recipes" as any)}
           >
-            <Text style={styles.viewAllText}>View all</Text>
+            <AppText variant="button" style={styles.viewAllText}>View all</AppText>
             <Ionicons name="arrow-forward" size={14} color="#176747" />
           </Pressable>
         </View>
@@ -427,39 +450,59 @@ export default function AdminDashboardScreen() {
                     index === recentRecipes.length - 1 && styles.recentItemLast,
                     pressed && styles.cardPressed,
                   ]}
-                  onPress={() => router.push(`/admin/edit-recipe/${recipe.id}` as any)}
+                  onPress={() =>
+                    router.push(`/admin/edit-recipe/${recipe.id}` as any)
+                  }
                 >
-                  {recipeImage ? (
-                    <Image source={{ uri: recipeImage }} style={styles.recentImage} />
-                  ) : (
-                    <View style={[styles.recentImage, styles.recentImageFallback]}>
-                      <Ionicons name="restaurant-outline" size={24} color="#6C9A7D" />
+                  <View style={styles.recentRowContent}>
+                    {recipeImage ? (
+                      <Image
+                        source={{ uri: recipeImage }}
+                        style={styles.recentImage}
+                      />
+                    ) : (
+                      <View
+                        style={[styles.recentImage, styles.recentImageFallback]}
+                      >
+                        <Ionicons
+                          name="restaurant-outline"
+                          size={24}
+                          color="#6C9A7D"
+                        />
+                      </View>
+                    )}
+                    <View style={styles.recentCopy}>
+                      <AppText variant="cardTitle" style={styles.recentName} numberOfLines={1}>
+                        {recipe.name}
+                      </AppText>
+                      <AppText variant="subtitle" style={styles.recentCategory} numberOfLines={1}>
+                        {categoryName}
+                      </AppText>
                     </View>
-                  )}
-                  <View style={styles.recentCopy}>
-                    <Text style={styles.recentName} numberOfLines={1}>
-                      {recipe.name}
-                    </Text>
-                    <Text style={styles.recentCategory} numberOfLines={1}>
-                      {categoryName}
-                    </Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.statusPill,
-                      isPublished ? styles.statusPublished : styles.statusDraft,
-                    ]}
-                  >
-                    <Text
+                    <View
                       style={[
-                        styles.statusPillText,
-                        isPublished ? styles.statusPublishedText : styles.statusDraftText,
+                        styles.statusPill,
+                        isPublished ? styles.statusPublished : styles.statusDraft,
                       ]}
                     >
-                      {isPublished ? "Published" : "Draft"}
-                    </Text>
+                      <AppText variant="label"
+                        style={[
+                          styles.statusPillText,
+                          isPublished
+                            ? styles.statusPublishedText
+                            : styles.statusDraftText,
+                        ]}
+                      >
+                        {isPublished ? "Published" : "Draft"}
+                      </AppText>
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color="#A0AAA4" />
                   </View>
-                  <Ionicons name="chevron-forward" size={16} color="#A0AAA4" />
+                  
+                  {index < recentRecipes.length - 1 && (
+                    <View style={styles.recentSeparator} />
+                  )}
+
                 </Pressable>
               );
             })}
@@ -469,16 +512,18 @@ export default function AdminDashboardScreen() {
             <View style={styles.emptyIcon}>
               <Ionicons name="restaurant-outline" size={25} color="#176747" />
             </View>
-            <Text style={styles.emptyTitle}>Your recipe collection starts here</Text>
-            <Text style={styles.emptyText}>
+            <AppText variant="sectionTitle" style={styles.emptyTitle}>
+              Your recipe collection starts here
+            </AppText>
+            <AppText variant="body" style={styles.emptyText}>
               Create your first recipe and it will appear here for quick access.
-            </Text>
+            </AppText>
             <Pressable
               style={styles.emptyButton}
               onPress={() => router.push("/admin/edit-recipe/new" as any)}
             >
               <Ionicons name="add" size={18} color="#FFFFFF" />
-              <Text style={styles.emptyButtonText}>Create first recipe</Text>
+              <AppText variant="button" style={styles.emptyButtonText}>Create first recipe</AppText>
             </Pressable>
           </View>
         )}
@@ -489,10 +534,12 @@ export default function AdminDashboardScreen() {
           accessibilityRole="button"
         >
           <Ionicons name="log-out-outline" size={19} color="#B33B31" />
-          <Text style={styles.logoutButtonText}>Sign out of RecipePro</Text>
+          <AppText variant="button" style={styles.logoutButtonText}>Sign out of RecipePro</AppText>
         </Pressable>
 
-        <Text style={styles.footerText}>RecipePro Admin · Content management workspace</Text>
+        <AppText variant="helper" style={styles.footerText}>
+          RecipePro Admin · Content management workspace
+        </AppText>
       </Animated.ScrollView>
 
       <Modal
@@ -509,10 +556,10 @@ export default function AdminDashboardScreen() {
             <View style={styles.logoutIconContainer}>
               <Ionicons name="log-out-outline" size={28} color="#B33B31" />
             </View>
-            <Text style={styles.logoutModalTitle}>Sign out?</Text>
-            <Text style={styles.logoutModalMessage}>
+            <AppText variant="sectionTitle" style={styles.logoutModalTitle}>Sign out?</AppText>
+            <AppText variant="body" style={styles.logoutModalMessage}>
               Are you sure you want to sign out of your RecipePro admin account?
-            </Text>
+            </AppText>
             <View style={styles.logoutModalActions}>
               <Pressable
                 style={styles.logoutCancelButton}
@@ -520,7 +567,7 @@ export default function AdminDashboardScreen() {
                 disabled={loggingOut}
                 accessibilityRole="button"
               >
-                <Text style={styles.logoutCancelText}>Cancel</Text>
+                <AppText variant="button" style={styles.logoutCancelText}>Cancel</AppText>
               </Pressable>
               <Pressable
                 style={styles.logoutConfirmButton}
@@ -528,9 +575,9 @@ export default function AdminDashboardScreen() {
                 disabled={loggingOut}
                 accessibilityRole="button"
               >
-                <Text style={styles.logoutConfirmText}>
+                <AppText variant="button" style={styles.logoutConfirmText}>
                   {loggingOut ? "Signing out..." : "Sign out"}
-                </Text>
+                </AppText>
               </Pressable>
             </View>
           </View>
@@ -552,12 +599,12 @@ const styles = StyleSheet.create({
     width: "100%",
     alignSelf: "center",
   },
-topBar: {
+  topBar: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingTop: 8,
-    paddingBottom: 24,
+    paddingBottom: 14,
     paddingHorizontal: 20,
     backgroundColor: "#FFFFFF",
     zIndex: 1000,
@@ -571,12 +618,16 @@ topBar: {
     width: 43,
     height: 43,
     borderRadius: 14,
-    backgroundColor: "#176747",
     alignItems: "center",
     justifyContent: "center",
   },
+    logoImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain', // Keeps your logo's original aspect ratio
+  },
   brandName: {
-    fontSize: 17,
+    fontSize: 20,
     fontWeight: "800",
     color: "#1B3025",
     letterSpacing: -0.3,
@@ -600,7 +651,7 @@ topBar: {
   },
   greetingBlock: {
     marginBottom: 20,
-    paddingTop:4
+    paddingTop: 4,
   },
   eyebrow: {
     color: "#27845B",
@@ -701,8 +752,8 @@ topBar: {
     marginTop: 1,
   },
   sectionTitle: {
-    color: "#1B3025",
-    fontSize: 18,
+    // color: "#1B3025",
+    // fontSize: 18,
     fontWeight: "800",
     letterSpacing: -0.35,
   },
@@ -792,6 +843,19 @@ topBar: {
     gap: 10,
     marginBottom: 29,
   },
+  actionRowContent: {
+    width: "100%",
+    flexDirection: "row",
+    flexWrap: "nowrap",
+    alignItems: "center",
+    gap: 12,
+    // The outer actionCard owns the border; avoid a second dark border on web.
+    backgroundColor: "transparent",
+    borderWidth: 0,
+    padding: 3,
+    borderRadius: 0,
+    
+  },
   actionCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -819,9 +883,10 @@ topBar: {
     gap: 4,
   },
   actionTitle: {
-    color: "#26392D",
-    fontSize: 13,
-    fontWeight: "800",
+    // color: "#313030",
+    // fontSize: 13,
+    fontWeight: "100",
+    
   },
   actionSubtitle: {
     color: "#859188",
@@ -840,6 +905,12 @@ topBar: {
     fontSize: 11,
     fontWeight: "800",
   },
+  recentSeparator: {
+    // Use one explicit separator between rows on both native and web.
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: "#E1E7E0",
+    marginHorizontal: 16,
+  },
   recentList: {
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
@@ -847,15 +918,22 @@ topBar: {
     borderRadius: 19,
     paddingHorizontal: 13,
     marginBottom: 8,
+    overflow: "hidden",
   },
   recentItem: {
     minHeight: 77,
+    paddingVertical: 12,
+    // Do not add a second border; recentSeparator draws the only row divider.
+    borderBottomWidth: 0,
+  },
+  recentRowContent: {
+    width: "100%",
     flexDirection: "row",
+    flexWrap: "nowrap",
     alignItems: "center",
     gap: 10,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#EFF2ED",
+    paddingVertical: 20,
+    paddingHorizontal: 3
   },
   recentItemLast: {
     borderBottomWidth: 0,
@@ -876,8 +954,8 @@ topBar: {
     gap: 4,
   },
   recentName: {
-    color: "#26392D",
-    fontSize: 12,
+    // color: "#2e2e2e",
+    // fontSize: 13,
     fontWeight: "800",
   },
   recentCategory: {
@@ -896,7 +974,7 @@ topBar: {
     backgroundColor: "#FFF2DE",
   },
   statusPillText: {
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: "800",
   },
   statusPublishedText: {
@@ -958,10 +1036,6 @@ topBar: {
     alignItems: "center",
     justifyContent: "center",
     gap: 9,
-    backgroundColor: "#FFF5F3",
-    borderWidth: 1,
-    borderColor: "#F4DEDA",
-    borderRadius: 15,
     paddingVertical: 14,
     marginTop: 22,
   },

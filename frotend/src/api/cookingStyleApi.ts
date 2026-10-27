@@ -20,21 +20,36 @@ function normalize(value: any): CookingStyleRecord {
 
 export const cookingStyleApi = {
   async getAll(): Promise<CookingStyleRecord[]> {
-    return unwrapList<any>(await metadataRequest("cooking-styles")).map(normalize);
+    return unwrapList<any>(await metadataRequest("cooking-styles")).map(
+      normalize,
+    );
   },
   async getById(id: number): Promise<CookingStyleRecord> {
-    return normalize(unwrapItem<any>(await metadataRequest(`cooking-styles/${id}`)));
+    return normalize(
+      unwrapItem<any>(await metadataRequest(`cooking-styles/${id}`)),
+    );
   },
   async create(request: CookingStyleRequest): Promise<CookingStyleRecord> {
-    return normalize(unwrapItem<any>(await metadataRequest("cooking-styles", {
-      method: "POST", body: JSON.stringify(request),
-    })));
+    return normalize(
+      unwrapItem<any>(
+        await metadataRequest("cooking-styles", {
+          method: "POST",
+          body: JSON.stringify(request),
+        }),
+      ),
+    );
   },
-  async update(id: number, request: CookingStyleRequest): Promise<CookingStyleRecord> {
+  async update(
+    id: number,
+    request: CookingStyleRequest,
+  ): Promise<CookingStyleRecord> {
     const result = await metadataRequest<any>(`cooking-styles/${id}`, {
-      method: "PUT", body: JSON.stringify(request),
+      method: "PUT",
+      body: JSON.stringify(request),
     });
-    return result == null ? { id, ...request } as CookingStyleRecord : normalize(unwrapItem<any>(result));
+    return result == null
+      ? ({ id, ...request } as CookingStyleRecord)
+      : normalize(unwrapItem<any>(result));
   },
   async delete(id: number): Promise<void> {
     await metadataRequest<void>(`cooking-styles/${id}`, { method: "DELETE" });

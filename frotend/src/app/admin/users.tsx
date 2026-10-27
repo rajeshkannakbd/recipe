@@ -1,21 +1,21 @@
-import { useState, useCallback, useEffect } from "react";
-import {
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-  ScrollView,
-  Modal,
-  TextInput,
-  Alert,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
+import {
+  Alert,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { userApi } from "../../api/userApi";
-import { ALL_PERMISSIONS, DEFAULT_ROLE_PERMISSIONS } from "../../types/user";
-import type { User, UserRole } from "../../types/user";
+import AppText from "../../components/common/AppText";
 import ScreenLoader from "../../components/common/ScreenLoader";
+import type { User, UserRole } from "../../types/user";
+import { ALL_PERMISSIONS, DEFAULT_ROLE_PERMISSIONS } from "../../types/user";
 
 type FilterKey = "all" | "admin" | "hotel" | "user" | "inactive";
 
@@ -25,7 +25,14 @@ const ROLE_CONFIG: Record<UserRole, { bg: string; text: string }> = {
   user: { bg: "#ECFDF5", text: "#047857" },
 };
 
-const AVATAR_COLORS = ["#2B6CB0", "#B54708", "#047857", "#6B46C1", "#C53030", "#2C7A7B"];
+const AVATAR_COLORS = [
+  "#2B6CB0",
+  "#B54708",
+  "#047857",
+  "#6B46C1",
+  "#C53030",
+  "#2C7A7B",
+];
 
 export default function AdminUsersScreen() {
   const router = useRouter();
@@ -45,26 +52,28 @@ export default function AdminUsersScreen() {
   const [formPermissions, setFormPermissions] = useState<string[]>(["read"]);
 
   const loadUsers = useCallback(async () => {
-  try {
-    setLoading(true);
+    try {
+      setLoading(true);
 
-    const data = await userApi.getAll();
+      const data = await userApi.getAll();
 
-    setUsers(data);
-  } catch (error) {
-    console.error("Failed to fetch users:", error);
-    setUsers([]);
+      setUsers(data);
+    } catch (error) {
+      console.error("Failed to fetch users:", error);
+      setUsers([]);
 
-    Alert.alert(
-      "Error",
-      "Failed to load users from the database. Please check your backend API."
-    );
-  } finally {
-    setLoading(false);
-  }
-}, []);
+      Alert.alert(
+        "Error",
+        "Failed to load users from the database. Please check your backend API.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  useEffect(() => { loadUsers(); }, [loadUsers]);
+  useEffect(() => {
+    loadUsers();
+  }, [loadUsers]);
 
   const openCreateModal = () => {
     setEditingUser(null);
@@ -93,7 +102,9 @@ export default function AdminUsersScreen() {
 
   const togglePermission = (permId: string) => {
     setFormPermissions((prev) =>
-      prev.includes(permId) ? prev.filter((p) => p !== permId) : [...prev, permId]
+      prev.includes(permId)
+        ? prev.filter((p) => p !== permId)
+        : [...prev, permId],
     );
   };
 
@@ -110,11 +121,20 @@ export default function AdminUsersScreen() {
     setSaving(true);
     try {
       if (editingUser) {
-        await userApi.update(editingUser.id, { name: formName, email: formEmail, role: formRole });
+        await userApi.update(editingUser.id, {
+          name: formName,
+          email: formEmail,
+          role: formRole,
+        });
         await userApi.updatePermissions(editingUser.id, formPermissions);
         Alert.alert("Success", "User updated successfully");
       } else {
-        await userApi.create({ name: formName, email: formEmail, password: formPassword, role: formRole });
+        await userApi.create({
+          name: formName,
+          email: formEmail,
+          password: formPassword,
+          role: formRole,
+        });
         Alert.alert("Success", "User created successfully");
       }
       setModalVisible(false);
@@ -129,28 +149,36 @@ export default function AdminUsersScreen() {
   const handleToggleActive = async (user: User) => {
     try {
       await userApi.update(user.id, { isActive: !user.isActive });
-      setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, isActive: !u.isActive } : u)));
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === user.id ? { ...u, isActive: !u.isActive } : u,
+        ),
+      );
     } catch {
       Alert.alert("Error", "Failed to update user status");
     }
   };
 
   const handleDelete = (user: User) => {
-    Alert.alert("Delete User", `Are you sure you want to delete ${user.name}?`, [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await userApi.delete(user.id);
-            setUsers((prev) => prev.filter((u) => u.id !== user.id));
-          } catch {
-            Alert.alert("Error", "Failed to delete user");
-          }
+    Alert.alert(
+      "Delete User",
+      `Are you sure you want to delete ${user.name}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await userApi.delete(user.id);
+              setUsers((prev) => prev.filter((u) => u.id !== user.id));
+            } catch {
+              Alert.alert("Error", "Failed to delete user");
+            }
+          },
         },
-      },
-    ]);
+      ],
+    );
   };
 
   const toggleExpand = (userId: number) => {
@@ -158,23 +186,36 @@ export default function AdminUsersScreen() {
   };
 
   const getInitials = (name: string) => {
-    return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
   };
 
-  const getAvatarColor = (userId: number) => AVATAR_COLORS[userId % AVATAR_COLORS.length];
+  const getAvatarColor = (userId: number) =>
+    AVATAR_COLORS[userId % AVATAR_COLORS.length];
 
   const filteredUsers = users.filter((user) => {
-    const matchesSearch = user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    const matchesSearch =
+      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.email.toLowerCase().includes(searchQuery.toLowerCase());
     if (!matchesSearch) return false;
 
     switch (activeFilter) {
-      case "all": return true;
-      case "admin": return user.role === "admin";
-      case "hotel": return user.role === "hotel";
-      case "user": return user.role === "user";
-      case "inactive": return !user.isActive;
-      default: return true;
+      case "all":
+        return true;
+      case "admin":
+        return user.role === "admin";
+      case "hotel":
+        return user.role === "hotel";
+      case "user":
+        return user.role === "user";
+      case "inactive":
+        return !user.isActive;
+      default:
+        return true;
     }
   });
 
@@ -206,26 +247,29 @@ export default function AdminUsersScreen() {
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={22} color="#1A202C" />
         </Pressable>
-        <Text style={styles.headerTitle}>Manage Users</Text>
+        <AppText variant="pageTitle" style={styles.headerTitle}>Manage Users</AppText>
         <Pressable onPress={openCreateModal} style={styles.addBtn}>
           <Ionicons name="add" size={22} color="#fff" />
         </Pressable>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
         {/* Stats */}
         <View style={styles.statsRow}>
           <View style={[styles.statCard, styles.statCardActive]}>
-            <Text style={styles.statValue}>{users.length}</Text>
-            <Text style={styles.statLabel}>Total Users</Text>
+            <AppText variant="sectionTitle" style={styles.statValue}>{users.length}</AppText>
+            <AppText variant="helper" style={styles.statLabel}>Total Users</AppText>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statValue}>{activeCount}</Text>
-            <Text style={styles.statLabel}>Active</Text>
+            <AppText variant="sectionTitle" style={styles.statValue}>{activeCount}</AppText>
+            <AppText variant="helper" style={styles.statLabel}>Active</AppText>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statValue}>{hotelCount}</Text>
-            <Text style={styles.statLabel}>Hotels</Text>
+            <AppText variant="sectionTitle" style={styles.statValue}>{hotelCount}</AppText>
+            <AppText variant="helper" style={styles.statLabel}>Hotels</AppText>
           </View>
         </View>
 
@@ -250,12 +294,20 @@ export default function AdminUsersScreen() {
           {filters.map((f) => (
             <Pressable
               key={f.key}
-              style={[styles.filterChip, activeFilter === f.key && styles.filterChipActive]}
+              style={[
+                styles.filterChip,
+                activeFilter === f.key && styles.filterChipActive,
+              ]}
               onPress={() => setActiveFilter(f.key)}
             >
-              <Text style={[styles.filterChipText, activeFilter === f.key && styles.filterChipTextActive]}>
+              <AppText variant="label"
+                style={[
+                  styles.filterChipText,
+                  activeFilter === f.key && styles.filterChipTextActive,
+                ]}
+              >
                 {f.label}
-              </Text>
+              </AppText>
             </Pressable>
           ))}
         </ScrollView>
@@ -269,25 +321,51 @@ export default function AdminUsersScreen() {
             return (
               <View key={user.id} style={styles.userCard}>
                 <View style={styles.userCardTop}>
-                  <View style={[styles.userAvatar, { backgroundColor: avatarColor }]}>
-                    <Text style={styles.userAvatarText}>{getInitials(user.name)}</Text>
+                  <View
+                    style={[
+                      styles.userAvatar,
+                      { backgroundColor: avatarColor },
+                    ]}
+                  >
+                    <AppText variant="cardTitle" style={styles.userAvatarText}>
+                      {getInitials(user.name)}
+                    </AppText>
                   </View>
                   <View style={styles.userInfo}>
                     <View style={styles.userNameRow}>
-                      <Text style={styles.userName}>{user.name}</Text>
-                      <View style={[styles.roleBadge, { backgroundColor: rc.bg }]}>
-                        <Text style={[styles.roleBadgeText, { color: rc.text }]}>
-                          {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-                        </Text>
+                      <AppText variant="cardTitle" style={styles.userName}>{user.name}</AppText>
+                      <View
+                        style={[styles.roleBadge, { backgroundColor: rc.bg }]}
+                      >
+                        <AppText variant="label"
+                          style={[styles.roleBadgeText, { color: rc.text }]}
+                        >
+                          {user.role.charAt(0).toUpperCase() +
+                            user.role.slice(1)}
+                        </AppText>
                       </View>
                     </View>
-                    <Text style={styles.userEmail}>{user.email}</Text>
+                    <AppText variant="subtitle" style={styles.userEmail}>{user.email}</AppText>
                     <View style={styles.userMeta}>
                       <View style={styles.statusItem}>
-                        <View style={[styles.statusDot, { backgroundColor: user.isActive ? "#38A169" : "#E53E3E" }]} />
-                        <Text style={[styles.statusText, { color: user.isActive ? "#38A169" : "#E53E3E" }]}>
+                        <View
+                          style={[
+                            styles.statusDot,
+                            {
+                              backgroundColor: user.isActive
+                                ? "#38A169"
+                                : "#E53E3E",
+                            },
+                          ]}
+                        />
+                        <AppText variant="helper"
+                          style={[
+                            styles.statusText,
+                            { color: user.isActive ? "#38A169" : "#E53E3E" },
+                          ]}
+                        >
                           {user.isActive ? "Active" : "Inactive"}
-                        </Text>
+                        </AppText>
                       </View>
                     </View>
                   </View>
@@ -305,17 +383,38 @@ export default function AdminUsersScreen() {
 
                 {isExpanded && (
                   <View style={styles.userActions}>
-                    <Pressable style={styles.actionBtn} onPress={() => openEditModal(user)}>
-                      <Ionicons name="create-outline" size={15} color="#4A5568" />
-                      <Text style={styles.actionBtnText}>Edit</Text>
+                    <Pressable
+                      style={styles.actionBtn}
+                      onPress={() => openEditModal(user)}
+                    >
+                      <Ionicons
+                        name="create-outline"
+                        size={15}
+                        color="#4A5568"
+                      />
+                      <AppText variant="button" style={styles.actionBtnText}>Edit</AppText>
                     </Pressable>
-                    <Pressable style={styles.actionBtn} onPress={() => handleToggleActive(user)}>
-                      <Ionicons name="pause-outline" size={15} color="#B54708" />
-                      <Text style={styles.actionBtnText}>Deactivate</Text>
+                    <Pressable
+                      style={styles.actionBtn}
+                      onPress={() => handleToggleActive(user)}
+                    >
+                      <Ionicons
+                        name="pause-outline"
+                        size={15}
+                        color="#B54708"
+                      />
+                      <AppText variant="button" style={styles.actionBtnText}>Deactivate</AppText>
                     </Pressable>
-                    <Pressable style={styles.actionBtn} onPress={() => handleDelete(user)}>
-                      <Ionicons name="trash-outline" size={15} color="#E53E3E" />
-                      <Text style={styles.actionBtnText}>Delete</Text>
+                    <Pressable
+                      style={styles.actionBtn}
+                      onPress={() => handleDelete(user)}
+                    >
+                      <Ionicons
+                        name="trash-outline"
+                        size={15}
+                        color="#E53E3E"
+                      />
+                      <AppText variant="button" style={styles.actionBtnText}>Delete</AppText>
                     </Pressable>
                   </View>
                 )}
@@ -326,31 +425,65 @@ export default function AdminUsersScreen() {
       </ScrollView>
 
       {/* Modal */}
-      <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => setModalVisible(false)}>
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalVisible(false)}
+      >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{editingUser ? "Edit User" : "New User"}</Text>
-              <Pressable onPress={() => setModalVisible(false)} style={styles.modalCloseBtn}>
+              <AppText variant="sectionTitle" style={styles.modalTitle}>
+                {editingUser ? "Edit User" : "New User"}
+              </AppText>
+              <Pressable
+                onPress={() => setModalVisible(false)}
+                style={styles.modalCloseBtn}
+              >
                 <Ionicons name="close" size={24} color="#718096" />
               </Pressable>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalScroll}>
-              <Text style={styles.fieldLabel}>Full Name</Text>
-              <TextInput style={styles.input} value={formName} onChangeText={setFormName} placeholder="e.g. John Doe" placeholderTextColor="#A0AEC0" />
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.modalScroll}
+            >
+              <AppText variant="label" style={styles.fieldLabel}>Full Name</AppText>
+              <TextInput
+                style={styles.input}
+                value={formName}
+                onChangeText={setFormName}
+                placeholder="e.g. John Doe"
+                placeholderTextColor="#A0AEC0"
+              />
 
-              <Text style={styles.fieldLabel}>Email Address</Text>
-              <TextInput style={styles.input} value={formEmail} onChangeText={setFormEmail} placeholder="e.g. john@example.com" placeholderTextColor="#A0AEC0" keyboardType="email-address" autoCapitalize="none" />
+              <AppText variant="label" style={styles.fieldLabel}>Email Address</AppText>
+              <TextInput
+                style={styles.input}
+                value={formEmail}
+                onChangeText={setFormEmail}
+                placeholder="e.g. john@example.com"
+                placeholderTextColor="#A0AEC0"
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
 
               {!editingUser && (
                 <>
-                  <Text style={styles.fieldLabel}>Password</Text>
-                  <TextInput style={styles.input} value={formPassword} onChangeText={setFormPassword} placeholder="Enter password" placeholderTextColor="#A0AEC0" secureTextEntry />
+                  <AppText variant="label" style={styles.fieldLabel}>Password</AppText>
+                  <TextInput
+                    style={styles.input}
+                    value={formPassword}
+                    onChangeText={setFormPassword}
+                    placeholder="Enter password"
+                    placeholderTextColor="#A0AEC0"
+                    secureTextEntry
+                  />
                 </>
               )}
 
-              <Text style={styles.fieldLabel}>Role</Text>
+              <AppText variant="label" style={styles.fieldLabel}>Role</AppText>
               <View style={styles.roleGrid}>
                 {(["user", "hotel", "admin"] as UserRole[]).map((role) => {
                   const rc = ROLE_CONFIG[role];
@@ -358,36 +491,73 @@ export default function AdminUsersScreen() {
                   return (
                     <Pressable
                       key={role}
-                      style={[styles.roleOption, isActive && { backgroundColor: rc.bg, borderColor: rc.text }]}
+                      style={[
+                        styles.roleOption,
+                        isActive && {
+                          backgroundColor: rc.bg,
+                          borderColor: rc.text,
+                        },
+                      ]}
                       onPress={() => handleRoleChange(role)}
                     >
-                      <Text style={[styles.roleOptionText, isActive && { color: rc.text }]}>
+                      <AppText variant="button"
+                        style={[
+                          styles.roleOptionText,
+                          isActive && { color: rc.text },
+                        ]}
+                      >
                         {role.charAt(0).toUpperCase() + role.slice(1)}
-                      </Text>
+                      </AppText>
                     </Pressable>
                   );
                 })}
               </View>
 
-              <Text style={styles.fieldLabel}>Permissions</Text>
+              <AppText variant="label" style={styles.fieldLabel}>Permissions</AppText>
               <View style={styles.permGrid}>
                 {ALL_PERMISSIONS.map((perm) => {
                   const isSelected = formPermissions.includes(perm.id);
                   return (
                     <Pressable
                       key={perm.id}
-                      style={[styles.permChip, isSelected && styles.permChipActive]}
+                      style={[
+                        styles.permChip,
+                        isSelected && styles.permChipActive,
+                      ]}
                       onPress={() => togglePermission(perm.id)}
                     >
-                      <Ionicons name={isSelected ? "checkmark-circle" : "ellipse-outline"} size={14} color={isSelected ? "#38A169" : "#A0AEC0"} />
-                      <Text style={[styles.permChipText, isSelected && styles.permChipTextActive]}>{perm.name}</Text>
+                      <Ionicons
+                        name={
+                          isSelected ? "checkmark-circle" : "ellipse-outline"
+                        }
+                        size={14}
+                        color={isSelected ? "#38A169" : "#A0AEC0"}
+                      />
+                      <AppText variant="label"
+                        style={[
+                          styles.permChipText,
+                          isSelected && styles.permChipTextActive,
+                        ]}
+                      >
+                        {perm.name}
+                      </AppText>
                     </Pressable>
                   );
                 })}
               </View>
 
-              <Pressable style={styles.saveBtn} onPress={handleSave} disabled={saving}>
-                <Text style={styles.saveBtnText}>{saving ? "Saving..." : editingUser ? "Save Changes" : "Create User"}</Text>
+              <Pressable
+                style={styles.saveBtn}
+                onPress={handleSave}
+                disabled={saving}
+              >
+                <AppText variant="button" style={styles.saveBtnText}>
+                  {saving
+                    ? "Saving..."
+                    : editingUser
+                      ? "Save Changes"
+                      : "Create User"}
+                </AppText>
               </Pressable>
             </ScrollView>
           </View>
@@ -443,8 +613,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#047857",
     borderColor: "#047857",
   },
-  statValue: { fontSize: 24, fontWeight: "800", color: "#1A202C", letterSpacing: -0.5 },
-  statLabel: { fontSize: 12, fontWeight: "500", color: "#718096", marginTop: 4 },
+  statValue: {
+    color: "#1A202C",
+  },
+  statLabel: {
+    color: "#718096",
+    marginTop: 4,
+  },
   searchBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -495,7 +670,8 @@ const styles = StyleSheet.create({
   userNameRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   userName: { fontSize: 15, fontWeight: "700", color: "#1A202C" },
   roleBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
-  roleBadgeText: { fontSize: 10, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.3 },
+  roleBadgeText: {
+  },
   userEmail: { fontSize: 13, color: "#718096", marginTop: 2 },
   userMeta: { flexDirection: "row", alignItems: "center", marginTop: 6 },
   statusItem: { flexDirection: "row", alignItems: "center", gap: 5 },
@@ -528,7 +704,11 @@ const styles = StyleSheet.create({
     borderColor: "#E2E8F0",
   },
   actionBtnText: { fontSize: 13, fontWeight: "600", color: "#4A5568" },
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "flex-end",
+  },
   modalContent: {
     backgroundColor: "#fff",
     borderTopLeftRadius: 24,
@@ -554,7 +734,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   modalScroll: { paddingBottom: 8 },
-  fieldLabel: { fontSize: 13, fontWeight: "700", color: "#4A5568", marginBottom: 6, marginTop: 14 },
+  fieldLabel: {
+    color: "#4A5568",
+    marginBottom: 6,
+    marginTop: 14,
+  },
   input: {
     backgroundColor: "#F7FAFC",
     borderRadius: 12,

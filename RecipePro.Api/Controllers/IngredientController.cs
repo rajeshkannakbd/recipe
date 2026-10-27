@@ -162,5 +162,5 @@ public class IngredientController : ControllerBase
         {
             return StatusCode(502, new { message = ex.Message });
         }
-}
+    }
 }

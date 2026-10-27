@@ -1,5 +1,14 @@
-import { API_BASE_URL } from "./client";
 import { getAuthToken } from "../utils/authStorage";
+import { API_BASE_URL } from "./client";
+
+export interface FavoriteEntry {
+  favoriteId: number;
+  recipeId: number;
+  recipeName: string;
+  requiredServings: number;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface FavoriteIngredientCustomization {
   ingredientId: number;
@@ -9,6 +18,7 @@ export interface FavoriteIngredientCustomization {
 }
 
 export interface FavoriteCustomization {
+  favoriteId: number;
   recipeId: number;
   requiredServings: number;
   ingredients: FavoriteIngredientCustomization[];
@@ -25,7 +35,7 @@ export interface SaveFavoriteCustomizationRequest {
 
 async function favoriteRequest<T>(
   path: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
 ): Promise<T> {
   const token = await getAuthToken();
 
@@ -37,9 +47,7 @@ async function favoriteRequest<T>(
     ...options,
     headers: {
       Accept: "application/json",
-      ...(options.body
-        ? { "Content-Type": "application/json" }
-        : {}),
+      ...(options.body ? { "Content-Type": "application/json" } : {}),
       ...(options.headers || {}),
       Authorization: `Bearer ${token}`,
     },
@@ -56,52 +64,66 @@ async function favoriteRequest<T>(
     : await response.text().catch(() => "");
 
   if (!response.ok) {
-    const message =
-      data &&
-      typeof data === "object" &&
-      "message" in data &&
-      typeof data.message === "string"
-        ? data.message
-        : `Favorites request failed (${response.status}).`;
+    let message = `Favorites request failed (${response.status}).`;
+
+    if (data && typeof data === "object") {
+      const errorData = data as {
+        message?: string;
+        title?: string;
+        detail?: string;
+        errors?: Record<string, string[]>;
+      };
+
+      message =
+        errorData.message ||
+        errorData.detail ||
+        errorData.title ||
+        (errorData.errors
+          ? Object.values(errorData.errors).flat().join("\n")
+          : message);
+    } else if (typeof data === "string" && data.trim()) {
+      message = data;
+    }
 
     throw new Error(message);
   }
-
   return data as T;
 }
 
 export const favoriteApi = {
-  getMyFavorites: () =>
-    favoriteRequest<number[]>("/favorites"),
-
+getMyFavorites: () => favoriteRequest<FavoriteEntry[]>("/favorites"),
   // Keep the original method for existing functionality.
   add: (recipeId: number) =>
     favoriteRequest<{ message: string; recipeId?: number }>(
       `/favorites/${recipeId}`,
-      { method: "POST" }
+      { method: "POST" },
     ),
 
   // Save this user's servings and customized ingredient quantities.
-  saveCustomized: (
-    recipeId: number,
-    request: SaveFavoriteCustomizationRequest
-  ) =>
-    favoriteRequest<{ message: string; recipeId?: number }>(
-      `/favorites/${recipeId}/customize`,
-      {
-        method: "POST",
-        body: JSON.stringify(request),
-      }
-    ),
+// Save a new customization. Returns its unique favoriteId.
+saveCustomized: (
+  recipeId: number,
+  request: SaveFavoriteCustomizationRequest,
+) =>
+  favoriteRequest<{
+    message: string;
+    favoriteId: number;
+    recipeId: number;
+    requiredServings: number;
+  }>(`/favorites/${recipeId}/customize`, {
+    method: "POST",
+    body: JSON.stringify(request),
+  }),
 
-  // Retrieve this user's saved customization.
-  getCustomized: (recipeId: number) =>
-    favoriteRequest<FavoriteCustomization>(
-      `/favorites/${recipeId}/customize`
-    ),
+// Retrieve a specific saved customization.
+getCustomized: (favoriteId: number) =>
+  favoriteRequest<FavoriteCustomization>(
+    `/favorites/entries/${favoriteId}`,
+  ),
 
-  remove: (recipeId: number) =>
-    favoriteRequest<void>(`/favorites/${recipeId}`, {
-      method: "DELETE",
-    }),
+// Delete only the selected favorite entry.
+remove: (favoriteId: number) =>
+  favoriteRequest<void>(`/favorites/entries/${favoriteId}`, {
+    method: "DELETE",
+  }),
 };

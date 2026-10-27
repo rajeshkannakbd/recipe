@@ -7,7 +7,6 @@ import type {
   RecipeResponse,
 } from "../types/recipe";
 
-
 export const recipeApi = {
   getAll: () => get<RecipeResponse[]>(ENDPOINTS.RECIPES.GET_ALL),
   getById: (id: number | string) =>
@@ -16,12 +15,8 @@ export const recipeApi = {
     post<RecipeResponse>(ENDPOINTS.RECIPES.CREATE, request),
   update: (id: number | string, request: RecipeRequest) =>
     put<RecipeResponse>(ENDPOINTS.RECIPES.UPDATE(id), request),
-  delete: (id: number | string) =>
-    del(ENDPOINTS.RECIPES.DELETE(id)),
+  delete: (id: number | string) => del(ENDPOINTS.RECIPES.DELETE(id)),
   calculate: (id: number | string, request: RecipeCalculationRequest) =>
-    post<RecipeCalculationResponse>(
-      ENDPOINTS.RECIPES.CALCULATE(id),
-      request
-    ),
-    getCuisines: () => get<string[]>(ENDPOINTS.RECIPES.GET_CUISINES),
+    post<RecipeCalculationResponse>(ENDPOINTS.RECIPES.CALCULATE(id), request),
+  getCuisines: () => get<string[]>(ENDPOINTS.RECIPES.GET_CUISINES),
 };

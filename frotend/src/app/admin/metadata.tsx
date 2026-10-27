@@ -1,28 +1,28 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Modal,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   RefreshControl,
   SafeAreaView,
   ScrollView,
   StyleSheet,
-  Text,
   TextInput,
   View,
 } from "react-native";
 
-import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 
 import { chefApi, ChefRecord } from "../../api/chefApi";
 import { cookingStyleApi, CookingStyleRecord } from "../../api/cookingStyleApi";
 import { cuisineApi, CuisineRecord } from "../../api/cuisineApi";
 import { recipeTagApi, RecipeTagRecord } from "../../api/recipeTagApi";
+import AppText from "../../components/common/AppText";
 
 type TabKey = "chefs" | "styles" | "cuisines" | "tags";
 type MetadataRecord =
@@ -264,7 +264,7 @@ export default function MetadataScreen() {
       >
         <View style={s.header}>
           <View style={s.headerTop}>
-            {/* <Pressable
+            <Pressable
               accessibilityRole="button"
               accessibilityLabel="Go back"
               onPress={() => {
@@ -275,15 +275,15 @@ export default function MetadataScreen() {
               hitSlop={8}
             >
               <Ionicons name="arrow-back" size={22} color="#17231D" />
-            </Pressable> */}
+            </Pressable>
             <View style={s.headerTextContainer}>
-              <Text style={s.eyebrow}>ADMINISTRATION</Text>
-              <Text style={s.title}>Metadata manager</Text>
+              <AppText variant="pageTitle" style={s.title}>Recipe & Chef Directory</AppText>
+              <AppText variant="label" style={s.brandCaption}>ADMIN WORKSPACE</AppText>
             </View>
           </View>
-          <Text style={s.headerDescription}>
+          {/* <AppText variant="body" style={s.headerDescription}>
             Manage the reusable details that appear across recipes.
-          </Text>
+          </AppText> */}
         </View>
 
         <ScrollView
@@ -299,31 +299,31 @@ export default function MetadataScreen() {
               onPress={() => changeTab(tab.key)}
               style={[s.tab, activeTab === tab.key && s.activeTab]}
             >
-              <Text
+              <AppText variant="body"
                 style={[s.tabText, activeTab === tab.key && s.activeTabText]}
               >
                 {tab.label}
-              </Text>
+              </AppText>
             </Pressable>
           ))}
         </ScrollView>
 
         <View style={s.contentHeader}>
           <View style={s.flex}>
-            <Text style={s.sectionTitle}>
+            <AppText variant="sectionTitle" style={s.sectionTitle}>
               {TABS.find((tab) => tab.key === activeTab)?.label}
-            </Text>
-            <Text style={s.subtitle}>{activeSubtitle}</Text>
+            </AppText>
+            <AppText variant="subtitle" style={s.subtitle}>{activeSubtitle}</AppText>
           </View>
           <View style={s.countPill}>
-            <Text style={s.countText}>{currentItems.length}</Text>
+            <AppText variant="label" style={s.countText}>{currentItems.length}</AppText>
           </View>
         </View>
 
         {loadError ? (
           <View style={s.notice}>
-            <Text style={s.noticeTitle}>Some data is unavailable</Text>
-            <Text style={s.noticeText}>{loadError}</Text>
+            <AppText variant="cardTitle" style={s.noticeTitle}>Some data is unavailable</AppText>
+            <AppText variant="body" style={s.noticeText}>{loadError}</AppText>
           </View>
         ) : null}
 
@@ -343,12 +343,12 @@ export default function MetadataScreen() {
         >
           <View style={s.listHeader}>
             <View style={s.listHeadingGroup}>
-              <Text style={s.listTitle}>Existing items</Text>
-              <Text style={s.listCount}>{filteredItems.length} shown</Text>
+              <AppText variant="cardTitle" style={s.listTitle}>Existing items</AppText>
+              <AppText variant="helper" style={s.listCount}>{filteredItems.length} shown</AppText>
             </View>
             <Pressable style={s.addButton} onPress={openAdd}>
               <Ionicons name="add" size={18} color="#FFFFFF" />
-              <Text style={s.addButtonText}>Add</Text>
+              <AppText variant="button" style={s.addButtonText}>Add</AppText>
             </Pressable>
           </View>
           <TextInput
@@ -363,16 +363,16 @@ export default function MetadataScreen() {
           {loading ? (
             <View style={s.loadingBox}>
               <ActivityIndicator size="large" color="#1F7655" />
-              <Text style={s.loadingText}>Loading metadata...</Text>
+              <AppText variant="helper" style={s.loadingText}>Loading metadata...</AppText>
             </View>
           ) : filteredItems.length === 0 ? (
             <View style={s.emptyBox}>
-              <Text style={s.emptyTitle}>No items found</Text>
-              <Text style={s.emptyText}>
+              <AppText variant="sectionTitle" style={s.emptyTitle}>No items found</AppText>
+              <AppText variant="body" style={s.emptyText}>
                 {search
                   ? "Try another search term."
                   : "Add the first item using the form above."}
-              </Text>
+              </AppText>
             </View>
           ) : (
             <FlatList
@@ -389,21 +389,21 @@ export default function MetadataScreen() {
                 return (
                   <View style={s.itemCard}>
                     <View style={s.itemIcon}>
-                      <Text style={s.itemIconText}>
+                      <AppText variant="body" style={s.itemIconText}>
                         {item.name.trim().charAt(0).toUpperCase() || "•"}
-                      </Text>
+                      </AppText>
                     </View>
                     <View style={s.itemDetails}>
-                      <Text style={s.itemName}>{item.name}</Text>
+                      <AppText variant="cardTitle" style={s.itemName}>{item.name}</AppText>
                       {extra ? (
-                        <Text style={s.itemDescription} numberOfLines={2}>
+                        <AppText variant="body" style={s.itemDescription} numberOfLines={2}>
                           {extra}
-                        </Text>
+                        </AppText>
                       ) : null}
-                      <Text style={s.itemMeta}>
+                      <AppText variant="helper" style={s.itemMeta}>
                         {item.recipeCount ?? 0}{" "}
                         {(item.recipeCount ?? 0) === 1 ? "recipe" : "recipes"}
-                      </Text>
+                      </AppText>
                     </View>
                     <View style={s.itemActions}>
                       <Pressable
@@ -456,11 +456,11 @@ export default function MetadataScreen() {
             >
               <View style={s.formModal}>
                 <View style={s.formModalHeader}>
-                  <Text style={s.formTitle}>
+                  <AppText variant="sectionTitle" style={s.formTitle}>
                     {editingId === null
                       ? `Add ${activeTab === "styles" ? "Cooking style" : activeTab === "cuisines" ? "Cuisine" : activeTab === "tags" ? "Recipe tag" : "Chef"}`
                       : `Edit ${activeTab === "styles" ? "Cooking style" : activeTab === "cuisines" ? "Cuisine" : activeTab === "tags" ? "Recipe tag" : "Chef"}`}
-                  </Text>
+                  </AppText>
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel="Close form"
@@ -477,7 +477,7 @@ export default function MetadataScreen() {
                   showsVerticalScrollIndicator={false}
                   contentContainerStyle={s.formModalScroll}
                 >
-                  <Text style={s.fieldLabel}>Name *</Text>
+                  <AppText variant="label" style={s.fieldLabel}>Name *</AppText>
                   <TextInput
                     value={name}
                     onChangeText={setName}
@@ -498,7 +498,7 @@ export default function MetadataScreen() {
 
                   {activeTab === "styles" ? (
                     <>
-                      <Text style={s.fieldLabel}>Description</Text>
+                      <AppText variant="label" style={s.fieldLabel}>Description</AppText>
                       <TextInput
                         value={description}
                         onChangeText={setDescription}
@@ -512,7 +512,7 @@ export default function MetadataScreen() {
 
                   {activeTab === "chefs" ? (
                     <>
-                      <Text style={s.fieldLabel}>Biography</Text>
+                      <AppText variant="label" style={s.fieldLabel}>Biography</AppText>
                       <TextInput
                         value={biography}
                         onChangeText={setBiography}
@@ -521,7 +521,7 @@ export default function MetadataScreen() {
                         style={[s.input, s.multiline]}
                         multiline
                       />
-                      <Text style={s.fieldLabel}>Photo URL</Text>
+                      <AppText variant="label" style={s.fieldLabel}>Photo URL</AppText>
                       <TextInput
                         value={photoUrl}
                         onChangeText={setPhotoUrl}
@@ -531,7 +531,7 @@ export default function MetadataScreen() {
                         autoCapitalize="none"
                         keyboardType="url"
                       />
-                      <Text style={s.fieldLabel}>Source URL</Text>
+                      <AppText variant="label" style={s.fieldLabel}>Source URL</AppText>
                       <TextInput
                         value={sourceUrl}
                         onChangeText={setSourceUrl}
@@ -545,10 +545,10 @@ export default function MetadataScreen() {
                   ) : null}
 
                   {activeTab === "cuisines" ? (
-                    <Text style={s.helperText}>
+                    <AppText variant="helper" style={s.helperText}>
                       Cuisines must be supported by the backend Cuisine entity
                       and database migration.
-                    </Text>
+                    </AppText>
                   ) : null}
 
                   <View style={s.formActions}>
@@ -557,7 +557,7 @@ export default function MetadataScreen() {
                       onPress={resetForm}
                       disabled={saving}
                     >
-                      <Text style={s.cancelButtonText}>Cancel</Text>
+                      <AppText variant="button" style={s.cancelButtonText}>Cancel</AppText>
                     </Pressable>
                     <Pressable
                       style={[s.saveButton, saving && s.disabledButton]}
@@ -567,9 +567,9 @@ export default function MetadataScreen() {
                       {saving ? (
                         <ActivityIndicator color="#FFFFFF" />
                       ) : (
-                        <Text style={s.saveButtonText}>
+                        <AppText variant="button" style={s.saveButtonText}>
                           {editingId === null ? "Add item" : "Save changes"}
-                        </Text>
+                        </AppText>
                       )}
                     </Pressable>
                   </View>
@@ -595,11 +595,11 @@ export default function MetadataScreen() {
               <View style={s.deleteIconContainer}>
                 <Ionicons name="trash-outline" size={28} color="#B33B31" />
               </View>
-              <Text style={s.deleteTitle}>Delete item?</Text>
-              <Text style={s.deleteMessage}>
+              <AppText variant="sectionTitle" style={s.deleteTitle}>Delete item?</AppText>
+              <AppText variant="body" style={s.deleteMessage}>
                 Are you sure you want to delete "
                 {deleteTarget?.name ?? "this item"}"?
-              </Text>
+              </AppText>
               <View style={s.deleteActions}>
                 <Pressable
                   style={s.deleteCancelButton}
@@ -611,7 +611,7 @@ export default function MetadataScreen() {
                   }}
                   disabled={deleting}
                 >
-                  <Text style={s.deleteCancelText}>Cancel</Text>
+                  <AppText variant="button" style={s.deleteCancelText}>Cancel</AppText>
                 </Pressable>
                 <Pressable
                   style={s.deleteConfirmButton}
@@ -621,7 +621,7 @@ export default function MetadataScreen() {
                   {deleting ? (
                     <ActivityIndicator color="#FFFFFF" />
                   ) : (
-                    <Text style={s.deleteConfirmText}>Delete</Text>
+                    <AppText variant="button" style={s.deleteConfirmText}>Delete</AppText>
                   )}
                 </Pressable>
               </View>
@@ -992,5 +992,12 @@ const s = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
     color: "#FFFFFF",
+  },
+  brandCaption: {
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 1.6,
+    color: "#829087",
+    marginTop: 2,
   },
 });

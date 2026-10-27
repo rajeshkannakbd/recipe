@@ -1,18 +1,12 @@
-
-import { useEffect, useRef } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Animated,
-  Easing,
-} from "react-native";
 import { useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 import LottieView from "lottie-react-native";
+import { useEffect, useRef } from "react";
+import { Animated, Easing, StyleSheet, View } from "react-native";
+import AppText from "@/components/common/AppText";
 
 export default function SplashScreen() {
   const router = useRouter();
+
 
   // Logo animation values
   const logoOpacity = useRef(new Animated.Value(0)).current;
@@ -41,7 +35,7 @@ export default function SplashScreen() {
     const floatAnimation = (
       value: Animated.Value,
       duration: number,
-      delay: number
+      delay: number,
     ) =>
       Animated.loop(
         Animated.sequence([
@@ -58,7 +52,7 @@ export default function SplashScreen() {
             easing: Easing.inOut(Easing.sin),
             useNativeDriver: true,
           }),
-        ])
+        ]),
       );
 
     const floatingAnimations = [
@@ -136,26 +130,20 @@ export default function SplashScreen() {
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: false,
         }),
-      ])
+      ]),
     );
 
     floatingAnimations.forEach((animation) => animation.start());
     entranceAnimation.start();
     loadingAnimation.start();
 
-    // Preserve existing navigation behavior
-    const timer = setTimeout(() => {
-      router.replace("/login");
-    }, 2500);
 
     return () => {
-      clearTimeout(timer);
       entranceAnimation.stop();
       loadingAnimation.stop();
       floatingAnimations.forEach((animation) => animation.stop());
     };
   }, [
-    router,
     logoOpacity,
     logoScale,
     logoRotation,
@@ -172,15 +160,35 @@ export default function SplashScreen() {
     loadingWidth,
   ]);
 
+    // Navigate to login after the splash screen finishes.
+  // useEffect(() => {
+  //   console.log("[NAV DEBUG] Splash timer started");
+
+  //   const timer = setTimeout(() => {
+  //     console.log("[NAV DEBUG] Splash timer fired — navigating to login");
+  //     router.replace("/login");
+  //   }, 2500);
+
+  //   return () => {
+  //     console.log("[NAV DEBUG] Splash timer cleared");
+  //     clearTimeout(timer);
+  //   };
+  // }, [router]);
+  useEffect(() => {
+  const timer = setTimeout(() => {
+    router.replace("/login");
+  }, 2500);
+
+  return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
+
   const rotation = logoRotation.interpolate({
     inputRange: [0, 1],
     outputRange: ["-12deg", "0deg"],
   });
 
-  const floatingStyle = (
-    value: Animated.Value,
-    distance: number
-  ) => ({
+  const floatingStyle = (value: Animated.Value, distance: number) => ({
     transform: [
       {
         translateY: value.interpolate({
@@ -194,56 +202,29 @@ export default function SplashScreen() {
   return (
     <View style={styles.container}>
       {/* Animated decorative background */}
-      <View
-        pointerEvents="none"
-        style={styles.backgroundPattern}
-      >
+      <View pointerEvents="none" style={styles.backgroundPattern}>
         <Animated.View
-          style={[
-            styles.circle,
-            styles.circle1,
-            floatingStyle(float1, -18),
-          ]}
+          style={[styles.circle, styles.circle1, floatingStyle(float1, -18)]}
         />
 
         <Animated.View
-          style={[
-            styles.circle,
-            styles.circle2,
-            floatingStyle(float2, 15),
-          ]}
+          style={[styles.circle, styles.circle2, floatingStyle(float2, 15)]}
         />
 
         <Animated.View
-          style={[
-            styles.circle,
-            styles.circle3,
-            floatingStyle(float3, -14),
-          ]}
+          style={[styles.circle, styles.circle3, floatingStyle(float3, -14)]}
         />
 
         <Animated.View
-          style={[
-            styles.circle,
-            styles.circle4,
-            floatingStyle(float4, 12),
-          ]}
+          style={[styles.circle, styles.circle4, floatingStyle(float4, 12)]}
         />
 
         <Animated.View
-          style={[
-            styles.circle,
-            styles.circle5,
-            floatingStyle(float5, -16),
-          ]}
+          style={[styles.circle, styles.circle5, floatingStyle(float5, -16)]}
         />
 
         <Animated.View
-          style={[
-            styles.circle,
-            styles.circle6,
-            floatingStyle(float6, 14),
-          ]}
+          style={[styles.circle, styles.circle6, floatingStyle(float6, 14)]}
         />
       </View>
 
@@ -255,64 +236,46 @@ export default function SplashScreen() {
             styles.logoContainer,
             {
               opacity: logoOpacity,
-              transform: [
-                { scale: logoScale },
-                { rotate: rotation },
-              ],
+              transform: [{ scale: logoScale }, { rotate: rotation }],
             },
           ]}
         >
           <View style={styles.chefHat}>
             <LottieView
-        source={require("../../assets/animations/Food.json")}
-        autoPlay
-        loop
-        resizeMode="contain"
-        style={styles.animation}
-      />
-      </View>
+              source={require("../../assets/animations/Food.json")}
+              autoPlay
+              loop
+              resizeMode="contain"
+              style={styles.animation}
+            />
+          </View>
         </Animated.View>
 
         {/* Title entrance */}
-        <Animated.Text
-          style={[
-            styles.logoText,
-            {
-              opacity: titleOpacity,
-              transform: [
-                { translateY: titleTranslateY },
-              ],
-            },
-          ]}
+        <Animated.View
+          style={{
+            opacity: titleOpacity,
+            transform: [{ translateY: titleTranslateY }],
+          }}
         >
-          RecipePro
-        </Animated.Text>
+          <AppText variant="pageTitle" style={styles.logoText}>RecipePro</AppText>
+        </Animated.View>
 
         {/* Tagline entrance */}
-        <Animated.Text
-          style={[
-            styles.tagline,
-            {
-              opacity: taglineOpacity,
-              transform: [
-                { translateY: taglineTranslateY },
-              ],
-            },
-          ]}
+        <Animated.View
+          style={{
+            opacity: taglineOpacity,
+            transform: [{ translateY: taglineTranslateY }],
+          }}
         >
-          Plan • Cook • Scale • Manage
-        </Animated.Text>
+          <AppText variant="subtitle" style={styles.tagline}>Plan • Cook • Scale • Manage</AppText>
+        </Animated.View>
       </View>
 
       {/* Animated loading indicator */}
       <View style={styles.bottomIndicator}>
         <View style={styles.loadingTrack}>
-          <Animated.View
-            style={[
-              styles.loadingBar,
-              { width: loadingWidth },
-            ]}
-          />
+          <Animated.View style={[styles.loadingBar, { width: loadingWidth }]} />
         </View>
       </View>
     </View>
@@ -328,7 +291,11 @@ const styles = StyleSheet.create({
   },
 
   backgroundPattern: {
-    ...StyleSheet.absoluteFillObject,
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     overflow: "hidden",
   },
 
@@ -404,7 +371,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 20,
   },
-    animation: {
+  animation: {
     width: 240,
     height: 240,
   },

@@ -31,7 +31,8 @@ public class FavoritesController : ControllerBase
             : null;
     }
 
-    // Existing endpoint: return the current user's favorite recipe IDs.
+    // GET: api/favorites
+    // Returns each favorite entry, including its unique favoriteId.
     [HttpGet]
     public async Task<IActionResult> GetMyFavorites()
     {
@@ -40,16 +41,27 @@ public class FavoritesController : ControllerBase
         if (userId is null)
             return Unauthorized();
 
-        var recipeIds = await _context.Favorites
+        var favorites = await _context.Favorites
+            .AsNoTracking()
             .Where(x => x.UserId == userId.Value)
+            .Include(x => x.Recipe)
             .OrderByDescending(x => x.CreatedAt)
-            .Select(x => x.RecipeId)
+            .Select(x => new
+            {
+                favoriteId = x.Id,
+                recipeId = x.RecipeId,
+                recipeName = x.Recipe.Name,
+                requiredServings = x.RequiredServings,
+                createdAt = x.CreatedAt,
+                updatedAt = x.UpdatedAt
+            })
             .ToListAsync();
 
-        return Ok(recipeIds);
+        return Ok(favorites);
     }
 
-    // Existing endpoint: add a favorite without custom quantities.
+    // POST: api/favorites/{recipeId}
+    // Adds a basic favorite if one does not already exist.
     [HttpPost("{recipeId:long}")]
     public async Task<IActionResult> AddFavorite(long recipeId)
     {
@@ -69,27 +81,32 @@ public class FavoritesController : ControllerBase
             });
         }
 
+        // Keep basic favorites idempotent. Customized entries are
+        // handled separately by the customize endpoint.
         var alreadyExists = await _context.Favorites
             .AnyAsync(x =>
                 x.UserId == userId.Value &&
-                x.RecipeId == recipeId);
+                x.RecipeId == recipeId &&
+                !x.Ingredients.Any());
 
         if (alreadyExists)
         {
             return Ok(new
             {
-                message = "Recipe is already in your favorites.",
+                message = "Basic favorite already exists.",
                 recipeId
             });
         }
+
+        var now = DateTime.UtcNow;
 
         var favorite = new Favorite
         {
             UserId = userId.Value,
             RecipeId = recipeId,
             RequiredServings = 1,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
+            CreatedAt = now,
+            UpdatedAt = now
         };
 
         _context.Favorites.Add(favorite);
@@ -98,11 +115,14 @@ public class FavoritesController : ControllerBase
         return Ok(new
         {
             message = "Recipe added to favorites.",
+            favoriteId = favorite.Id,
             recipeId
         });
     }
 
-    // New endpoint: save or update customized recipe quantities.
+    // POST: api/favorites/{recipeId}/customize
+    // Creates a new customized favorite.
+    // Rejects a duplicate customization instead of updating an existing one.
     [HttpPost("{recipeId:long}/customize")]
     public async Task<IActionResult> SaveCustomizedFavorite(
         long recipeId,
@@ -112,6 +132,22 @@ public class FavoritesController : ControllerBase
 
         if (userId is null)
             return Unauthorized();
+
+        if (request is null)
+        {
+            return BadRequest(new
+            {
+                message = "A customization request is required."
+            });
+        }
+
+        if (request.RequiredServings <= 0)
+        {
+            return BadRequest(new
+            {
+                message = "Required servings must be greater than zero."
+            });
+        }
 
         var recipe = await _context.Recipes
             .Include(x => x.RecipeIngredients)
@@ -134,7 +170,18 @@ public class FavoritesController : ControllerBase
             });
         }
 
-        // Prevent saving ingredient IDs that don't belong to this recipe.
+        if (request.Ingredients.Any(x =>
+            x.IngredientId <= 0 ||
+            x.Quantity <= 0 ||
+            string.IsNullOrWhiteSpace(x.Unit)))
+        {
+            return BadRequest(new
+            {
+                message = "Each ingredient must have a valid ID, positive quantity, and unit."
+            });
+        }
+
+        // Ensure all selected ingredients belong to this recipe.
         var recipeIngredientIds = recipe.RecipeIngredients
             .Select(x => x.IngredientId)
             .ToHashSet();
@@ -148,7 +195,7 @@ public class FavoritesController : ControllerBase
             });
         }
 
-        // Prevent duplicate ingredient IDs in the request.
+        // A customization can contain each ingredient only once.
         if (request.Ingredients
             .GroupBy(x => x.IngredientId)
             .Any(g => g.Count() > 1))
@@ -159,57 +206,95 @@ public class FavoritesController : ControllerBase
             });
         }
 
-        var now = DateTime.UtcNow;
-
-        var favorite = await _context.Favorites
-            .Include(x => x.Ingredients)
-            .FirstOrDefaultAsync(x =>
-                x.UserId == userId.Value &&
-                x.RecipeId == recipeId);
-
-        if (favorite is null)
-        {
-            favorite = new Favorite
-            {
-                UserId = userId.Value,
-                RecipeId = recipeId,
-                CreatedAt = now
-            };
-
-            _context.Favorites.Add(favorite);
-        }
-
-        favorite.RequiredServings = request.RequiredServings;
-        favorite.UpdatedAt = now;
-
-        // Replace this user's saved ingredient quantities.
-        _context.FavoriteIngredients.RemoveRange(
-            favorite.Ingredients
-        );
-
-        favorite.Ingredients = request.Ingredients
-            .Select(x => new FavoriteIngredient
-            {
-                IngredientId = x.IngredientId,
-                Quantity = x.Quantity,
-                Unit = x.Unit
-            })
+        // Normalize the request into a stable order so ingredient array
+        // ordering does not affect duplicate detection.
+        var requestedIngredients = request.Ingredients
+            .OrderBy(x => x.IngredientId)
             .ToList();
 
+        var existingFavorites = await _context.Favorites
+            .AsNoTracking()
+            .Where(x =>
+                x.UserId == userId.Value &&
+                x.RecipeId == recipeId &&
+                x.RequiredServings == request.RequiredServings)
+            .Include(x => x.Ingredients)
+            .ToListAsync();
+
+        // Duplicate means same recipe, servings, ingredient IDs,
+        // quantities, and units. Ingredient ordering is ignored.
+        var duplicateExists = existingFavorites.Any(existing =>
+        {
+            if (existing.Ingredients.Count != requestedIngredients.Count)
+                return false;
+
+            var existingIngredients = existing.Ingredients
+                .OrderBy(x => x.IngredientId)
+                .ToList();
+
+            for (var i = 0; i < requestedIngredients.Count; i++)
+            {
+                var saved = existingIngredients[i];
+                var requested = requestedIngredients[i];
+
+                if (saved.IngredientId != requested.IngredientId ||
+                    saved.Quantity != requested.Quantity ||
+                    !string.Equals(
+                        saved.Unit?.Trim(),
+                        requested.Unit.Trim(),
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+
+        if (duplicateExists)
+        {
+            return Conflict(new
+            {
+                message = "This exact recipe customization is already saved.",
+                recipeId
+            });
+        }
+
+        var now = DateTime.UtcNow;
+
+        var favorite = new Favorite
+        {
+            UserId = userId.Value,
+            RecipeId = recipeId,
+            RequiredServings = request.RequiredServings,
+            CreatedAt = now,
+            UpdatedAt = now,
+            Ingredients = requestedIngredients
+                .Select(x => new FavoriteIngredient
+                {
+                    IngredientId = x.IngredientId,
+                    Quantity = x.Quantity,
+                    Unit = x.Unit.Trim()
+                })
+                .ToList()
+        };
+
+        _context.Favorites.Add(favorite);
         await _context.SaveChangesAsync();
 
         return Ok(new
         {
             message = "Customized recipe saved to favorites.",
+            favoriteId = favorite.Id,
             recipeId,
             requiredServings = favorite.RequiredServings
         });
     }
 
-    // New endpoint: retrieve the current user's saved recipe details.
-    [HttpGet("{recipeId:long}/customize")]
-    public async Task<IActionResult> GetCustomizedFavorite(
-        long recipeId)
+    // GET: api/favorites/entries/{favoriteId}
+    // Retrieves one specific favorite entry owned by the current user.
+    [HttpGet("entries/{favoriteId:long}")]
+    public async Task<IActionResult> GetFavoriteEntry(long favoriteId)
     {
         var userId = GetCurrentUserId();
 
@@ -222,39 +307,116 @@ public class FavoritesController : ControllerBase
             .Include(x => x.Ingredients)
                 .ThenInclude(x => x.Ingredient)
             .FirstOrDefaultAsync(x =>
-                x.UserId == userId.Value &&
-                x.RecipeId == recipeId);
+                x.Id == favoriteId &&
+                x.UserId == userId.Value);
 
         if (favorite is null)
         {
             return NotFound(new
             {
-                message = "Favorite recipe not found."
+                message = "Favorite entry not found."
             });
         }
 
-        var response = new
+        return Ok(new
         {
-            favorite.Id,
-            favorite.RecipeId,
-            RecipeName = favorite.Recipe.Name,
-            favorite.RequiredServings,
+            favoriteId = favorite.Id,
+            recipeId = favorite.RecipeId,
+            recipeName = favorite.Recipe.Name,
+            requiredServings = favorite.RequiredServings,
             favorite.CreatedAt,
             favorite.UpdatedAt,
-            Ingredients = favorite.Ingredients.Select(x => new
+            ingredients = favorite.Ingredients
+                .OrderBy(x => x.IngredientId)
+                .Select(x => new
+                {
+                    x.IngredientId,
+                    ingredientName = x.Ingredient.Name,
+                    ingredientPhotoUrl = x.Ingredient.PhotoUrl,
+                    x.Quantity,
+                    x.Unit
+                })
+                .ToList()
+        });
+    }
+
+    // Compatibility endpoint:
+    // GET: api/favorites/{recipeId}/customize
+    // Returns the most recently saved customization for that recipe.
+    [HttpGet("{recipeId:long}/customize")]
+    public async Task<IActionResult> GetCustomizedFavorite(long recipeId)
+    {
+        var userId = GetCurrentUserId();
+
+        if (userId is null)
+            return Unauthorized();
+
+        var favorite = await _context.Favorites
+            .AsNoTracking()
+            .Where(x =>
+                x.UserId == userId.Value &&
+                x.RecipeId == recipeId &&
+                x.Ingredients.Any())
+            .OrderByDescending(x => x.UpdatedAt)
+            .Include(x => x.Recipe)
+            .Include(x => x.Ingredients)
+                .ThenInclude(x => x.Ingredient)
+            .FirstOrDefaultAsync();
+
+        if (favorite is null)
+        {
+            return NotFound(new
+            {
+                message = "Customized favorite not found."
+            });
+        }
+
+        return Ok(new
+        {
+            favoriteId = favorite.Id,
+            recipeId = favorite.RecipeId,
+            recipeName = favorite.Recipe.Name,
+            requiredServings = favorite.RequiredServings,
+            favorite.CreatedAt,
+            favorite.UpdatedAt,
+            ingredients = favorite.Ingredients.Select(x => new
             {
                 x.IngredientId,
-                IngredientName = x.Ingredient.Name,
-                IngredientPhotoUrl = x.Ingredient.PhotoUrl,
+                ingredientName = x.Ingredient.Name,
+                ingredientPhotoUrl = x.Ingredient.PhotoUrl,
                 x.Quantity,
                 x.Unit
             }).ToList()
-        };
-
-        return Ok(response);
+        });
     }
 
-    // Existing endpoint: remove a favorite.
+    // DELETE: api/favorites/entries/{favoriteId}
+    // Removes only the selected entry owned by the current user.
+    [HttpDelete("entries/{favoriteId:long}")]
+    public async Task<IActionResult> RemoveFavoriteEntry(long favoriteId)
+    {
+        var userId = GetCurrentUserId();
+
+        if (userId is null)
+            return Unauthorized();
+
+        var favorite = await _context.Favorites
+            .FirstOrDefaultAsync(x =>
+                x.Id == favoriteId &&
+                x.UserId == userId.Value);
+
+        if (favorite is null)
+            return NoContent();
+
+        _context.Favorites.Remove(favorite);
+        await _context.SaveChangesAsync();
+
+        return NoContent();
+    }
+
+    // Compatibility endpoint:
+    // DELETE: api/favorites/{recipeId}
+    // Removes the most recently saved entry for the recipe.
     [HttpDelete("{recipeId:long}")]
     public async Task<IActionResult> RemoveFavorite(long recipeId)
     {
@@ -264,9 +426,11 @@ public class FavoritesController : ControllerBase
             return Unauthorized();
 
         var favorite = await _context.Favorites
-            .FirstOrDefaultAsync(x =>
+            .Where(x =>
                 x.UserId == userId.Value &&
-                x.RecipeId == recipeId);
+                x.RecipeId == recipeId)
+            .OrderByDescending(x => x.CreatedAt)
+            .FirstOrDefaultAsync();
 
         if (favorite is null)
             return NoContent();

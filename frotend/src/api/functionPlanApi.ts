@@ -24,6 +24,7 @@ export type FunctionPlanResponse = {
   name: string;
   eventDate?: string | null;
   notes?: string | null;
+  location?: string | null;
   createdAt: string;
   updatedAt?: string | null;
   recipes: FunctionPlanRecipeResponse[];
@@ -49,16 +50,12 @@ const base = "function-plans";
 
 export const functionPlanApi = {
   getAll: () => get<FunctionPlanResponse[]>(base),
-  getById: (id: number | string) =>
-    get<FunctionPlanResponse>(`${base}/${id}`),
+  getById: (id: number | string) => get<FunctionPlanResponse>(`${base}/${id}`),
   create: (request: FunctionPlanRequest) =>
     post<FunctionPlanResponse>(base, request),
   update: (id: number | string, request: FunctionPlanRequest) =>
     put<FunctionPlanResponse>(`${base}/${id}`, request),
-  delete: (id: number | string) =>
-    del(`${base}/${id}`),
+  delete: (id: number | string) => del(`${base}/${id}`),
   getShoppingList: (id: number | string) =>
-    get<FunctionPlanShoppingListResponse>(
-      `${base}/${id}/shopping-list`
-    ),
+    get<FunctionPlanShoppingListResponse>(`${base}/${id}/shopping-list`),
 };

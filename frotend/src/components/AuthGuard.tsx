@@ -1,11 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
-import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
-import { usePathname, useRouter } from "expo-router";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { useRouter } from "expo-router";
 
 import {
   clearAuthData,
@@ -18,128 +13,67 @@ type AuthGuardProps = {
 };
 
 type AuthUser = {
-  id?: number;
-  name?: string;
-  email?: string;
   role?: string;
 };
 
+/**
+ * Admin-only guard. Use it ONLY inside app/admin/_layout.tsx.
+ *
+ * The check runs once when the admin section mounts. It must NOT depend on
+ * the pathname, and it must NOT unmount `children` after the first check:
+ * unmounting a navigator resets its state, which sent the app back to the
+ * index (splash) screen every time a hidden route was opened.
+ */
 export default function AuthGuard({ children }: AuthGuardProps) {
-  const pathname = usePathname();
   const router = useRouter();
-
-  const isAdminRoute =
-    pathname === "/admin" || pathname.startsWith("/admin/");
-
-  const [checking, setChecking] = useState(true);
   const [allowed, setAllowed] = useState(false);
 
   useEffect(() => {
     let active = true;
 
-    async function checkRoute() {
-      // Normal user pages should not be blocked by the admin guard.
-      if (!isAdminRoute) {
-        if (active) {
-          setAllowed(true);
-          setChecking(false);
-        }
-        return;
-      }
-
-      if (active) {
-        setChecking(true);
-        setAllowed(false);
-      }
-
+    async function checkAccess() {
       try {
         const token = await getAuthToken();
         const storedUser = await getAuthUser();
 
         if (!token || !storedUser) {
-          if (active) {
-            router.replace("/login");
-          }
+          if (active) router.replace("/login");
           return;
         }
 
         let user: AuthUser;
-
-        if (pathname === "/login" && token && storedUser) {
-  let user: AuthUser;
-
-  try {
-    user =
-      typeof storedUser === "string"
-        ? (JSON.parse(storedUser) as AuthUser)
-        : (storedUser as AuthUser);
-  } catch {
-    await clearAuthData();
-    return;
-  }
-
-  const role = user.role?.trim().toLowerCase();
-
-  if (active && role === "admin") {
-    router.replace("/admin");
-    return;
-  }
-
-  if (
-    active &&
-    ["user", "hotelmess", "hotel/mess", "hotel", "mess"].includes(role)
-  ) {
-    router.replace("/categories");
-    return;
-  }
-}
-
-        if (typeof storedUser === "string") {
-          try {
-            user = JSON.parse(storedUser) as AuthUser;
-          } catch {
-            await clearAuthData();
-
-            if (active) {
-              router.replace("/login");
-            }
-            return;
-          }
-        } else {
-          user = storedUser as AuthUser;
-        }
-
-        if (user.role?.trim().toLowerCase() !== "admin") {
-          if (active) {
-            router.replace("/(tabs)");
-          }
+        try {
+          user =
+            typeof storedUser === "string"
+              ? (JSON.parse(storedUser) as AuthUser)
+              : (storedUser as AuthUser);
+        } catch {
+          await clearAuthData();
+          if (active) router.replace("/login");
           return;
         }
 
-        if (active) {
-          setAllowed(true);
+        if (user.role?.trim().toLowerCase() !== "admin") {
+          if (active) router.replace("/(tabs)/categories");
+          return;
         }
+
+        if (active) setAllowed(true);
       } catch (error) {
         console.error("Admin route check failed:", error);
-
-        if (active) {
-          router.replace("/login");
-        }
-      } finally {
-        if (active) {
-          setChecking(false);
-        }
+        if (active) router.replace("/login");
       }
     }
 
-    void checkRoute();
+    void checkAccess();
 
     return () => {
       active = false;
     };
-  }, [isAdminRoute, pathname, router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  if (isAdminRoute && (checking || !allowed)) {
+  if (!allowed) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#1F7655" />

@@ -33,7 +33,11 @@ export default function RecipeCard({
         className="h-24 w-24 items-center justify-center overflow-hidden rounded-2xl"
       >
         {recipe.photoUrl ? (
-          <Image source={{ uri: recipe.photoUrl }} className="h-full w-full" resizeMode="cover" />
+          <Image
+            source={{ uri: recipe.photoUrl }}
+            className="h-full w-full"
+            resizeMode="cover"
+          />
         ) : (
           <Text className="text-3xl font-bold text-recipe-dark">
             {categoryLetter(recipe.name)}
@@ -49,8 +53,12 @@ export default function RecipeCard({
           {recipe.categoryName} · Serves {recipe.baseServings}
         </Text>
         <View className="mt-2 flex-row items-center">
-          <View className={`rounded-full px-3 py-1 ${status === "Published" ? "bg-recipe-soft" : "bg-amber-100"}`}>
-            <Text className={`text-xs font-bold ${status === "Published" ? "text-recipe-primary" : "text-amber-800"}`}>
+          <View
+            className={`rounded-full px-3 py-1 ${status === "Published" ? "bg-recipe-soft" : "bg-amber-100"}`}
+          >
+            <Text
+              className={`text-xs font-bold ${status === "Published" ? "text-recipe-primary" : "text-amber-800"}`}
+            >
               {status}
             </Text>
           </View>

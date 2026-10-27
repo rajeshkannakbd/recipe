@@ -1,35 +1,41 @@
-import { useState, useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import {
-  View,
-  Text,
-  TextInput,
+  Alert,
+  Animated,
+  Image,
+  Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
-  Image,
-  Animated,
-  Alert,
-  Modal,
-  Platform,
+  TextInput,
+  View,
 } from "react-native";
 
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { recipeApi } from "../../api/recipeApi";
-import { get, API_BASE_URL } from "../../api/client";
+import { API_BASE_URL, get } from "../../api/client";
 import { favoriteApi } from "../../api/favoriteApi";
+import type {
+  FunctionPlanRequest,
+  FunctionPlanResponse,
+} from "../../api/functionPlanApi";
+import { functionPlanApi } from "../../api/functionPlanApi";
+import { recipeApi } from "../../api/recipeApi";
 import { getAuthToken } from "../../utils/authStorage";
 
 import type {
-  RecipeResponse,
   RecipeCalculationResponse,
+  RecipeResponse,
 } from "../../types/recipe";
 
+import AppText from "@/components/common/AppText";
 import ScreenLoader from "../../components/common/ScreenLoader";
+
 
 const formatEstimatedWeight = (grams: number): string => {
   if (grams >= 1000) {
@@ -45,26 +51,158 @@ const formatQuantity = (quantity: number, unit: string): string =>
 const hasText = (value?: string | null): value is string =>
   typeof value === "string" && value.trim().length > 0;
 
+const normalizeUnit = (unit: string): string => unit.trim().toLowerCase();
+
+const quantitiesMatch = (left: number, right: number): boolean =>
+  Math.abs(left - right) < 0.000001;
+
+const getReadableErrorMessage = (error: unknown): string => {
+  if (!(error instanceof Error)) return "Please try again.";
+  return error.message || "Please try again.";
+};
+
+const getUserIdFromToken = (token: string): number | null => {
+  try {
+    const payloadPart = token.split(".")[1];
+    if (!payloadPart) return null;
+    const normalized = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+    const payload = JSON.parse(atob(padded)) as Record<string, unknown>;
+    const rawId =
+      payload.sub ??
+      payload.nameid ??
+      payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"] ??
+      payload.userId ??
+      payload.user_id;
+    const userId = Number(rawId);
+    return Number.isInteger(userId) && userId > 0 ? userId : null;
+  } catch {
+    return null;
+  }
+};
+
+
+/**
+ * Only ingredients listed here can be manually edited on the recipe detail screen.
+ * Add more ingredient names to this array when needed.
+ * Matching ignores letter case and leading/trailing spaces.
+ */
+const EDITABLE_INGREDIENT_NAMES = [
+  "sugar",
+  "salt",
+  "brown sugar",
+  "Red Chili Powder",
+  "Cooking Oil",
+];
+
+/** Return true only when an ingredient is in the front-end allowlist above. */
+const isIngredientEditable = (ingredientName?: string | null): boolean => {
+  const normalizedName = (ingredientName ?? "").trim().toLowerCase();
+  return EDITABLE_INGREDIENT_NAMES.some(
+    (allowedName) => allowedName.toLowerCase() === normalizedName,
+  );
+};
+
 type RecipeReview = {
   id: number;
   recipeId: number;
   userId: number;
   userName: string;
   rating: number;
-  comment: string;
+  comment: string | null;
   createdAt: string;
 };
 
+type IngredientDatabaseRecord = {
+  id?: number;
+  name?: string;
+  photoUrl?: string | null;
+  gramsPerMilliliter?: number | null;
+  gramsPerPiece?: number | null;
+  purchasePrice?: number | null;
+  purchaseQuantity?: number | null;
+  purchaseUnit?: string | null;
+  ingredientType?: number | string | null;
+  brand?: string | null;
+  isCautionRequired?: boolean | null;
+  cautionMessage?: string | null;
+  notes?: string | null;
+  shelfLifeDays?: number | null;
+  storageInstructions?: string | null;
+  wastageQuantity?: number | null;
+  wastageUnit?: string | null;
+  status?: number | string | null;
+};
+
+const normalizeIngredientRecords = (
+  payload: unknown,
+): IngredientDatabaseRecord[] => {
+  let records: unknown = payload;
+
+  if (!Array.isArray(records) && records && typeof records === "object") {
+    const wrapped = records as {
+      items?: unknown;
+      data?: unknown;
+      ingredients?: unknown;
+      results?: unknown;
+    };
+    records =
+      wrapped.items ??
+      wrapped.data ??
+      wrapped.ingredients ??
+      wrapped.results ??
+      [];
+  }
+
+  if (!Array.isArray(records)) return [];
+
+  return records.filter(
+    (item): item is IngredientDatabaseRecord =>
+      item !== null && typeof item === "object",
+  );
+};
+
+const formatDetailValue = (
+  value: string | number | boolean | null | undefined,
+  fallback = "Not available",
+): string => {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === "string" && !value.trim()) return fallback;
+  if (typeof value === "number" && !Number.isFinite(value)) return fallback;
+  return String(value);
+};
+
+const formatPurchaseDetails = (
+  ingredient: IngredientDatabaseRecord,
+): string => {
+  if (
+    ingredient.purchasePrice == null ||
+    ingredient.purchaseQuantity == null ||
+    !hasText(ingredient.purchaseUnit)
+  ) {
+    return "Not available";
+  }
+
+  return `₹${Number(ingredient.purchasePrice.toFixed(2))} per ${Number(
+    ingredient.purchaseQuantity.toFixed(2),
+  )} ${ingredient.purchaseUnit}`;
+};
+
 export default function RecipeDetailScreen() {
-  const { id, fromFavorites } = useLocalSearchParams<{
+  const { id, fromFavorites, favoriteId } = useLocalSearchParams<{
     id: string;
     fromFavorites?: string;
+    favoriteId?: string;
   }>();
 
   const router = useRouter();
+  // Favorites are snapshots: viewing a saved entry must never mutate its values.
+  const isReadOnlyFavorite = fromFavorites === "true" && Boolean(favoriteId);
 
   const [recipe, setRecipe] = useState<RecipeResponse | null>(null);
   const [reviews, setReviews] = useState<RecipeReview[]>([]);
+  const [myReview, setMyReview] = useState<RecipeReview | null>(null);
+  const [isEditingReview, setIsEditingReview] = useState(false);
   const [showRecipeDetails, setShowRecipeDetails] = useState(false);
   const [showAllTags, setShowAllTags] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -81,7 +219,19 @@ export default function RecipeDetailScreen() {
 
   const [isRecipeAdded, setIsRecipeAdded] = useState(false);
   const [isSavingFavorite, setIsSavingFavorite] = useState(false);
-  const [favoriteMessage, setFavoriteMessage] = useState("");
+
+  // Add this recipe to an existing function/event or create a new one.
+  const [showAddToEventModal, setShowAddToEventModal] = useState(false);
+  const [functionPlans, setFunctionPlans] = useState<FunctionPlanResponse[]>(
+    [],
+  );
+  const [isLoadingFunctionPlans, setIsLoadingFunctionPlans] = useState(false);
+  const [isSavingFunctionPlan, setIsSavingFunctionPlan] = useState(false);
+  const [requiredServingsInput, setRequiredServingsInput] = useState(
+    String(recipe?.baseServings ?? 1),
+  );
+  const [showCreateEventForm, setShowCreateEventForm] = useState(false);
+  const [newEventName, setNewEventName] = useState("");
 
   const [customIngredients, setCustomIngredients] = useState<
     Record<number, { quantity: number; unit: string }>
@@ -94,9 +244,14 @@ export default function RecipeDetailScreen() {
   const [editedQuantity, setEditedQuantity] = useState("");
   const [editedUnit, setEditedUnit] = useState("");
 
-  const [activeTab, setActiveTab] = useState<
-    "ingredients" | "instructions"
-  >("ingredients");
+  const [showIngredientInfoModal, setShowIngredientInfoModal] = useState(false);
+  const [selectedIngredientInfo, setSelectedIngredientInfo] =
+    useState<IngredientDatabaseRecord | null>(null);
+  const [isLoadingIngredientInfo, setIsLoadingIngredientInfo] = useState(false);
+
+  const [activeTab, setActiveTab] = useState<"ingredients" | "instructions">(
+    "ingredients",
+  );
 
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
 
@@ -112,23 +267,40 @@ export default function RecipeDetailScreen() {
       setRecipe(data);
 
       // Reviews are returned by a separate endpoint, not by the recipe response.
+      let loadedReviews: RecipeReview[] = [];
       try {
         const reviewData = await get<unknown>(`/recipes/${data.id}/reviews`);
         const normalizedReviews: RecipeReview[] = Array.isArray(reviewData)
           ? (reviewData as RecipeReview[])
           : reviewData &&
-              typeof reviewData === "object" &&
-              Array.isArray((reviewData as { items?: unknown[] }).items)
-            ? ((reviewData as { items: RecipeReview[] }).items)
+            typeof reviewData === "object" &&
+            Array.isArray((reviewData as { items?: unknown[] }).items)
+            ? (reviewData as { items: RecipeReview[] }).items
             : reviewData &&
-                typeof reviewData === "object" &&
-                Array.isArray((reviewData as { reviews?: unknown[] }).reviews)
-              ? ((reviewData as { reviews: RecipeReview[] }).reviews)
+              typeof reviewData === "object" &&
+              Array.isArray((reviewData as { reviews?: unknown[] }).reviews)
+              ? (reviewData as { reviews: RecipeReview[] }).reviews
               : [];
+        loadedReviews = normalizedReviews;
         setReviews(normalizedReviews);
       } catch (reviewError) {
         console.warn("Could not load recipe reviews:", reviewError);
+        loadedReviews = [];
         setReviews([]);
+      }
+
+      // Do not call /reviews/mine because the backend currently returns 404.
+      // Match the user's review from the public review list using the JWT ID.
+      try {
+        const token = await getAuthToken();
+        const userId = token?.trim() ? getUserIdFromToken(token) : null;
+        setMyReview(
+          userId == null
+            ? null
+            : loadedReviews.find((review) => Number(review.userId) === userId) ?? null,
+        );
+      } catch {
+        setMyReview(null);
       }
 
       const initialServings = data.baseServings;
@@ -139,13 +311,33 @@ export default function RecipeDetailScreen() {
       let calc = await recipeApi.calculate(data.id, {
         requiredServings: initialServings,
       });
+      let loadedServings = initialServings;
+      let loadedCustomIngredients: Record<
+        number,
+        { quantity: number; unit: string }
+      > = {};
 
       setCustomIngredients({});
 
-      if (fromFavorites === "true") {
+      if (fromFavorites === "true" && favoriteId) {
         try {
-          const saved = await favoriteApi.getCustomized(data.id);
+          const selectedFavoriteId = Number(favoriteId);
 
+          if (
+            !Number.isInteger(selectedFavoriteId) ||
+            selectedFavoriteId <= 0
+          ) {
+            throw new Error("Invalid favorite entry ID.");
+          }
+
+          const saved = await favoriteApi.getCustomized(selectedFavoriteId);
+
+          // Ensure the selected favorite belongs to the recipe being displayed.
+          if (saved.recipeId !== data.id) {
+            throw new Error("The saved favorite does not match this recipe.");
+          }
+
+          loadedServings = saved.requiredServings;
           setServings(saved.requiredServings);
           setServingsInput(String(saved.requiredServings));
 
@@ -165,33 +357,82 @@ export default function RecipeDetailScreen() {
             };
           });
 
+          loadedCustomIngredients = savedIngredients;
           setCustomIngredients(savedIngredients);
         } catch (error) {
-          console.error(
-            "Failed to load saved recipe customization:",
-            error,
-          );
+          console.error("Failed to load saved recipe customization:", error);
 
           Alert.alert(
             "Customization unavailable",
-            "The saved quantities could not be loaded. Showing the original recipe quantities.",
+            error instanceof Error
+              ? error.message
+              : "The saved quantities could not be loaded.",
           );
         }
       }
 
       setCalculation(calc);
 
+      // A filled heart means this exact serving + ingredient customization is
+      // saved, not merely that another version of the recipe is a favorite.
       try {
         const token = await getAuthToken();
-
-        if (token) {
-          const favoriteIds = await favoriteApi.getMyFavorites();
-          setIsRecipeAdded(favoriteIds.includes(data.id));
-        } else {
+        if (!token?.trim()) {
           setIsRecipeAdded(false);
+        } else {
+          const favoriteEntries = await favoriteApi.getMyFavorites();
+          const currentIngredients = calc.ingredients.map((ingredient) => ({
+            ingredientId: ingredient.ingredientId,
+            quantity:
+              loadedCustomIngredients[ingredient.ingredientId]?.quantity ??
+              ingredient.requiredQuantity,
+            unit:
+              loadedCustomIngredients[ingredient.ingredientId]?.unit ?? ingredient.unit,
+          }));
+
+          let exactMatchFound = false;
+          for (const entry of favoriteEntries) {
+            if (
+              entry.recipeId !== data.id ||
+              entry.requiredServings !== loadedServings
+            ) {
+              continue;
+            }
+
+            try {
+              const saved = await favoriteApi.getCustomized(entry.favoriteId);
+              if (saved.recipeId !== data.id || saved.requiredServings !== loadedServings) {
+                continue;
+              }
+
+              const savedByIngredient = new Map(
+                saved.ingredients.map((ingredient) => [
+                  ingredient.ingredientId,
+                  ingredient,
+                ]),
+              );
+              if (
+                currentIngredients.length === saved.ingredients.length &&
+                currentIngredients.every((ingredient) => {
+                  const stored = savedByIngredient.get(ingredient.ingredientId);
+                  return Boolean(
+                    stored &&
+                    quantitiesMatch(stored.quantity, ingredient.quantity) &&
+                    normalizeUnit(stored.unit) === normalizeUnit(ingredient.unit),
+                  );
+                })
+              ) {
+                exactMatchFound = true;
+                break;
+              }
+            } catch {
+              // Basic favorites have no saved customization; ignore them here.
+            }
+          }
+          setIsRecipeAdded(exactMatchFound);
         }
-      } catch (error) {
-        console.error("Failed to check favorite status:", error);
+      } catch {
+        // Favorite status is optional UI state. Do not log expected auth/API errors.
         setIsRecipeAdded(false);
       }
     } catch (error) {
@@ -199,7 +440,7 @@ export default function RecipeDetailScreen() {
     } finally {
       setLoading(false);
     }
-  }, [id, fromFavorites]);
+  }, [id, fromFavorites, favoriteId]);
 
   useEffect(() => {
     load();
@@ -207,13 +448,29 @@ export default function RecipeDetailScreen() {
 
   const currentServings = servings ?? recipe?.baseServings ?? 1;
 
+  // Estimate cooking time proportionally to the serving scale.
+  // Preparation time stays fixed because it usually does not scale directly
+  // with the number of servings.
+  // Scale cooking time according to the selected servings.
+  // Preparation time is not included.
+  const baseServingsForTime = Math.max(1, recipe?.baseServings ?? 1);
+
+  const scaledCookingTimeMinutes =
+    recipe?.cookingTimeMinutes == null
+      ? null
+      : Math.ceil(
+        (recipe.cookingTimeMinutes * currentServings) /
+        baseServingsForTime,
+      );
+
   const handleServingsChange = async (delta: number) => {
-    if (!recipe) return;
+    if (!recipe || isReadOnlyFavorite) return;
 
     const newServings = Math.max(1, currentServings + delta);
 
     setServings(newServings);
     setServingsInput(String(newServings));
+    setIsRecipeAdded(false);
 
     try {
       const calc = await recipeApi.calculate(recipe.id, {
@@ -227,6 +484,7 @@ export default function RecipeDetailScreen() {
   };
 
   const handleServingsInputChange = (value: string) => {
+    if (isReadOnlyFavorite) return;
     if (!/^\d*$/.test(value)) return;
 
     if (value === "") {
@@ -248,7 +506,7 @@ export default function RecipeDetailScreen() {
   };
 
   const handleServingsInputBlur = async () => {
-    if (!recipe) return;
+    if (!recipe || isReadOnlyFavorite) return;
 
     const numericValue = Number(servingsInput);
 
@@ -263,6 +521,7 @@ export default function RecipeDetailScreen() {
     }
 
     setServings(numericValue);
+    setIsRecipeAdded(false);
 
     try {
       const calc = await recipeApi.calculate(recipe.id, {
@@ -276,9 +535,49 @@ export default function RecipeDetailScreen() {
     }
   };
 
+  const openIngredientInfo = async (
+    ingredientId: number,
+    ingredientName: string,
+    ingredientPhotoUrl?: string | null,
+  ) => {
+    setSelectedIngredientInfo({
+      id: ingredientId,
+      name: ingredientName,
+      photoUrl: ingredientPhotoUrl ?? null,
+    });
+    setShowIngredientInfoModal(true);
+    setIsLoadingIngredientInfo(true);
+
+    try {
+      const response = await get<unknown>("/ingredients");
+      const records = normalizeIngredientRecords(response);
+      const normalizedName = ingredientName.trim().toLowerCase();
+      const matchedIngredient =
+        records.find((item) => Number(item.id) === ingredientId) ??
+        records.find(
+          (item) => (item.name ?? "").trim().toLowerCase() === normalizedName,
+        );
+
+      if (matchedIngredient) {
+        setSelectedIngredientInfo({
+          ...matchedIngredient,
+          id: matchedIngredient.id ?? ingredientId,
+          name: matchedIngredient.name ?? ingredientName,
+          photoUrl:
+            matchedIngredient.photoUrl ?? ingredientPhotoUrl ?? null,
+        });
+      }
+    } catch (error) {
+      console.warn("Could not load ingredient details:", error);
+    } finally {
+      setIsLoadingIngredientInfo(false);
+    }
+  };
+
   const openIngredientEditor = (
     ingredient: RecipeCalculationResponse["ingredients"][number],
   ) => {
+    if (isReadOnlyFavorite) return;
     const customized = customIngredients[ingredient.ingredientId];
 
     setEditingIngredient(ingredient);
@@ -306,21 +605,8 @@ export default function RecipeDetailScreen() {
       return;
     }
 
-    Alert.alert(
-      "Update ingredients",
-      "Do you want to change all ingredient quantities according to this?",
-      [
-        {
-          text: "No",
-          style: "cancel",
-          onPress: () => applyIngredientEdit(false, quantity, unit),
-        },
-        {
-          text: "Yes",
-          onPress: () => applyIngredientEdit(true, quantity, unit),
-        },
-      ],
-    );
+    // Save the edited ingredient without opening a native confirmation alert.
+    applyIngredientEdit(false, quantity, unit);
   };
 
   const applyIngredientEdit = (
@@ -334,6 +620,7 @@ export default function RecipeDetailScreen() {
       customIngredients[editingIngredient.ingredientId]?.quantity ??
       editingIngredient.requiredQuantity;
 
+    setIsRecipeAdded(false);
     setCustomIngredients((current) => {
       if (!scaleAll || originalQuantity === 0) {
         return {
@@ -371,9 +658,8 @@ export default function RecipeDetailScreen() {
   // The fixed header heart replaces the former Add to My Favorites button.
   // It uses the same customized-favorites API and saves current quantities.
   const handleToggleFavorite = async () => {
-    if (!recipe || !calculation || isSavingFavorite) return;
+    if (!recipe || !calculation || isSavingFavorite || isReadOnlyFavorite) return;
 
-    setFavoriteMessage("");
     setIsSavingFavorite(true);
 
     try {
@@ -410,14 +696,13 @@ export default function RecipeDetailScreen() {
             customIngredients[ingredient.ingredientId]?.quantity ??
             ingredient.requiredQuantity,
           unit:
-            customIngredients[ingredient.ingredientId]?.unit ??
-            ingredient.unit,
+            customIngredients[ingredient.ingredientId]?.unit ?? ingredient.unit,
         })),
       });
 
       setIsRecipeAdded(true);
-      setFavoriteMessage("Recipe saved successfully.");
 
+      // Show the existing success popup.
       setShowSuccessPopup(true);
       successOpacity.setValue(0);
       successScale.setValue(0.85);
@@ -425,39 +710,28 @@ export default function RecipeDetailScreen() {
       Animated.parallel([
         Animated.timing(successOpacity, {
           toValue: 1,
-          duration: 220,
+          duration: 250,
           useNativeDriver: true,
         }),
         Animated.spring(successScale, {
           toValue: 1,
-          friction: 7,
-          tension: 90,
           useNativeDriver: true,
         }),
       ]).start();
 
+      // Let the popup display before returning to My Favorites.
       setTimeout(() => {
-        Animated.parallel([
-          Animated.timing(successOpacity, {
-            toValue: 0,
-            duration: 180,
-            useNativeDriver: true,
-          }),
-          Animated.timing(successScale, {
-            toValue: 0.9,
-            duration: 180,
-            useNativeDriver: true,
-          }),
-        ]).start(() => setShowSuccessPopup(false));
-      }, 1600);
-    } catch (error) {
-      console.error("Failed to save recipe to favorites:", error);
+        router.back();
+      }, 1500);
 
-      const message = error instanceof Error ? error.message : "";
+      return;
+    } catch (error) {
+      const message = getReadableErrorMessage(error);
+      const normalizedMessage = message.toLowerCase();
 
       if (
         message.includes("401") ||
-        message.toLowerCase().includes("unauthorized")
+        normalizedMessage.includes("unauthorized")
       ) {
         Alert.alert(
           "Login Required",
@@ -477,9 +751,23 @@ export default function RecipeDetailScreen() {
             },
           ],
         );
+      } else if (
+        message.includes("409") ||
+        normalizedMessage.includes("conflict") ||
+        normalizedMessage.includes("already exists") ||
+        normalizedMessage.includes("already been saved") ||
+        normalizedMessage.includes("duplicate")
+      ) {
+        Alert.alert(
+          "Already in My Favorites",
+          "This exact recipe customization (servings and ingredient quantities) is already saved. Open My Favorites to view it, or change the servings or ingredient quantities before saving another version.",
+          [{ text: "OK", style: "default" }],
+        );
       } else {
-        setFavoriteMessage(
+        Alert.alert(
+          "Could Not Save Favorite",
           message || "Unable to save this recipe. Please try again.",
+          [{ text: "OK", style: "default" }],
         );
       }
     } finally {
@@ -487,16 +775,204 @@ export default function RecipeDetailScreen() {
     }
   };
 
+  const openAddToEvent = async () => {
+    const token = await getAuthToken();
+    if (!token || !token.trim()) {
+      Alert.alert(
+        "Login Required",
+        "Please log in to add recipes to an event.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Log In",
+            onPress: () =>
+              router.push({
+                pathname: "/login",
+                params: { redirectTo: `/recipe/${recipe?.id}` },
+              }),
+          },
+        ],
+      );
+      return;
+    }
+
+    setRequiredServingsInput(String(currentServings));
+    setShowCreateEventForm(false);
+    setNewEventName("");
+    setShowAddToEventModal(true);
+    setIsLoadingFunctionPlans(true);
+    try {
+      const plans = await functionPlanApi.getAll();
+      setFunctionPlans(Array.isArray(plans) ? plans : []);
+    } catch (error) {
+      console.error("Failed to load events:", error);
+      Alert.alert(
+        "Could not load events",
+        error instanceof Error ? error.message : "Please try again.",
+      );
+      setFunctionPlans([]);
+    } finally {
+      setIsLoadingFunctionPlans(false);
+    }
+  };
+
+  const getValidatedRequiredServings = () => {
+    const value = Number(requiredServingsInput.trim());
+    if (!Number.isInteger(value) || value < 1 || value > 2147483647) {
+      Alert.alert(
+        "Invalid servings",
+        "Enter a whole number of servings greater than zero.",
+      );
+      return null;
+    }
+    return value;
+  };
+
+  const addRecipeToExistingEvent = async (plan: FunctionPlanResponse) => {
+    if (!recipe || isSavingFunctionPlan) return;
+    const requiredServings = getValidatedRequiredServings();
+    if (requiredServings === null) return;
+
+    const existingRecipe = plan.recipes?.find(
+      (item) => item.recipeId === recipe.id,
+    );
+    if (existingRecipe) {
+      Alert.alert(
+        "Recipe already added",
+        `${recipe.name} is already in “${plan.name}”.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Update servings",
+            onPress: async () => {
+              setIsSavingFunctionPlan(true);
+              try {
+                const request: FunctionPlanRequest = {
+                  name: plan.name,
+                  eventDate: plan.eventDate ?? null,
+                  notes: plan.notes ?? null,
+                  recipes: plan.recipes.map((item) => ({
+                    recipeId: item.recipeId,
+                    requiredServings:
+                      item.recipeId === recipe.id
+                        ? requiredServings
+                        : item.requiredServings,
+                  })),
+                };
+                await functionPlanApi.update(plan.id, request);
+                setShowAddToEventModal(false);
+                Alert.alert(
+                  "Event updated",
+                  `${recipe.name} servings updated in “${plan.name}”.`,
+                );
+              } catch (error) {
+                Alert.alert(
+                  "Could not update event",
+                  error instanceof Error ? error.message : "Please try again.",
+                );
+              } finally {
+                setIsSavingFunctionPlan(false);
+              }
+            },
+          },
+        ],
+      );
+      return;
+    }
+
+    setIsSavingFunctionPlan(true);
+    try {
+      const request: FunctionPlanRequest = {
+        name: plan.name,
+        eventDate: plan.eventDate ?? null,
+        notes: plan.notes ?? null,
+        recipes: [
+          ...(plan.recipes ?? []).map((item) => ({
+            recipeId: item.recipeId,
+            requiredServings: item.requiredServings,
+          })),
+          { recipeId: recipe.id, requiredServings },
+        ],
+      };
+      await functionPlanApi.update(plan.id, request);
+      setShowAddToEventModal(false);
+      Alert.alert(
+        "Added to event",
+        `${recipe.name} was added to “${plan.name}” for ${requiredServings} servings.`,
+      );
+    } catch (error) {
+      console.error("Failed to add recipe to event:", error);
+      Alert.alert(
+        "Could not add recipe",
+        error instanceof Error ? error.message : "Please try again.",
+      );
+    } finally {
+      setIsSavingFunctionPlan(false);
+    }
+  };
+
+  const createEventWithRecipe = async () => {
+    if (!recipe || isSavingFunctionPlan) return;
+    const name = newEventName.trim();
+    if (name.length < 2) {
+      Alert.alert(
+        "Event name required",
+        "Enter an event name with at least 2 characters.",
+      );
+      return;
+    }
+    const requiredServings = getValidatedRequiredServings();
+    if (requiredServings === null) return;
+
+    setIsSavingFunctionPlan(true);
+    try {
+      await functionPlanApi.create({
+        name,
+        eventDate: null,
+        notes: null,
+        recipes: [{ recipeId: recipe.id, requiredServings }],
+      });
+      setShowAddToEventModal(false);
+      Alert.alert(
+        "Event created",
+        `Created “${name}” with ${recipe.name} for ${requiredServings} servings.`,
+      );
+    } catch (error) {
+      console.error("Failed to create event:", error);
+      Alert.alert(
+        "Could not create event",
+        error instanceof Error ? error.message : "Please try again.",
+      );
+    } finally {
+      setIsSavingFunctionPlan(false);
+    }
+  };
+
+  const openReviewForm = () => {
+    if (myReview) {
+      setReviewRating(myReview.rating);
+      setReviewComment(myReview.comment ?? "");
+      setIsEditingReview(true);
+    } else {
+      setReviewRating(5);
+      setReviewComment("");
+      setIsEditingReview(false);
+    }
+
+    setShowReviewModal(true);
+  };
+
   const handleSubmitReview = async () => {
     if (!recipe || isSubmittingReview) return;
 
     try {
       const token = await getAuthToken();
+
       if (!token || !token.trim()) {
         setShowReviewModal(false);
         Alert.alert(
           "Login required",
-          "Please log in to leave a review.",
+          "Please log in to leave or edit a review.",
           [
             { text: "Cancel", style: "cancel" },
             {
@@ -513,8 +989,14 @@ export default function RecipeDetailScreen() {
       }
 
       setIsSubmittingReview(true);
-      const response = await fetch(`${API_BASE_URL}/recipes/${recipe.id}/reviews`, {
-        method: "POST",
+
+      const editing = isEditingReview && myReview !== null;
+      const url = editing
+        ? `${API_BASE_URL}/recipes/${recipe.id}/reviews/${myReview.id}`
+        : `${API_BASE_URL}/recipes/${recipe.id}/reviews`;
+
+      const response = await fetch(url, {
+        method: editing ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
@@ -527,28 +1009,43 @@ export default function RecipeDetailScreen() {
       });
 
       const responseData = await response.json().catch(() => null);
+
       if (!response.ok) {
         throw new Error(
-          responseData?.message ||
-          (response.status === 409
-            ? "You have already reviewed this recipe."
-            : `Could not submit review (${response.status}).`),
+          responseData?.message ??
+          `Could not ${editing ? "update" : "submit"} review (${response.status}).`,
         );
       }
 
-      const createdReview = responseData as RecipeReview;
-      setReviews((current) => [
-        createdReview,
-        ...current.filter((item) => item.id !== createdReview.id),
-      ]);
-      setReviewComment("");
-      setReviewRating(5);
+      const savedReview = responseData as RecipeReview;
+      setMyReview(savedReview);
+      setReviews((current) => {
+        const alreadyInList = current.some(
+          (item) => item.id === savedReview.id,
+        );
+
+        if (alreadyInList) {
+          return current.map((item) =>
+            item.id === savedReview.id ? savedReview : item,
+          );
+        }
+
+        return [savedReview, ...current];
+      });
+
       setShowReviewModal(false);
-      Alert.alert("Thank you!", "Your review has been added.");
+      setIsEditingReview(false);
+
+      Alert.alert(
+        editing ? "Review updated" : "Thank you!",
+        editing
+          ? "Your review has been updated successfully."
+          : "Your review has been added successfully.",
+      );
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Please try again.";
-      Alert.alert("Unable to submit review", message);
+      Alert.alert("Unable to save review", message);
     } finally {
       setIsSubmittingReview(false);
     }
@@ -559,13 +1056,13 @@ export default function RecipeDetailScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       {/* FIXED TRANSPARENT BLURRED HEADER */}
       <View style={styles.fixedHeader}>
         <BlurView
           intensity={Platform.OS === "ios" ? 75 : 45}
           tint="light"
-          style={StyleSheet.absoluteFill}
+          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 } as const}
         />
 
         <View style={styles.headerTint} />
@@ -587,25 +1084,37 @@ export default function RecipeDetailScreen() {
           <Ionicons name="arrow-back" size={23} color="#17231E" />
         </Pressable>
 
-        <Text style={styles.headerRecipeName} numberOfLines={1}>
+        <AppText style={styles.headerRecipeName} numberOfLines={1}>
           {recipe.name}
-        </Text>
+        </AppText>
+
+        <Pressable
+          onPress={openAddToEvent}
+          style={[styles.headerIconButton, styles.addToEventHeaderButton]}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Add recipe to event"
+        >
+          <Ionicons name="calendar-outline" size={20} color="#1F7655" />
+        </Pressable>
 
         <Pressable
           onPress={handleToggleFavorite}
-          disabled={isSavingFavorite}
-          style={styles.headerIconButton}
+          disabled={isSavingFavorite || isReadOnlyFavorite}
+          style={[styles.headerIconButton, isReadOnlyFavorite && { opacity: 1 }]}
           hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={
+            isReadOnlyFavorite ? "Saved favorite, editing disabled" : isRecipeAdded ? "Saved to favorites" : "Add to favorites"
+          }
         >
           <Ionicons
-            name={isSavingFavorite ? "hourglass-outline" : "heart"}
+            name={isSavingFavorite && !isReadOnlyFavorite ? "hourglass-outline" : (isRecipeAdded || isReadOnlyFavorite) ? "heart" : "heart-outline"}
             size={23}
-            color={isRecipeAdded ? "#1F7655" : "#68736D"}
+            color={(isRecipeAdded || isReadOnlyFavorite) ? "#1F7655" : "#68736D"}
           />
         </Pressable>
       </View>
-
-
 
       {/* MAIN SCROLL: PHOTO AND RECIPE CONTENT SCROLL; STICKY CONTROLS STOP BELOW HEADER */}
       <ScrollView
@@ -633,7 +1142,7 @@ export default function RecipeDetailScreen() {
               }
             />
           ) : (
-            <Text style={styles.heroEmoji}>{recipe.name.charAt(0)}</Text>
+            <AppText style={styles.heroEmoji}>{recipe.name.charAt(0)}</AppText>
           )}
         </View>
 
@@ -641,11 +1150,11 @@ export default function RecipeDetailScreen() {
         <View style={styles.recipeOverview}>
           <View style={styles.recipeHeadingRow}>
             <View style={styles.recipeHeadingText}>
-              <Text style={styles.recipeTitle}>{recipe.name}</Text>
+              <AppText style={styles.recipeTitle}>{recipe.name}</AppText>
               {hasText(recipe.description) ? (
-                <Text style={styles.recipeDescription} numberOfLines={2}>
+                <AppText style={styles.recipeDescription} numberOfLines={2}>
                   {recipe.description}
-                </Text>
+                </AppText>
               ) : null}
             </View>
             <Pressable
@@ -663,43 +1172,57 @@ export default function RecipeDetailScreen() {
             {hasText(recipe.categoryName) ? (
               <View style={styles.quickMetaItem}>
                 <Ionicons name="grid-outline" size={14} color="#1F7655" />
-                <Text style={styles.quickMetaText}>{recipe.categoryName}</Text>
+                <AppText style={styles.quickMetaText}>{recipe.categoryName}</AppText>
               </View>
             ) : null}
             {hasText(recipe.mealType) ? (
               <View style={styles.quickMetaItem}>
                 <Ionicons name="restaurant-outline" size={14} color="#1F7655" />
-                <Text style={styles.quickMetaText}>{recipe.mealType}</Text>
+                <AppText style={styles.quickMetaText}>{recipe.mealType}</AppText>
               </View>
             ) : null}
-            {(recipe.preparationTimeMinutes != null || recipe.cookingTimeMinutes != null) ? (
+            {recipe.cookingTimeMinutes != null ? (
               <View style={styles.quickMetaItem}>
                 <Ionicons name="time-outline" size={14} color="#1F7655" />
-                <Text style={styles.quickMetaText}>
-                  {(Number(recipe.preparationTimeMinutes) || 0) +
-                    (Number(recipe.cookingTimeMinutes) || 0)} min total
-                </Text>
+                <AppText style={styles.quickMetaText}>
+                  {scaledCookingTimeMinutes} min cooking
+                </AppText>
               </View>
             ) : null}
             <View style={styles.quickMetaItem}>
               <Ionicons name="star" size={14} color="#E6A23C" />
-              <Text style={styles.quickMetaText}>
+              <AppText style={styles.quickMetaText}>
                 {reviews.length
-                  ? (reviews.reduce((sum, review) => sum + (Number(review.rating) || 0), 0) / reviews.length).toFixed(1)
+                  ? (
+                    reviews.reduce(
+                      (sum, review) => sum + (Number(review.rating) || 0),
+                      0,
+                    ) / reviews.length
+                  ).toFixed(1)
                   : "New"}
-                {reviews.length ? ` · ${reviews.length} review${reviews.length === 1 ? "" : "s"}` : ""}
-              </Text>
+                {reviews.length
+                  ? ` · ${reviews.length} review${reviews.length === 1 ? "" : "s"}`
+                  : ""}
+              </AppText>
             </View>
           </View>
 
           <Pressable
             style={styles.writeReviewInline}
-            onPress={() => setShowReviewModal(true)}
+            onPress={openReviewForm}
             accessibilityRole="button"
-            accessibilityLabel="Write a recipe review"
+            accessibilityLabel={
+              myReview ? "Edit your recipe review" : "Write a recipe review"
+            }
           >
-            <Ionicons name="create-outline" size={16} color="#1F7655" />
-            <Text style={styles.writeReviewInlineText}>Write a review</Text>
+            <Ionicons
+              name={myReview ? "create-outline" : "star-outline"}
+              size={16}
+              color="#1F7655"
+            />
+            <AppText style={styles.writeReviewInlineText}>
+              {myReview ? "Edit your review" : "Write a review"}
+            </AppText>
           </Pressable>
 
           {(recipe.tags?.filter((tag) => hasText(tag.name)).length ?? 0) > 0 ? (
@@ -709,22 +1232,25 @@ export default function RecipeDetailScreen() {
                 : recipe.tags!.filter((tag) => hasText(tag.name)).slice(0, 3)
               ).map((tag) => (
                 <View key={tag.id} style={styles.tagChip}>
-                  <Text style={styles.tagChipText}>{tag.name}</Text>
+                  <AppText style={styles.tagChipText}>{tag.name}</AppText>
                 </View>
               ))}
-              {(recipe.tags?.filter((tag) => hasText(tag.name)).length ?? 0) > 3 ? (
+              {(recipe.tags?.filter((tag) => hasText(tag.name)).length ?? 0) >
+                3 ? (
                 <Pressable
                   onPress={() => setShowAllTags((current) => !current)}
                   style={styles.moreTagsButton}
                   accessibilityRole="button"
-                  accessibilityLabel={showAllTags ? "Show fewer tags" : "Show all tags"}
+                  accessibilityLabel={
+                    showAllTags ? "Show fewer tags" : "Show all tags"
+                  }
                   hitSlop={6}
                 >
-                  <Text style={styles.moreTagsText}>
+                  <AppText style={styles.moreTagsText}>
                     {showAllTags
                       ? "Show less"
                       : `+${recipe.tags!.filter((tag) => hasText(tag.name)).length - 3} more`}
-                  </Text>
+                  </AppText>
                 </Pressable>
               ) : null}
             </View>
@@ -736,8 +1262,10 @@ export default function RecipeDetailScreen() {
           <View style={styles.scalingCard}>
             <View style={styles.scalingHeading}>
               <View style={styles.scalingTextContainer}>
-                <Text style={styles.scalingTitle}>Scaling</Text>
-                <Text style={styles.scalingSubtitle}>Set servings and quantities</Text>
+                <AppText style={styles.scalingTitle}>Scaling</AppText>
+                <AppText style={styles.scalingSubtitle}>
+                  {isReadOnlyFavorite ? "Saved customization · editing disabled" : "Set servings and quantities"}
+                </AppText>
               </View>
             </View>
 
@@ -745,10 +1273,9 @@ export default function RecipeDetailScreen() {
               <Pressable
                 onPress={() => handleServingsChange(-1)}
                 style={[
-                  styles.servingBtn,
-                  currentServings <= 1 && styles.servingBtnDisabled,
+                  styles.servingBtn, isReadOnlyFavorite && styles.servingBtnDisabled
                 ]}
-                disabled={currentServings <= 1}
+                disabled={isReadOnlyFavorite || currentServings <= 1}
               >
                 <Ionicons
                   name="remove"
@@ -770,11 +1297,13 @@ export default function RecipeDetailScreen() {
                 textAlign="center"
                 underlineColorAndroid="transparent"
                 selectTextOnFocus
+                editable={!isReadOnlyFavorite}
               />
 
               <Pressable
                 onPress={() => handleServingsChange(1)}
-                style={styles.servingBtn}
+                style={[styles.servingBtn, isReadOnlyFavorite && styles.servingBtnDisabled]}
+                disabled={isReadOnlyFavorite}
               >
                 <Ionicons name="add" size={20} color="#FFFFFF" />
               </Pressable>
@@ -788,31 +1317,26 @@ export default function RecipeDetailScreen() {
                 style={[styles.tab, activeTab === tab && styles.tabActive]}
                 onPress={() => setActiveTab(tab)}
               >
-                <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
+                <AppText
+                  style={[
+                    styles.tabText,
+                    activeTab === tab && styles.tabTextActive,
+                  ]}
+                >
                   {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                </Text>
+                </AppText>
               </Pressable>
             ))}
           </View>
 
           {activeTab === "ingredients" ? (
             <View style={styles.scaledTitleRow}>
-              <Text style={styles.scaledTitle}>
+              <AppText style={styles.scaledTitle}>
                 Scaled Ingredients ({currentServings} servings)
-              </Text>
-              <View style={styles.priceSourceLegend}>
-                <View style={styles.priceSourceLegendItem}>
-                  <View style={[styles.priceSourceDot, styles.priceSourceDotManual]} />
-                  <Text style={styles.priceSourceLegendText}>Manual price</Text>
-                </View>
-                <View style={styles.priceSourceLegendItem}>
-                  <View style={[styles.priceSourceDot, styles.priceSourceDotGovt]} />
-                  <Text style={styles.priceSourceLegendText}>Govt. Price</Text>
-                </View>
-              </View>
+              </AppText>
             </View>
           ) : (
-            <Text style={styles.scaledTitle}>Instructions</Text>
+            <AppText style={styles.scaledTitle}>Instructions</AppText>
           )}
         </View>
 
@@ -826,19 +1350,32 @@ export default function RecipeDetailScreen() {
               const ingredientImageUrl = originalIngredient?.ingredientPhotoUrl;
               const customized = customIngredients[ingredient.ingredientId];
               const priceSource = (
-                ingredient as typeof ingredient & { priceSource?: string | null }
+                ingredient as typeof ingredient & {
+                  priceSource?: string | null;
+                }
               ).priceSource;
 
+              const canEditIngredient = !isReadOnlyFavorite && isIngredientEditable(
+                ingredient.ingredientName,
+              );
+
               return (
-                <Pressable
+                <View
                   key={ingredient.ingredientId}
                   style={[
                     styles.ingredientRow,
-                    index === calculation.ingredients.length - 1 && styles.lastIngredientRow,
+                    index === calculation.ingredients.length - 1 &&
+                    styles.lastIngredientRow,
+                    !canEditIngredient && styles.ingredientRowNotEditable,
                   ]}
-                  onPress={() => openIngredientEditor(ingredient)}
                 >
-                  <View style={styles.ingredientIcon}>
+                  <Pressable
+                    style={styles.ingredientIcon}
+                    onPress={() => openIngredientEditor(ingredient)}
+                    disabled={!canEditIngredient}
+                    accessibilityRole={canEditIngredient ? "button" : undefined}
+                    accessibilityLabel={`Edit ${ingredient.ingredientName} quantity`}
+                  >
                     {ingredientImageUrl ? (
                       <Image
                         source={{ uri: ingredientImageUrl }}
@@ -846,7 +1383,7 @@ export default function RecipeDetailScreen() {
                         resizeMode="cover"
                       />
                     ) : (
-                      <Text style={styles.ingredientEmoji}>
+                      <AppText style={styles.ingredientEmoji}>
                         {ingredient.ingredientName === "Basmati Rice"
                           ? "🌾"
                           : ingredient.ingredientName === "Chicken"
@@ -858,67 +1395,349 @@ export default function RecipeDetailScreen() {
                                 : ingredient.ingredientName === "Paneer"
                                   ? "🧀"
                                   : "🥘"}
-                      </Text>
+                      </AppText>
                     )}
-                  </View>
+                  </Pressable>
 
                   <View style={styles.ingredientInfo}>
-                    <Text style={styles.ingredientName} numberOfLines={2}>
-                      {ingredient.ingredientName}
-                    </Text>
-                    <Text style={styles.ingredientBase}>
-                      {ingredient.baseQuantity} {ingredient.unit} (base)
-                    </Text>
+                    <View style={styles.ingredientNameRow}>
+                      <Pressable
+                        onPress={() => openIngredientEditor(ingredient)}
+                        disabled={!canEditIngredient}
+                        accessibilityRole={canEditIngredient ? "button" : undefined}
+                        accessibilityLabel={`Edit ${ingredient.ingredientName} quantity`}
+                        style={styles.ingredientNamePressable}
+                      >
+                        <AppText style={styles.ingredientName} numberOfLines={2}>
+                          {ingredient.ingredientName}
+                        </AppText>
+                      </Pressable>
+                      <Pressable
+                        style={styles.ingredientInfoButton}
+                        onPress={() =>
+                          void openIngredientInfo(
+                            ingredient.ingredientId,
+                            ingredient.ingredientName,
+                            ingredientImageUrl,
+                          )
+                        }
+                        hitSlop={8}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Show details for ${ingredient.ingredientName}`}
+                      >
+                        <Ionicons
+                          name="information-circle-outline"
+                          size={16}
+                          color="#1F7655"
+                        />
+                      </Pressable>
+                      {canEditIngredient ? (
+                        <View
+                          style={styles.ingredientEditMark}
+                          accessible
+                          accessibilityLabel="Editable ingredient"
+                        >
+                          <Ionicons
+                            name="create-outline"
+                            size={14}
+                            color="#1F7655"
+                          />
+                        </View>
+                      ) : null}
+                    </View>
+                    <AppText style={styles.ingredientBase}>
+                      Wastage:{" "}
+                      {ingredient.wastageQuantity != null &&
+                        hasText(ingredient.wastageUnit)
+                        ? `${Number(ingredient.wastageQuantity.toFixed(2))} ${ingredient.wastageUnit}`
+                        : "Not specified"}
+                    </AppText>
                   </View>
 
-                  <View style={styles.ingredientQuantityContainer}>
-                    <Text style={styles.ingredientQuantity}>
+                  <Pressable
+                    style={styles.ingredientQuantityContainer}
+                    onPress={() => openIngredientEditor(ingredient)}
+                    disabled={!canEditIngredient}
+                    accessibilityRole={canEditIngredient ? "button" : undefined}
+                    accessibilityLabel={`Edit ${ingredient.ingredientName} quantity`}
+                  >
+                    <AppText style={styles.ingredientQuantity}>
                       {formatQuantity(
                         customized?.quantity ?? ingredient.requiredQuantity,
                         customized?.unit ?? ingredient.unit,
                       )}
-                    </Text>
-                    {ingredient.estimatedCost != null && Number.isFinite(ingredient.estimatedCost) ? (
+                    </AppText>
+                    {ingredient.estimatedCost != null &&
+                      Number.isFinite(ingredient.estimatedCost) ? (
                       <View style={styles.ingredientPriceWrap}>
-                        <Text style={styles.ingredientPrice}>
+                        <AppText style={styles.ingredientPrice}>
                           ₹{ingredient.estimatedCost.toFixed(2)}
-                        </Text>
+                        </AppText>
                         {priceSource === "GovernmentApi" ||
-                        priceSource === "Govt" ||
-                        priceSource === "Government" ? (
-                          <View style={[styles.priceSourceDot, styles.priceSourceDotGovt]} />
+                          priceSource === "Govt" ||
+                          priceSource === "Government" ? (
+                          <View
+                            style={[
+                              styles.priceSourceDot,
+                              styles.priceSourceDotGovt,
+                            ]}
+                          />
                         ) : priceSource === "Admin" ||
                           priceSource === "Manual" ? (
-                          <View style={[styles.priceSourceDot, styles.priceSourceDotManual]} />
+                          <View
+                            style={[
+                              styles.priceSourceDot,
+                              styles.priceSourceDotManual,
+                            ]}
+                          />
                         ) : null}
                       </View>
                     ) : null}
-                  </View>
-                </Pressable>
+                  </Pressable>
+                </View>
               );
             })}
+            <View style={styles.ingredientLegendFooter}>
+              <View style={styles.ingredientLegendTitleRow}>
+                <Ionicons
+                  name="information-circle-outline"
+                  size={15}
+                  color="#68736D"
+                />
+                <AppText style={styles.ingredientLegendTitle}>
+                  Ingredient guide
+                </AppText>
+              </View>
+
+              <View style={styles.ingredientLegendItems}>
+                <View style={styles.ingredientLegendItem}>
+                  <Ionicons name="create-outline" size={14} color="#1F7655" />
+                  <AppText style={styles.ingredientLegendText}>
+                    Editable ingredient
+                  </AppText>
+                </View>
+                <View style={styles.ingredientLegendItem}>
+                  <View
+                    style={[styles.priceSourceDot, styles.priceSourceDotManual]}
+                  />
+                  <AppText style={styles.ingredientLegendText}>Manual price</AppText>
+                </View>
+                <View style={styles.ingredientLegendItem}>
+                  <View
+                    style={[styles.priceSourceDot, styles.priceSourceDotGovt]}
+                  />
+                  <AppText style={styles.ingredientLegendText}>Govt. price</AppText>
+                </View>
+              </View>
+              <View>
+                <AppText variant="mutedText">Note: All quantities, costs, cooking times, and wastage are estimates</AppText>
+              </View>
+            </View>
           </View>
         ) : (
           <View style={styles.instructionsContent}>
             {recipe.procedures.map((step) => (
               <View key={step.stepNumber} style={styles.instructionRow}>
                 <View style={styles.stepNumber}>
-                  <Text style={styles.stepNumberText}>{step.stepNumber}</Text>
+                  <AppText style={styles.stepNumberText}>{step.stepNumber}</AppText>
                 </View>
                 <View style={styles.instructionTextWrap}>
                   {hasText(step.title) ? (
-                    <Text style={styles.stepTitle}>{step.title}</Text>
+                    <AppText style={styles.stepTitle}>{step.title}</AppText>
                   ) : null}
                   {hasText(step.description) ? (
-                    <Text style={styles.stepDescription}>{step.description}</Text>
+                    <AppText style={styles.stepDescription}>
+                      {step.description}
+                    </AppText>
                   ) : null}
                 </View>
               </View>
             ))}
           </View>
         )}
-
       </ScrollView>
+
+      {/* ADD TO EVENT MODAL */}
+      <Modal
+        visible={showAddToEventModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowAddToEventModal(false)}
+      >
+        <View style={styles.eventModalOverlay}>
+          <View style={styles.eventModal}>
+            <View style={styles.eventModalHeader}>
+              <View style={{ flex: 1 }}>
+                <AppText style={styles.eventModalTitle}>Add to Event</AppText>
+                <AppText style={styles.eventModalSubtitle} numberOfLines={2}>
+                  {recipe.name}
+                </AppText>
+              </View>
+              <Pressable
+                onPress={() => setShowAddToEventModal(false)}
+                style={styles.eventModalClose}
+                hitSlop={8}
+              >
+                <Ionicons name="close" size={22} color="#34423A" />
+              </Pressable>
+            </View>
+
+            <AppText style={styles.eventFieldLabel}>Required servings</AppText>
+            <TextInput
+              value={requiredServingsInput}
+              onChangeText={(value) => {
+                if (/^\d*$/.test(value)) setRequiredServingsInput(value);
+              }}
+              keyboardType="number-pad"
+              inputMode="numeric"
+              placeholder="Enter servings"
+              style={styles.eventTextInput}
+              selectTextOnFocus
+            />
+            <AppText style={styles.eventHelperText}>
+              Choose how many people this recipe should serve for this event.
+            </AppText>
+
+            <Pressable
+              style={styles.createEventToggle}
+              onPress={() => setShowCreateEventForm((current) => !current)}
+            >
+              <Ionicons
+                name={
+                  showCreateEventForm
+                    ? "remove-circle-outline"
+                    : "add-circle-outline"
+                }
+                size={20}
+                color="#1F7655"
+              />
+              <AppText style={styles.createEventToggleText}>
+                {showCreateEventForm
+                  ? "Choose an existing event"
+                  : "Create a new event"}
+              </AppText>
+            </Pressable>
+
+            {showCreateEventForm ? (
+              <View style={styles.createEventForm}>
+                <AppText style={styles.eventFieldLabel}>Event name</AppText>
+                <TextInput
+                  value={newEventName}
+                  onChangeText={setNewEventName}
+                  placeholder="e.g. Family function"
+                  maxLength={150}
+                  style={styles.eventTextInput}
+                  returnKeyType="done"
+                />
+                <AppText style={styles.eventHelperText}>
+                  You can add the event date and notes later in Function
+                  Planner.
+                </AppText>
+                <Pressable
+                  style={[
+                    styles.eventPrimaryButton,
+                    isSavingFunctionPlan && styles.eventButtonDisabled,
+                  ]}
+                  onPress={createEventWithRecipe}
+                  disabled={isSavingFunctionPlan}
+                >
+                  <AppText style={styles.eventPrimaryButtonText}>
+                    {isSavingFunctionPlan
+                      ? "Saving…"
+                      : "Create event and add recipe"}
+                  </AppText>
+                </Pressable>
+              </View>
+            ) : (
+              <>
+                <AppText style={styles.eventListTitle}>Your events</AppText>
+                {isLoadingFunctionPlans ? (
+                  <View style={styles.eventLoadingRow}>
+                    <AppText style={styles.eventEmptyText}>Loading events…</AppText>
+                  </View>
+                ) : functionPlans.length === 0 ? (
+                  <View style={styles.eventEmptyBox}>
+                    <Ionicons
+                      name="calendar-clear-outline"
+                      size={28}
+                      color="#8A938E"
+                    />
+                    <AppText style={styles.eventEmptyText}>
+                      You don't have any events yet.
+                    </AppText>
+                    <AppText style={styles.eventEmptyHint}>
+                      Create one above to start planning.
+                    </AppText>
+                  </View>
+                ) : (
+                  <ScrollView
+                    style={styles.eventList}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                  >
+                    {functionPlans.map((plan) => {
+                      const alreadyAdded =
+                        plan.recipes?.some(
+                          (item) => item.recipeId === recipe.id,
+                        ) ?? false;
+                      return (
+                        <Pressable
+                          key={plan.id}
+                          style={styles.eventListItem}
+                          onPress={() => addRecipeToExistingEvent(plan)}
+                          disabled={isSavingFunctionPlan}
+                        >
+                          <View style={styles.eventListIcon}>
+                            <Ionicons
+                              name="calendar-outline"
+                              size={19}
+                              color="#1F7655"
+                            />
+                          </View>
+                          <View style={styles.eventListTextWrap}>
+                            <AppText
+                              style={styles.eventListName}
+                              numberOfLines={1}
+                            >
+                              {plan.name}
+                            </AppText>
+                            <AppText
+                              style={styles.eventListMeta}
+                              numberOfLines={1}
+                            >
+                              {plan.recipes?.length ?? 0} recipe
+                              {(plan.recipes?.length ?? 0) === 1 ? "" : "s"}
+                              {plan.eventDate
+                                ? ` · ${new Date(plan.eventDate).toLocaleDateString()}`
+                                : ""}
+                            </AppText>
+                          </View>
+                          {alreadyAdded ? (
+                            <Ionicons
+                              name="checkmark-circle"
+                              size={21}
+                              color="#1F7655"
+                            />
+                          ) : (
+                            <Ionicons
+                              name="chevron-forward"
+                              size={19}
+                              color="#8A938E"
+                            />
+                          )}
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                )}
+              </>
+            )}
+            {isSavingFunctionPlan ? (
+              <AppText style={styles.eventSavingText}>Saving event…</AppText>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
 
       {/* RECIPE DETAILS MODAL: opened from the info button beside the recipe name */}
       <Modal
@@ -931,14 +1750,18 @@ export default function RecipeDetailScreen() {
           <View style={styles.recipeDetailsModal}>
             <View style={styles.recipeDetailsModalHeader}>
               <View style={styles.detailsAccordionHeading}>
-                <Text style={styles.detailsAccordionTitle}>Recipe details & reviews</Text>
-                <Text style={styles.detailsAccordionSubtitle}>
+                <AppText style={styles.detailsAccordionTitle}>
+                  Recipe details & reviews
+                </AppText>
+                <AppText style={styles.detailsAccordionSubtitle}>
                   {[
                     hasText(recipe.cuisine) ? recipe.cuisine : null,
                     hasText(recipe.chefName) ? recipe.chefName : null,
                     `${reviews.length} review${reviews.length === 1 ? "" : "s"}`,
-                  ].filter(Boolean).join(" · ")}
-                </Text>
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </AppText>
               </View>
               <Pressable
                 style={styles.recipeDetailsCloseButton}
@@ -952,120 +1775,156 @@ export default function RecipeDetailScreen() {
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
               <View style={styles.detailsAccordionBody}>
-              <View style={styles.detailGrid}>
-                {hasText(recipe.cuisine) ? (
+                <View style={styles.detailGrid}>
+                  {hasText(recipe.cuisine) ? (
+                    <View style={styles.detailItem}>
+                      <AppText style={styles.detailLabel}>Cuisine</AppText>
+                      <AppText style={styles.detailValue}>{recipe.cuisine}</AppText>
+                    </View>
+                  ) : null}
+                  {hasText(recipe.chefName) ? (
+                    <View style={styles.detailItem}>
+                      <AppText style={styles.detailLabel}>Chef</AppText>
+                      <AppText style={styles.detailValue}>{recipe.chefName}</AppText>
+                    </View>
+                  ) : null}
+                  {hasText(recipe.cookingStyleName) ? (
+                    <View style={styles.detailItem}>
+                      <AppText style={styles.detailLabel}>Cooking style</AppText>
+                      <AppText style={styles.detailValue}>
+                        {recipe.cookingStyleName}
+                      </AppText>
+                    </View>
+                  ) : null}
+                  {recipe.baseServings != null && recipe.baseServings > 0 ? (
+                    <View style={styles.detailItem}>
+                      <AppText style={styles.detailLabel}>Base servings</AppText>
+                      <AppText style={styles.detailValue}>
+                        {recipe.baseServings}
+                      </AppText>
+                    </View>
+                  ) : null}
+                  {recipe.baseCookedWeightGrams != null &&
+                    recipe.baseCookedWeightGrams > 0 ? (
+                    <View style={styles.detailItem}>
+                      <AppText style={styles.detailLabel}>Base cooked weight</AppText>
+                      <AppText style={styles.detailValue}>
+                        {formatEstimatedWeight(recipe.baseCookedWeightGrams)}
+                      </AppText>
+                    </View>
+                  ) : null}
+                  {recipe.preparationTimeMinutes != null ? (
+                    <View style={styles.detailItem}>
+                      <AppText style={styles.detailLabel}>Preparation</AppText>
+                      <AppText style={styles.detailValue}>
+                        {recipe.preparationTimeMinutes} min
+                      </AppText>
+                    </View>
+                  ) : null}
                   <View style={styles.detailItem}>
-                    <Text style={styles.detailLabel}>Cuisine</Text>
-                    <Text style={styles.detailValue}>{recipe.cuisine}</Text>
-                  </View>
-                ) : null}
-                {hasText(recipe.chefName) ? (
-                  <View style={styles.detailItem}>
-                    <Text style={styles.detailLabel}>Chef</Text>
-                    <Text style={styles.detailValue}>{recipe.chefName}</Text>
-                  </View>
-                ) : null}
-                {hasText(recipe.cookingStyleName) ? (
-                  <View style={styles.detailItem}>
-                    <Text style={styles.detailLabel}>Cooking style</Text>
-                    <Text style={styles.detailValue}>{recipe.cookingStyleName}</Text>
-                  </View>
-                ) : null}
-                {recipe.baseServings != null && recipe.baseServings > 0 ? (
-                  <View style={styles.detailItem}>
-                    <Text style={styles.detailLabel}>Base servings</Text>
-                    <Text style={styles.detailValue}>{recipe.baseServings}</Text>
-                  </View>
-                ) : null}
-                {recipe.baseCookedWeightGrams != null && recipe.baseCookedWeightGrams > 0 ? (
-                  <View style={styles.detailItem}>
-                    <Text style={styles.detailLabel}>Base cooked weight</Text>
-                    <Text style={styles.detailValue}>{formatEstimatedWeight(recipe.baseCookedWeightGrams)}</Text>
-                  </View>
-                ) : null}
-                {recipe.preparationTimeMinutes != null ? (
-                  <View style={styles.detailItem}>
-                    <Text style={styles.detailLabel}>Preparation</Text>
-                    <Text style={styles.detailValue}>{recipe.preparationTimeMinutes} min</Text>
-                  </View>
-                ) : null}
-                {recipe.cookingTimeMinutes != null ? (
-                  <View style={styles.detailItem}>
-                    <Text style={styles.detailLabel}>Cooking</Text>
-                    <Text style={styles.detailValue}>{recipe.cookingTimeMinutes} min</Text>
-                  </View>
-                ) : null}
-              </View>
-
-              {hasText(recipe.storageInstructions) ? (
-                <View style={styles.storageNote}>
-                  <Ionicons name="snow-outline" size={17} color="#1F7655" />
-                  <View style={styles.storageTextWrap}>
-                    <Text style={styles.storageTitle}>Storage instructions</Text>
-                    <Text style={styles.storageDescription}>{recipe.storageInstructions}</Text>
-                    {recipe.shelfLifeHours != null && recipe.shelfLifeHours > 0 ? (
-                      <Text style={styles.shelfLifeText}>
-                        Best used within {recipe.shelfLifeHours >= 24 && recipe.shelfLifeHours % 24 === 0
-                          ? `${recipe.shelfLifeHours / 24} day${recipe.shelfLifeHours / 24 === 1 ? "" : "s"}`
-                          : `${recipe.shelfLifeHours} hour${recipe.shelfLifeHours === 1 ? "" : "s"}`}
-                      </Text>
-                    ) : null}
+                    <AppText style={styles.detailLabel}>Estimated cooking</AppText>
+                    <AppText style={styles.detailValue}>
+                      {recipe.cookingTimeMinutes} min
+                    </AppText>
                   </View>
                 </View>
-              ) : null}
 
-              {hasText(recipe.sourceName) || hasText(recipe.sourceUrl) ? (
-                <View style={styles.sourceNote}>
-                  <Ionicons name="book-outline" size={16} color="#1F7655" />
-                  <View style={styles.storageTextWrap}>
-                    <Text style={styles.storageTitle}>Recipe source</Text>
-                    {hasText(recipe.sourceName) ? (
-                      <Text style={styles.storageDescription}>{recipe.sourceName}</Text>
-                    ) : null}
-                    {hasText(recipe.sourceUrl) ? (
-                      <Text style={styles.sourceUrl} numberOfLines={2}>{recipe.sourceUrl}</Text>
-                    ) : null}
-                  </View>
-                </View>
-              ) : null}
-
-              <View style={styles.reviewsSection}>
-                <View style={styles.reviewsHeading}>
-                  <Text style={styles.reviewsTitle}>Reviews</Text>
-                  <View style={styles.ratingSummary}>
-                    <Ionicons name="star" size={15} color="#E6A23C" />
-                    <Text style={styles.ratingSummaryText}>
-                      {reviews.length
-                        ? (reviews.reduce((sum, review) => sum + (Number(review.rating) || 0), 0) / reviews.length).toFixed(1)
-                        : "—"}
-                    </Text>
-                    <Text style={styles.reviewCountText}>({reviews.length})</Text>
-                  </View>
-                </View>
-                {reviews.length ? (
-                  reviews.map((review) => (
-                    <View key={review.id} style={styles.reviewCard}>
-                      <View style={styles.reviewTopRow}>
-                        <Text style={styles.reviewUserName}>{hasText(review.userName) ? review.userName : "User"}</Text>
-                        <View style={styles.reviewRating}>
-                          <Ionicons name="star" size={13} color="#E6A23C" />
-                          <Text style={styles.reviewRatingText}>{Number(review.rating) || 0}/5</Text>
-                        </View>
-                      </View>
-                      {hasText(review.comment) ? (
-                        <Text style={styles.reviewComment}>{review.comment}</Text>
-                      ) : null}
-                      {hasText(review.createdAt) ? (
-                        <Text style={styles.reviewDate}>
-                          {new Date(review.createdAt).toLocaleDateString()}
-                        </Text>
+                {hasText(recipe.storageInstructions) ? (
+                  <View style={styles.storageNote}>
+                    <Ionicons name="snow-outline" size={17} color="#1F7655" />
+                    <View style={styles.storageTextWrap}>
+                      <AppText style={styles.storageTitle}>
+                        Storage instructions
+                      </AppText>
+                      <AppText style={styles.storageDescription}>
+                        {recipe.storageInstructions}
+                      </AppText>
+                      {recipe.shelfLifeHours != null &&
+                        recipe.shelfLifeHours > 0 ? (
+                        <AppText style={styles.shelfLifeText}>
+                          Best used within{" "}
+                          {recipe.shelfLifeHours >= 24 &&
+                            recipe.shelfLifeHours % 24 === 0
+                            ? `${recipe.shelfLifeHours / 24} day${recipe.shelfLifeHours / 24 === 1 ? "" : "s"}`
+                            : `${recipe.shelfLifeHours} hour${recipe.shelfLifeHours === 1 ? "" : "s"}`}
+                        </AppText>
                       ) : null}
                     </View>
-                  ))
-                ) : (
-                  <Text style={styles.noReviewsText}>No reviews yet.</Text>
-                )}
-              </View>
+                  </View>
+                ) : null}
+
+                {hasText(recipe.sourceName) || hasText(recipe.sourceUrl) ? (
+                  <View style={styles.sourceNote}>
+                    <Ionicons name="book-outline" size={16} color="#1F7655" />
+                    <View style={styles.storageTextWrap}>
+                      <AppText style={styles.storageTitle}>Recipe source</AppText>
+                      {hasText(recipe.sourceName) ? (
+                        <AppText style={styles.storageDescription}>
+                          {recipe.sourceName}
+                        </AppText>
+                      ) : null}
+                      {hasText(recipe.sourceUrl) ? (
+                        <AppText style={styles.sourceUrl} numberOfLines={2}>
+                          {recipe.sourceUrl}
+                        </AppText>
+                      ) : null}
+                    </View>
+                  </View>
+                ) : null}
+
+                <View style={styles.reviewsSection}>
+                  <View style={styles.reviewsHeading}>
+                    <AppText style={styles.reviewsTitle}>Reviews</AppText>
+                    <View style={styles.ratingSummary}>
+                      <Ionicons name="star" size={15} color="#E6A23C" />
+                      <AppText style={styles.ratingSummaryText}>
+                        {reviews.length
+                          ? (
+                            reviews.reduce(
+                              (sum, review) =>
+                                sum + (Number(review.rating) || 0),
+                              0,
+                            ) / reviews.length
+                          ).toFixed(1)
+                          : "—"}
+                      </AppText>
+                      <AppText style={styles.reviewCountText}>
+                        ({reviews.length})
+                      </AppText>
+                    </View>
+                  </View>
+                  {reviews.length ? (
+                    reviews.map((review) => (
+                      <View key={review.id} style={styles.reviewCard}>
+                        <View style={styles.reviewTopRow}>
+                          <AppText style={styles.reviewUserName}>
+                            {hasText(review.userName)
+                              ? review.userName
+                              : "User"}
+                          </AppText>
+                          <View style={styles.reviewRating}>
+                            <Ionicons name="star" size={13} color="#E6A23C" />
+                            <AppText style={styles.reviewRatingText}>
+                              {Number(review.rating) || 0}/5
+                            </AppText>
+                          </View>
+                        </View>
+                        {hasText(review.comment) ? (
+                          <AppText style={styles.reviewComment}>
+                            {review.comment}
+                          </AppText>
+                        ) : null}
+                        {hasText(review.createdAt) ? (
+                          <AppText style={styles.reviewDate}>
+                            {new Date(review.createdAt).toLocaleDateString()}
+                          </AppText>
+                        ) : null}
+                      </View>
+                    ))
+                  ) : (
+                    <AppText style={styles.noReviewsText}>No reviews yet.</AppText>
+                  )}
+                </View>
               </View>
             </ScrollView>
           </View>
@@ -1083,10 +1942,12 @@ export default function RecipeDetailScreen() {
           <View style={styles.reviewModal}>
             <View style={styles.reviewModalHeader}>
               <View style={styles.reviewModalHeading}>
-                <Text style={styles.reviewModalTitle}>Rate this recipe</Text>
-                <Text style={styles.reviewModalSubtitle} numberOfLines={2}>
+                <AppText style={styles.reviewModalTitle}>
+                  {isEditingReview ? "Edit your review" : "Rate this recipe"}
+                </AppText>
+                <AppText style={styles.reviewModalSubtitle} numberOfLines={2}>
                   Share your experience with {recipe.name}.
-                </Text>
+                </AppText>
               </View>
               <Pressable
                 onPress={() => setShowReviewModal(false)}
@@ -1116,11 +1977,15 @@ export default function RecipeDetailScreen() {
                 </Pressable>
               ))}
             </View>
-            <Text style={styles.reviewRatingCaption}>
-              {["", "Poor", "Fair", "Good", "Very good", "Excellent"][reviewRating]}
-            </Text>
+            <AppText style={styles.reviewRatingCaption}>
+              {
+                ["", "Poor", "Fair", "Good", "Very good", "Excellent"][
+                reviewRating
+                ]
+              }
+            </AppText>
 
-            <Text style={styles.reviewInputLabel}>Your review (optional)</Text>
+            <AppText style={styles.reviewInputLabel}>Your review (optional)</AppText>
             <TextInput
               value={reviewComment}
               onChangeText={setReviewComment}
@@ -1131,9 +1996,9 @@ export default function RecipeDetailScreen() {
               textAlignVertical="top"
               style={styles.reviewCommentInput}
             />
-            <Text style={styles.reviewCharacterCount}>
+            <AppText style={styles.reviewCharacterCount}>
               {reviewComment.length}/1000
-            </Text>
+            </AppText>
 
             <View style={styles.reviewModalActions}>
               <Pressable
@@ -1141,7 +2006,7 @@ export default function RecipeDetailScreen() {
                 onPress={() => setShowReviewModal(false)}
                 disabled={isSubmittingReview}
               >
-                <Text style={styles.reviewCancelText}>Cancel</Text>
+                <AppText style={styles.reviewCancelText}>Cancel</AppText>
               </Pressable>
               <Pressable
                 style={[
@@ -1151,9 +2016,13 @@ export default function RecipeDetailScreen() {
                 onPress={handleSubmitReview}
                 disabled={isSubmittingReview}
               >
-                <Text style={styles.reviewSubmitText}>
-                  {isSubmittingReview ? "Submitting..." : "Submit review"}
-                </Text>
+                <AppText style={styles.reviewSubmitText}>
+                  {isSubmittingReview
+                    ? "Saving..."
+                    : isEditingReview
+                      ? "Save changes"
+                      : "Submit review"}
+                </AppText>
               </Pressable>
             </View>
           </View>
@@ -1161,7 +2030,8 @@ export default function RecipeDetailScreen() {
       </Modal>
 
       {/* FIXED FOOTER: show only metrics returned by the calculation API */}
-      {(calculation.estimatedCookedWeightGrams != null || calculation.estimatedTotalCost != null) ? (
+      {calculation.estimatedCookedWeightGrams != null ||
+        calculation.estimatedTotalCost != null ? (
         <View style={styles.bottomBar}>
           {calculation.estimatedCookedWeightGrams != null ? (
             <View style={styles.bottomMetricCard}>
@@ -1169,10 +2039,12 @@ export default function RecipeDetailScreen() {
                 <Ionicons name="scale-outline" size={21} color="#1F7655" />
               </View>
               <View style={styles.bottomMetricText}>
-                <Text style={styles.bottomMetricLabel}>Approx. Weight</Text>
-                <Text style={styles.bottomMetricValue} numberOfLines={1}>
-                  {formatEstimatedWeight(calculation.estimatedCookedWeightGrams)}
-                </Text>
+                <AppText style={styles.bottomMetricLabel}>Total Cooked Weight</AppText>
+                <AppText style={styles.bottomMetricValue} numberOfLines={1}>
+                  {formatEstimatedWeight(
+                    calculation.estimatedCookedWeightGrams,
+                  )}
+                </AppText>
               </View>
             </View>
           ) : null}
@@ -1183,15 +2055,191 @@ export default function RecipeDetailScreen() {
                 <Ionicons name="wallet-outline" size={21} color="#1F7655" />
               </View>
               <View style={styles.bottomMetricText}>
-                <Text style={styles.bottomMetricLabel}>Approx. Price</Text>
-                <Text style={styles.bottomMetricValue} numberOfLines={1}>
+                <AppText style={styles.bottomMetricLabel}>Total Ingredient Price</AppText>
+                <AppText style={styles.bottomMetricValue} numberOfLines={1}>
                   ₹{calculation.estimatedTotalCost.toFixed(2)}
-                </Text>
+                </AppText>
               </View>
             </View>
           ) : null}
         </View>
       ) : null}
+
+      {/* INGREDIENT DATABASE DETAILS MODAL */}
+      <Modal
+        visible={showIngredientInfoModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowIngredientInfoModal(false)}
+      >
+        <View style={styles.ingredientDetailsOverlay}>
+          <View style={styles.ingredientDetailsModal}>
+            <View style={styles.ingredientDetailsHeader}>
+              <View style={styles.ingredientDetailsHeading}>
+                {selectedIngredientInfo?.photoUrl ? (
+                  <Image
+                    source={{ uri: selectedIngredientInfo.photoUrl }}
+                    style={styles.ingredientDetailsImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={styles.ingredientDetailsImageFallback}>
+                    <Ionicons
+                      name="leaf-outline"
+                      size={24}
+                      color="#1F7655"
+                    />
+                  </View>
+                )}
+                <View style={styles.ingredientDetailsTitleWrap}>
+                  <AppText style={styles.ingredientDetailsTitle}>
+                    {selectedIngredientInfo?.name ?? "Ingredient details"}
+                  </AppText>
+                  <AppText style={styles.ingredientDetailsSubtitle}>
+                    Ingredient information
+                  </AppText>
+                </View>
+              </View>
+              <Pressable
+                onPress={() => setShowIngredientInfoModal(false)}
+                style={styles.ingredientDetailsClose}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Close ingredient details"
+              >
+                <Ionicons name="close" size={22} color="#34423A" />
+              </Pressable>
+            </View>
+
+            {isLoadingIngredientInfo ? (
+              <View style={styles.ingredientDetailsLoading}>
+                <AppText style={styles.ingredientDetailsMuted}>
+                  Loading ingredient details...
+                </AppText>
+              </View>
+            ) : (
+              <ScrollView
+                style={styles.ingredientDetailsScroll}
+                contentContainerStyle={styles.ingredientDetailsScrollContent}
+                showsVerticalScrollIndicator={false}
+              >
+                <View style={styles.ingredientDetailsSection}>
+                  <AppText style={styles.ingredientDetailsSectionTitle}>
+                    Purchase information
+                  </AppText>
+                  <View style={styles.ingredientDetailsRow}>
+                    <AppText style={styles.ingredientDetailsLabel}>Purchase price</AppText>
+                    <AppText style={styles.ingredientDetailsValue}>
+                      {formatPurchaseDetails(selectedIngredientInfo ?? {})}
+                    </AppText>
+                  </View>
+                  <View style={styles.ingredientDetailsRow}>
+                    <AppText style={styles.ingredientDetailsLabel}>Brand</AppText>
+                    <AppText style={styles.ingredientDetailsValue}>
+                      {formatDetailValue(selectedIngredientInfo?.brand)}
+                    </AppText>
+                  </View>
+                  <View style={styles.ingredientDetailsRow}>
+                    <AppText style={styles.ingredientDetailsLabel}>Ingredient type</AppText>
+                    <AppText style={styles.ingredientDetailsValue}>
+                      {selectedIngredientInfo?.ingredientType === 1
+                        ? 'Veg'
+                        : selectedIngredientInfo?.ingredientType === 2
+                          ? 'Non Veg'
+                          : 'un specified'}
+                    </AppText>
+                  </View>
+                </View>
+
+                <View style={styles.ingredientDetailsSection}>
+                  <AppText style={styles.ingredientDetailsSectionTitle}>
+                    Measurements
+                  </AppText>
+                  {/* <View style={styles.ingredientDetailsRow}>
+                    <AppText style={styles.ingredientDetailsLabel}>
+                      Density (g/ml)
+                    </AppText>
+                    <AppText style={styles.ingredientDetailsValue}>
+                      {formatDetailValue(selectedIngredientInfo?.gramsPerMilliliter)}
+                    </AppText>
+                  </View> */}
+                  {/* <View style={styles.ingredientDetailsRow}>
+                    <AppText style={styles.ingredientDetailsLabel}>
+                      Weight per piece (g)
+                    </AppText>
+                    <AppText style={styles.ingredientDetailsValue}>
+                      {formatDetailValue(selectedIngredientInfo?.gramsPerPiece)}
+                    </AppText>
+                  </View> */}
+                  <View style={styles.ingredientDetailsRow}>
+                    <AppText style={styles.ingredientDetailsLabel}>
+                      Wastage
+                    </AppText>
+                    <AppText style={styles.ingredientDetailsValue}>
+                      {selectedIngredientInfo?.wastageQuantity != null &&
+                        hasText(selectedIngredientInfo?.wastageUnit)
+                        ? `${Number(selectedIngredientInfo.wastageQuantity.toFixed(2))} ${selectedIngredientInfo.wastageUnit}`
+                        : "Not configured"}
+                    </AppText>
+                  </View>
+                </View>
+
+                <View style={styles.ingredientDetailsSection}>
+                  <AppText style={styles.ingredientDetailsSectionTitle}>
+                    Storage and preparation
+                  </AppText>
+                  <View style={styles.ingredientDetailsRow}>
+                    <AppText style={styles.ingredientDetailsLabel}>Shelf life</AppText>
+                    <AppText style={styles.ingredientDetailsValue}>
+                      {selectedIngredientInfo?.shelfLifeDays != null
+                        ? `${selectedIngredientInfo.shelfLifeDays} days`
+                        : "Not specified"}
+                    </AppText>
+                  </View>
+                  <View style={styles.ingredientDetailsTextBlock}>
+                    <AppText style={styles.ingredientDetailsLabel}>
+                      Storage instructions
+                    </AppText>
+                    <AppText style={styles.ingredientDetailsParagraph}>
+                      {formatDetailValue(
+                        selectedIngredientInfo?.storageInstructions,
+                      )}
+                    </AppText>
+                  </View>
+                  <View style={styles.ingredientDetailsTextBlock}>
+                    <AppText style={styles.ingredientDetailsLabel}>Notes</AppText>
+                    <AppText style={styles.ingredientDetailsParagraph}>
+                      {formatDetailValue(selectedIngredientInfo?.notes)}
+                    </AppText>
+                  </View>
+                </View>
+
+                <View style={styles.ingredientDetailsSection}>
+                  <AppText style={styles.ingredientDetailsSectionTitle}>
+                    Caution
+                  </AppText>
+                  <AppText style={styles.ingredientDetailsParagraph}>
+                    {selectedIngredientInfo?.isCautionRequired
+                      ? formatDetailValue(
+                        selectedIngredientInfo.cautionMessage,
+                        "Caution required; no message was provided.",
+                      )
+                      : "No specific caution flagged in the database."}
+                  </AppText>
+                </View>
+              </ScrollView>
+            )}
+
+            <Pressable
+              style={styles.ingredientDetailsDoneButton}
+              onPress={() => setShowIngredientInfoModal(false)}
+              accessibilityRole="button"
+            >
+              <AppText style={styles.ingredientDetailsDoneText}>Close</AppText>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
 
       {/* EDIT INGREDIENT MODAL */}
       <Modal
@@ -1202,15 +2250,13 @@ export default function RecipeDetailScreen() {
       >
         <View style={styles.ingredientModalOverlay}>
           <View style={styles.ingredientModal}>
-            <Text style={styles.ingredientModalTitle}>
-              Edit Ingredient
-            </Text>
+            <AppText style={styles.ingredientModalTitle}>Edit Ingredient</AppText>
 
-            <Text style={styles.ingredientModalName}>
+            <AppText style={styles.ingredientModalName}>
               {editingIngredient?.ingredientName}
-            </Text>
+            </AppText>
 
-            <Text style={styles.ingredientModalLabel}>Quantity</Text>
+            <AppText style={styles.ingredientModalLabel}>Quantity</AppText>
 
             <TextInput
               value={editedQuantity}
@@ -1220,7 +2266,7 @@ export default function RecipeDetailScreen() {
               placeholder="Enter quantity"
             />
 
-            <Text style={styles.ingredientModalLabel}>Unit</Text>
+            <AppText style={styles.ingredientModalLabel}>Unit</AppText>
 
             <TextInput
               value={editedUnit}
@@ -1235,16 +2281,14 @@ export default function RecipeDetailScreen() {
                 style={styles.ingredientCancelButton}
                 onPress={() => setEditingIngredient(null)}
               >
-                <Text style={styles.ingredientCancelText}>Cancel</Text>
+                <AppText style={styles.ingredientCancelText}>Cancel</AppText>
               </Pressable>
 
               <Pressable
                 style={styles.ingredientSaveButton}
                 onPress={saveIngredientEdit}
               >
-                <Text style={styles.ingredientSaveText}>
-                  Save Quantity
-                </Text>
+                <AppText style={styles.ingredientSaveText}>Save Quantity</AppText>
               </Pressable>
             </View>
           </View>
@@ -1268,13 +2312,9 @@ export default function RecipeDetailScreen() {
             </View>
 
             <View style={styles.successTextContainer}>
-              <Text style={styles.successTitle}>
-                Saved Successfully
-              </Text>
+              <AppText style={styles.successTitle}>Saved Successfully</AppText>
 
-              <Text style={styles.successMessage}>
-                Added to My Favorites
-              </Text>
+              <AppText style={styles.successMessage}>Added to My Favorites</AppText>
             </View>
           </Animated.View>
         </View>
@@ -1302,11 +2342,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     gap: 12,
     overflow: "hidden",
+    marginTop: Platform.OS === "web" ? 0 : 58,
     borderBottomWidth: 0,
+
   },
 
   headerTint: {
-    ...StyleSheet.absoluteFillObject,
+    ...{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 } as const,
     backgroundColor: "rgba(255, 255, 255, 0.20)",
   },
 
@@ -1467,8 +2509,8 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   detailsAccordionBody: {
-    borderTopWidth: 1,
-    borderTopColor: "#E5E8E3",
+    // borderTopWidth: 1,
+    // borderTopColor: "#E5E8E3",
     paddingHorizontal: 2,
     paddingBottom: 12,
   },
@@ -1570,7 +2612,11 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   reviewsSection: {
-    marginTop: 14,
+    marginTop: 10,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "#E7EBE7",
+
   },
   reviewsHeading: {
     flexDirection: "row",
@@ -1645,10 +2691,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 10,
-    paddingTop: 14,
+    paddingTop: 8,
     marginTop: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "#E7EBE7",
+    // borderTopWidth: StyleSheet.hairlineWidth,
+    // borderTopColor: "#E7EBE7",
   },
   storageTextWrap: {
     flex: 1,
@@ -1834,6 +2880,149 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
   },
+  addToEventHeaderButton: {
+    backgroundColor: "rgba(231, 241, 234, 0.88)",
+    borderColor: "rgba(205, 225, 212, 0.9)",
+  },
+  eventModalOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(12, 22, 17, 0.48)",
+  },
+  eventModal: {
+    maxHeight: "88%",
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 18,
+    paddingTop: 20,
+    paddingBottom: Platform.OS === "ios" ? 32 : 20,
+  },
+  eventModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E7EBE7",
+    marginBottom: 16,
+  },
+  eventModalTitle: { fontSize: 20, fontWeight: "800", color: "#17231E" },
+  eventModalSubtitle: { fontSize: 13, color: "#68736D", marginTop: 4 },
+  eventModalClose: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F1F3EF",
+  },
+  eventFieldLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#34423A",
+    marginBottom: 7,
+  },
+  eventTextInput: {
+    minHeight: 46,
+    borderWidth: 1,
+    borderColor: "#DDE4DE",
+    borderRadius: 12,
+    paddingHorizontal: 13,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: "#17231E",
+    backgroundColor: "#FBFCFA",
+  },
+  eventHelperText: {
+    color: "#7A847E",
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: 6,
+  },
+  createEventToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 14,
+    marginTop: 4,
+  },
+  createEventToggleText: { color: "#1F7655", fontSize: 14, fontWeight: "800" },
+  createEventForm: {
+    padding: 13,
+    backgroundColor: "#F7F8F3",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#E5E8E3",
+  },
+  eventPrimaryButton: {
+    minHeight: 46,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#1F7655",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    marginTop: 14,
+  },
+  eventPrimaryButtonText: { color: "#FFFFFF", fontSize: 14, fontWeight: "800" },
+  eventButtonDisabled: { opacity: 0.6 },
+  eventListTitle: {
+    color: "#34423A",
+    fontSize: 13,
+    fontWeight: "800",
+    marginTop: 2,
+    marginBottom: 8,
+  },
+  eventList: { maxHeight: 300 },
+  eventListItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 11,
+    paddingVertical: 11,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#E7EBE7",
+  },
+  eventListIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: "#E7F1EA",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  eventListTextWrap: { flex: 1, minWidth: 0 },
+  eventListName: { fontSize: 14, fontWeight: "800", color: "#17231E" },
+  eventListMeta: { fontSize: 11, color: "#68736D", marginTop: 3 },
+  eventEmptyBox: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 24,
+    paddingHorizontal: 12,
+    backgroundColor: "#F7F8F3",
+    borderRadius: 14,
+  },
+  eventEmptyText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#52645A",
+    marginTop: 8,
+    textAlign: "center",
+  },
+  eventEmptyHint: {
+    fontSize: 11,
+    color: "#7A847E",
+    marginTop: 4,
+    textAlign: "center",
+  },
+  eventLoadingRow: { paddingVertical: 20, alignItems: "center" },
+  eventSavingText: {
+    textAlign: "center",
+    color: "#1F7655",
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 10,
+  },
+
   recipeDetailsModalOverlay: {
     flex: 1,
     backgroundColor: "rgba(12, 22, 17, 0.48)",
@@ -1888,24 +3077,24 @@ const styles = StyleSheet.create({
 
   /* SCALING CONTROLS */
   scalingCard: {
-  width: "100%",
-  minHeight: 48,
-  flexDirection: "row",
-  alignItems: "center",
-  justifyContent: "space-between",
-  backgroundColor: "#FFFFFF",
-  borderRadius: 12,
-  borderWidth: 1,
-  borderColor: "#E5E8E3",
-  paddingHorizontal: 12,
-  paddingVertical: 8,
-  gap: 8,
-  elevation: 2,
-  shadowColor: "#17231E",
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.06,
-  shadowRadius: 5,
-},
+    width: "100%",
+    minHeight: 48,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E5E8E3",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+    elevation: 2,
+    shadowColor: "#17231E",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 5,
+  },
   scalingHeading: {
     flexDirection: "row",
     alignItems: "center",
@@ -1971,7 +3160,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: "#17231E",
     backgroundColor: "#FFFFFF",
-    alignContent:"center",
+    alignContent: "center",
   },
 
   /* TABS */
@@ -2059,6 +3248,51 @@ const styles = StyleSheet.create({
     color: "#68736D",
   },
 
+  ingredientLegendFooter: {
+    marginTop: 12,
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    borderRadius: 12,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E5E8E3",
+  },
+
+  ingredientLegendTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginBottom: 8,
+  },
+
+  ingredientLegendTitle: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#34423A",
+  },
+
+  ingredientLegendItems: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    columnGap: 14,
+    rowGap: 8,
+  },
+
+  ingredientLegendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+
+  ingredientLegendText: {
+    fontSize: 10,
+    lineHeight: 14,
+    fontWeight: "600",
+    color: "#68736D",
+  },
+
   ingredientsList: {
     paddingHorizontal: 10,
     paddingVertical: 1,
@@ -2076,6 +3310,11 @@ const styles = StyleSheet.create({
 
   lastIngredientRow: {
     borderBottomWidth: 0,
+  },
+
+  // Keep locked ingredients visually consistent while preventing taps from opening the editor.
+  ingredientRowNotEditable: {
+    opacity: 1,
   },
 
   ingredientIcon: {
@@ -2099,6 +3338,37 @@ const styles = StyleSheet.create({
 
   ingredientInfo: {
     flex: 1,
+    minWidth: 0,
+  },
+
+  ingredientNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    columnGap: 4,
+  },
+
+  ingredientInfoButton: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 1,
+  },
+
+  ingredientEditMark: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    backgroundColor: "#E7F1EA",
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 2,
+  },
+
+  ingredientNamePressable: {
+    flexShrink: 1,
     minWidth: 0,
   },
 
@@ -2255,6 +3525,170 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: "#1F7655",
     marginTop: 2,
+  },
+
+  /* INGREDIENT DETAILS MODAL */
+  ingredientDetailsOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(15, 25, 19, 0.48)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 18,
+    paddingVertical: 24,
+  },
+
+  ingredientDetailsModal: {
+    width: "100%",
+    maxWidth: 440,
+    maxHeight: "88%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    padding: 18,
+    overflow: "hidden",
+  },
+
+  ingredientDetailsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingBottom: 14,
+    // borderBottomWidth: 1,
+    // borderBottomColor: "#E8EEE9",
+    gap: 10,
+  },
+
+  ingredientDetailsHeading: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    minWidth: 0,
+    gap: 11,
+  },
+
+  ingredientDetailsImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: "#E7F1EA",
+  },
+
+  ingredientDetailsImageFallback: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: "#E7F1EA",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  ingredientDetailsTitleWrap: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  ingredientDetailsTitle: {
+    fontSize: 17,
+    lineHeight: 22,
+    fontWeight: "800",
+    color: "#17231E",
+  },
+
+  ingredientDetailsSubtitle: {
+    fontSize: 12,
+    color: "#68736D",
+    marginTop: 3,
+  },
+
+  ingredientDetailsClose: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#F1F5F1",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  ingredientDetailsScroll: {
+    flexGrow: 0,
+    marginTop: 4,
+  },
+
+  ingredientDetailsScrollContent: {
+    paddingBottom: 4,
+  },
+
+  ingredientDetailsLoading: {
+    minHeight: 150,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  ingredientDetailsMuted: {
+    color: "#68736D",
+    fontSize: 13,
+  },
+
+  ingredientDetailsSection: {
+    paddingTop: 16,
+    paddingBottom: 13,
+    borderBottomWidth: 1,
+    borderBottomColor: "#EEF1ED",
+    gap: 10,
+  },
+
+  ingredientDetailsSectionTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#1F7655",
+    marginBottom: 1,
+  },
+
+  ingredientDetailsRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 14,
+  },
+
+  ingredientDetailsLabel: {
+    flex: 0.9,
+    fontSize: 12,
+    lineHeight: 17,
+    color: "#68736D",
+  },
+
+  ingredientDetailsValue: {
+    flex: 1.1,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: "600",
+    color: "#17231E",
+    textAlign: "right",
+  },
+
+  ingredientDetailsTextBlock: {
+    gap: 5,
+  },
+
+  ingredientDetailsParagraph: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: "#34423A",
+  },
+
+  ingredientDetailsDoneButton: {
+    marginTop: 14,
+    borderRadius: 13,
+    backgroundColor: "#1F7655",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+  },
+
+  ingredientDetailsDoneText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "800",
   },
 
   /* INGREDIENT EDIT MODAL */

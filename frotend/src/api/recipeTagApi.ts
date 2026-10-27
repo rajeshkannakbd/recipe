@@ -21,18 +21,31 @@ export const recipeTagApi = {
     return unwrapList<any>(await metadataRequest("recipe-tags")).map(normalize);
   },
   async getById(id: number): Promise<RecipeTagRecord> {
-    return normalize(unwrapItem<any>(await metadataRequest(`recipe-tags/${id}`)));
+    return normalize(
+      unwrapItem<any>(await metadataRequest(`recipe-tags/${id}`)),
+    );
   },
   async create(request: RecipeTagRequest): Promise<RecipeTagRecord> {
-    return normalize(unwrapItem<any>(await metadataRequest("recipe-tags", {
-      method: "POST", body: JSON.stringify(request),
-    })));
+    return normalize(
+      unwrapItem<any>(
+        await metadataRequest("recipe-tags", {
+          method: "POST",
+          body: JSON.stringify(request),
+        }),
+      ),
+    );
   },
-  async update(id: number, request: RecipeTagRequest): Promise<RecipeTagRecord> {
+  async update(
+    id: number,
+    request: RecipeTagRequest,
+  ): Promise<RecipeTagRecord> {
     const result = await metadataRequest<any>(`recipe-tags/${id}`, {
-      method: "PUT", body: JSON.stringify(request),
+      method: "PUT",
+      body: JSON.stringify(request),
     });
-    return result == null ? { id, ...request } as RecipeTagRecord : normalize(unwrapItem<any>(result));
+    return result == null
+      ? ({ id, ...request } as RecipeTagRecord)
+      : normalize(unwrapItem<any>(result));
   },
   async delete(id: number): Promise<void> {
     await metadataRequest<void>(`recipe-tags/${id}`, { method: "DELETE" });

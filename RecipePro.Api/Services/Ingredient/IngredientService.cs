@@ -35,12 +35,12 @@ public class IngredientService : IIngredientService
                 Id = x.Id,
                 Name = x.Name,
                 PhotoUrl = x.PhotoUrl!,
-                 PurchasePrice = x.PurchasePrice,
+                PurchasePrice = x.PurchasePrice,
                 PurchaseQuantity = x.PurchaseQuantity,
                 PurchaseUnit = x.PurchaseUnit,
                 CreatedAt = x.CreatedAt,
                 UpdatedAt = x.UpdatedAt,
-                
+
                 IngredientType = x.IngredientType,
 
                 WastageQuantity = x.WastageQuantity,
@@ -69,12 +69,12 @@ public class IngredientService : IIngredientService
                 Id = x.Id,
                 Name = x.Name,
                 PhotoUrl = x.PhotoUrl!,
-                 PurchasePrice = x.PurchasePrice,
+                PurchasePrice = x.PurchasePrice,
                 PurchaseQuantity = x.PurchaseQuantity,
                 PurchaseUnit = x.PurchaseUnit,
                 CreatedAt = x.CreatedAt,
                 UpdatedAt = x.UpdatedAt,
-                
+
                 IngredientType = x.IngredientType,
 
                 WastageQuantity = x.WastageQuantity,
@@ -106,7 +106,7 @@ public class IngredientService : IIngredientService
             throw new InvalidOperationException(
                 "An ingredient with this name already exists.");
         }
-        
+
         if (!Enum.IsDefined(typeof(IngredientDietType),
                             request.IngredientType))
         {
@@ -125,7 +125,7 @@ public class IngredientService : IIngredientService
             throw new ArgumentException(
                 "Select a valid ingredient status.");
         }
-    
+
         var ingredient = new Models.Ingredient
         {
             Name = normalizedName,
@@ -272,10 +272,10 @@ public class IngredientService : IIngredientService
             PhotoUrl = ingredient.PhotoUrl!,
             PurchasePrice = ingredient.PurchasePrice,
             PurchaseQuantity = ingredient.PurchaseQuantity,
-        PurchaseUnit = ingredient.PurchaseUnit,
+            PurchaseUnit = ingredient.PurchaseUnit,
             CreatedAt = ingredient.CreatedAt,
             UpdatedAt = ingredient.UpdatedAt,
-            
+
             IngredientType = ingredient.IngredientType,
 
             WastageQuantity = ingredient.WastageQuantity,
@@ -298,24 +298,24 @@ public class IngredientService : IIngredientService
     public async Task<IngredientResponse?> UploadImageAsync(
     long id,
     IFormFile file)
-{
-    var ingredient = await _context.Ingredients
-        .FirstOrDefaultAsync(x => x.Id == id);
-
-    if (ingredient == null)
     {
-        return null;
+        var ingredient = await _context.Ingredients
+            .FirstOrDefaultAsync(x => x.Id == id);
+
+        if (ingredient == null)
+        {
+            return null;
+        }
+
+        var imageUrl =
+            await _imageService.UploadIngredientImageAsync(file);
+
+        ingredient.PhotoUrl = imageUrl;
+
+        await _context.SaveChangesAsync();
+
+        return MapToResponse(ingredient);
+
+
     }
-
-    var imageUrl =
-        await _imageService.UploadIngredientImageAsync(file);
-
-    ingredient.PhotoUrl = imageUrl;
-
-    await _context.SaveChangesAsync();
-
-    return MapToResponse(ingredient);
-
-
-}
 }

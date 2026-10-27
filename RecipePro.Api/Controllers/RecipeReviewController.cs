@@ -14,7 +14,7 @@ namespace RecipePro.Api.Controllers;
 public class RecipeReviewController : ControllerBase
 {
     private readonly AppDbContext _context;
-  
+
     public RecipeReviewController(AppDbContext context)
     {
         _context = context;
@@ -91,7 +91,58 @@ public class RecipeReviewController : ControllerBase
 
         return Ok(review);
     }
+    // GET: api/recipes/2/reviews/mine
+    [Authorize]
+    [HttpGet("mine")]
+    public async Task<ActionResult<RecipeReviewResponse>> GetMyReview(
+        long recipeId,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
 
+        if (userId == null)
+        {
+            return Unauthorized(new
+            {
+                message = "Unable to identify the logged-in user from the token."
+            });
+        }
+
+        var recipeExists = await _context.Recipes
+            .AnyAsync(x => x.Id == recipeId, cancellationToken);
+
+        if (!recipeExists)
+        {
+            return NotFound(new { message = "Recipe not found." });
+        }
+
+        var review = await _context.RecipeReviews
+            .AsNoTracking()
+            .Where(x =>
+                x.RecipeId == recipeId &&
+                x.UserId == userId.Value)
+            .Select(x => new RecipeReviewResponse
+            {
+                Id = x.Id,
+                RecipeId = x.RecipeId,
+                UserId = x.UserId,
+                UserName = x.User.Name,
+                Rating = x.Rating,
+                Comment = x.Comment,
+                CreatedAt = x.CreatedAt
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (review == null)
+        {
+            return NotFound(new
+            {
+                message = "You have not reviewed this recipe yet."
+            });
+        }
+
+        return Ok(review);
+    }
     // POST: api/recipes/1/reviews
     [Authorize]
     [HttpPost]

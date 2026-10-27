@@ -34,8 +34,16 @@ export const ALL_PERMISSIONS: UserPermission[] = [
   { id: "read", name: "Read", description: "View items" },
   { id: "update", name: "Update", description: "Edit existing items" },
   { id: "delete", name: "Delete", description: "Remove items" },
-  { id: "manage_users", name: "Manage Users", description: "Manage user accounts" },
-  { id: "manage_roles", name: "Manage Roles", description: "Manage roles & permissions" },
+  {
+    id: "manage_users",
+    name: "Manage Users",
+    description: "Manage user accounts",
+  },
+  {
+    id: "manage_roles",
+    name: "Manage Roles",
+    description: "Manage roles & permissions",
+  },
 ];
 
 export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, string[]> = {

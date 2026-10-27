@@ -39,6 +39,13 @@ export interface RecipeRequest {
   baseCookedWeightGrams: number | null;
   photoUrl: string;
   status: RecipeStatus;
+  cuisine?: string | null;
+  mealType?: string | null;
+  chefId?: number | null;
+  cookingStyleId?: number | null;
+  preparationTimeMinutes?: number | null;
+  cookingTimeMinutes?: number | null;
+  tagIds?: number[];
   ingredients: RecipeIngredientRequest[];
   procedures: RecipeProcedureRequest[];
 }
@@ -57,6 +64,18 @@ export interface RecipeResponse {
   updatedAt: string | null;
   ingredients: RecipeIngredientResponse[];
   procedures: RecipeProcedureResponse[];
+  // Optional fields returned by the backend / used by the recipe detail screen.
+  mealType?: string | null;
+  cuisine?: string | null;
+  chefName?: string | null;
+  cookingStyleName?: string | null;
+  preparationTimeMinutes?: number | null;
+  cookingTimeMinutes?: number | null;
+  storageInstructions?: string | null;
+  shelfLifeHours?: number | null;
+  sourceName?: string | null;
+  sourceUrl?: string | null;
+  tags?: { id?: number; name: string }[];
 }
 
 export interface RecipeCalculationRequest {
@@ -70,6 +89,9 @@ export interface CalculatedIngredientResponse {
   baseQuantity: number;
   requiredQuantity: number;
   unit: string;
+  wastageQuantity?: number | null;
+  wastageUnit?: string | null;
+  estimatedCost?: number | null;
 }
 
 export interface RecipeCalculationResponse {
@@ -78,6 +100,8 @@ export interface RecipeCalculationResponse {
   baseServings: number;
   requiredServings: number;
   estimatedTotalWeightGrams: number | null;
+  estimatedCookedWeightGrams?: number | null;
+  estimatedTotalCost?: number | null;
   isWeightEstimateComplete: boolean;
   ingredients: CalculatedIngredientResponse[];
   baseCookedWeightGrams: number | null;

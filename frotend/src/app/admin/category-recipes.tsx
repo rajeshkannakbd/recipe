@@ -1,4 +1,3 @@
-
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -6,16 +5,16 @@ import {
   Image,
   Pressable,
   StyleSheet,
-  Text,
   View,
   Alert,
 } from "react-native";
-import {  useFocusEffect,useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 import { recipeApi } from "../../api/recipeApi";
 import type { RecipeResponse } from "../../types/recipe";
+import AppText from "../../components/common/AppText";
 
 export default function AdminCategoryRecipesScreen() {
   const router = useRouter();
@@ -43,7 +42,7 @@ export default function AdminCategoryRecipesScreen() {
       const allRecipes = await recipeApi.getAll();
 
       const filteredRecipes = allRecipes.filter(
-        (recipe) => recipe.categoryId === selectedCategoryId
+        (recipe) => recipe.categoryId === selectedCategoryId,
       );
 
       setRecipes(filteredRecipes);
@@ -55,15 +54,15 @@ export default function AdminCategoryRecipesScreen() {
     }
   }, [selectedCategoryId]);
 
-useFocusEffect(
-  useCallback(() => {
-    void loadRecipes();
-  }, [loadRecipes])
-);
+  useFocusEffect(
+    useCallback(() => {
+      void loadRecipes();
+    }, [loadRecipes]),
+  );
 
   const title = useMemo(
     () => categoryName || "Category Recipes",
-    [categoryName]
+    [categoryName],
   );
 
   const openRecipe = (id: number) => {
@@ -78,7 +77,9 @@ useFocusEffect(
       <SafeAreaView style={styles.container} edges={["top"]}>
         <View style={styles.center}>
           <ActivityIndicator size="large" color="#1F7655" />
-          <Text style={styles.loadingText}>Loading recipes...</Text>
+          <AppText variant="helper" style={styles.loadingText}>
+            Loading recipes...
+          </AppText>
         </View>
       </SafeAreaView>
     );
@@ -95,59 +96,23 @@ useFocusEffect(
         </Pressable>
 
         <View style={styles.headerText}>
-          <Text style={styles.title} numberOfLines={1}>
+          <AppText variant="pageTitle" style={styles.title} numberOfLines={1}>
             Manage {title}
-          </Text>
-          <Text style={styles.subtitle}>
+          </AppText>
+          <AppText variant="subtitle" style={styles.subtitle}>
             {recipes.length} {recipes.length === 1 ? "recipe" : "recipes"}
-          </Text>
+          </AppText>
         </View>
 
-                <Pressable
-
-                  style={
-
-                    styles.addButton
-
-                  }
-
-                  onPress={() =>
-
-                    router.push(
-
-                      "/admin/edit-recipe/new"
-
-                    )
-
-                  }
-
-                >
-
-                  <Ionicons
-
-                    name="add"
-
-                    size={16}
-
-                    color="#fff"
-
-                  />
-
-                  <Text
-
-                    style={
-
-                      styles.addButtonText
-
-                    }
-
-                  >
-
-                    Add
-
-                  </Text>
-
-                </Pressable>
+        <Pressable
+          style={styles.addButton}
+          onPress={() => router.push("/admin/edit-recipe/new")}
+        >
+          <Ionicons name="add" size={16} color="#fff" />
+          <AppText variant="button" style={styles.addButtonText}>
+            Add
+          </AppText>
+        </Pressable>
       </View>
 
       <FlatList
@@ -159,9 +124,7 @@ useFocusEffect(
         ]}
         showsVerticalScrollIndicator={false}
         renderItem={({ item }) => (
-          <View
-            style={styles.recipeCard}
-          >
+          <View style={styles.recipeCard}>
             <View style={styles.recipeImageContainer}>
               {item.photoUrl ? (
                 <Image
@@ -181,31 +144,40 @@ useFocusEffect(
             </View>
 
             <View style={styles.recipeInfo}>
-              <Text style={styles.recipeName} numberOfLines={2}>
+              <AppText
+                variant="cardTitle"
+                style={styles.recipeName}
+                numberOfLines={2}
+              >
                 {item.name}
-              </Text>
+              </AppText>
 
-              <Text style={styles.recipeDescription} numberOfLines={2}>
+              <AppText
+                variant="subtitle"
+                style={styles.recipeDescription}
+                numberOfLines={2}
+              >
                 {item.description || "No description available"}
-              </Text>
+              </AppText>
 
-              <Text style={styles.status}>
+              <AppText variant="label" style={styles.status}>
                 {String(item.status)}
-              </Text>
+              </AppText>
             </View>
           </View>
         )}
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Ionicons
-              name="restaurant-outline"
-              size={48}
-              color="#C5C9C4"
-            />
-            <Text style={styles.emptyTitle}>No recipes found</Text>
-            <Text style={styles.emptyDescription}>
+            <Ionicons name="restaurant-outline" size={48} color="#C5C9C4" />
+            <AppText variant="sectionTitle" style={styles.emptyTitle}>
+              No recipes found
+            </AppText>
+            <AppText
+              variant="body"
+              style={styles.emptyDescription}
+            >
               There are no recipes assigned to {title} yet.
-            </Text>
+            </AppText>
             <Pressable
               style={styles.addButton}
               onPress={() =>
@@ -216,7 +188,9 @@ useFocusEffect(
               }
             >
               <Ionicons name="add" size={19} color="#FFFFFF" />
-              <Text style={styles.addButtonText}>Add Recipe</Text>
+              <AppText variant="button" style={styles.addButtonText}>
+                Add Recipe
+              </AppText>
             </Pressable>
           </View>
         }
@@ -272,9 +246,9 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   refreshButton: {
-    flexDirection:"row",
+    flexDirection: "row",
     backgroundColor: "#45e475",
-    padding:8,
+    padding: 8,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -316,9 +290,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   recipeName: {
-    fontSize: 15,
+    // fontSize: 15,
     fontWeight: "700",
-    color: "#17231E",
+    // color: "#17231E",
   },
   recipeDescription: {
     fontSize: 12,

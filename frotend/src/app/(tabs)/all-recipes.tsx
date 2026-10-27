@@ -1,28 +1,30 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  View,
-  Text,
-  FlatList,
-  ScrollView,
-  Pressable,
-  StyleSheet,
-  Image,
-  ActivityIndicator,
   Animated,
   Easing,
+  FlatList,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View
 } from "react-native";
-import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
-import { recipeApi } from "../../api/recipeApi";
-import { ingredientApi } from "../../api/ingredientApi";
-import { IngredientType, type IngredientResponse } from "../../types/ingredient";
 import { get } from "../../api/client";
-import SearchBar from "../../components/common/SearchBar";
+import { ingredientApi } from "../../api/ingredientApi";
+import { recipeApi } from "../../api/recipeApi";
+import AppText from "../../components/common/AppText";
 import ScreenLoader from "../../components/common/ScreenLoader";
+import SearchBar from "../../components/common/SearchBar";
+import {
+  IngredientType,
+  type IngredientResponse,
+} from "../../types/ingredient";
 type MealFilter = "All" | string;
 type FoodFilter = "All" | "Veg" | "Non Veg";
-type TimeFilter = "All" | "Under 30 min" | "30–60 min" | "Over 60 min";
 type RecipeIngredient = {
   ingredientId?: number;
   ingredientName?: string;
@@ -122,7 +124,9 @@ function formatWeight(value?: number | null): string | null {
 export default function AllRecipesScreen() {
   const router = useRouter();
   const [recipes, setRecipes] = useState<RecipeItem[]>([]);
-  const [ingredientTypesById, setIngredientTypesById] = useState<Record<number, number>>({});
+  const [ingredientTypesById, setIngredientTypesById] = useState<
+    Record<number, number>
+  >({});
   const [reviewsByRecipeId, setReviewsByRecipeId] = useState<
     Record<number, RecipeReview[]>
   >({});
@@ -132,12 +136,14 @@ export default function AllRecipesScreen() {
   const [activeCuisine, setActiveCuisine] = useState("All");
   const [activeCookingStyle, setActiveCookingStyle] = useState("All");
   const [activeFood, setActiveFood] = useState<FoodFilter>("All");
-  const [activeTime, setActiveTime] = useState<TimeFilter>("All");
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [activeDropdown, setActiveDropdown] = useState<
+    "meal" | "cuisine" | "style" | null
+  >(null);
+  const [dropdownSearch, setDropdownSearch] = useState("");
 
   // Subtle entrance animations for the header and recipe list.
   const entrance = useRef(new Animated.Value(0)).current;
-  const refreshScale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     if (loading) return;
@@ -169,15 +175,23 @@ export default function AllRecipesScreen() {
       // Use the IngredientType saved in the database; do not infer diet from ingredient names.
       if (ingredientResult.status === "fulfilled") {
         const ingredientMap: Record<number, number> = {};
-        (ingredientResult.value as IngredientResponse[]).forEach((ingredient) => {
-          const type = Number(ingredient.ingredientType);
-          if (ingredient.id != null && (type === IngredientType.Veg || type === IngredientType.NonVeg)) {
-            ingredientMap[ingredient.id] = type;
-          }
-        });
+        (ingredientResult.value as IngredientResponse[]).forEach(
+          (ingredient) => {
+            const type = Number(ingredient.ingredientType);
+            if (
+              ingredient.id != null &&
+              (type === IngredientType.Veg || type === IngredientType.NonVeg)
+            ) {
+              ingredientMap[ingredient.id] = type;
+            }
+          },
+        );
         setIngredientTypesById(ingredientMap);
       } else {
-        console.error("Unable to load ingredient diet types:", ingredientResult.reason);
+        console.error(
+          "Unable to load ingredient diet types:",
+          ingredientResult.reason,
+        );
         setIngredientTypesById({});
       }
       // Reviews are returned by a separate endpoint, not as part of each recipe response.
@@ -195,7 +209,7 @@ export default function AllRecipesScreen() {
       );
       const reviewMap: Record<number, RecipeReview[]> = {};
       reviewResults.forEach(([recipeId, reviews]) => {
-        reviewMap[recipeId] = reviews;
+        reviewMap[recipeId] = [...reviews];
       });
       setReviewsByRecipeId(reviewMap);
     } catch (error) {
@@ -238,12 +252,16 @@ export default function AllRecipesScreen() {
       if (recipeIngredients.length === 0) return "Unknown";
       const ingredientTypes = recipeIngredients.map((ingredient) => {
         const ingredientId = Number(ingredient.ingredientId);
-        return Number.isFinite(ingredientId) ? ingredientTypesById[ingredientId] : undefined;
+        return Number.isFinite(ingredientId)
+          ? ingredientTypesById[ingredientId]
+          : undefined;
       });
       // One non-veg ingredient makes the recipe non-veg.
-      if (ingredientTypes.some((type) => type === IngredientType.NonVeg)) return "Non Veg";
+      if (ingredientTypes.some((type) => type === IngredientType.NonVeg))
+        return "Non Veg";
       // Only call a recipe vegetarian when every linked ingredient is explicitly marked Veg.
-      if (ingredientTypes.every((type) => type === IngredientType.Veg)) return "Veg";
+      if (ingredientTypes.every((type) => type === IngredientType.Veg))
+        return "Veg";
       // Recipes with missing/unknown ingredient types remain unclassified rather than guessed.
       return "Unknown";
     },
@@ -272,18 +290,9 @@ export default function AllRecipesScreen() {
       result = result.filter((recipe) => getRecipeDietType(recipe) === "Veg");
     }
     if (activeFood === "Non Veg") {
-      result = result.filter((recipe) => getRecipeDietType(recipe) === "Non Veg");
-    }
-    if (activeTime !== "All") {
-      result = result.filter((recipe) => {
-        const total =
-          Math.max(0, Number(recipe.preparationTimeMinutes) || 0) +
-          Math.max(0, Number(recipe.cookingTimeMinutes) || 0);
-        if (total <= 0) return false;
-        if (activeTime === "Under 30 min") return total < 30;
-        if (activeTime === "30–60 min") return total >= 30 && total <= 60;
-        return total > 60;
-      });
+      result = result.filter(
+        (recipe) => getRecipeDietType(recipe) === "Non Veg",
+      );
     }
     if (searchValue) {
       result = result.filter((recipe) => {
@@ -318,7 +327,7 @@ export default function AllRecipesScreen() {
           );
         const average = validRatings.length
           ? validRatings.reduce((sum, rating) => sum + rating, 0) /
-            validRatings.length
+          validRatings.length
           : 0;
         return { recipe, index, average, count: validRatings.length };
       })
@@ -334,7 +343,6 @@ export default function AllRecipesScreen() {
     activeCuisine,
     activeCookingStyle,
     activeFood,
-    activeTime,
     getRecipeDietType,
     reviewsByRecipeId,
   ]);
@@ -344,7 +352,6 @@ export default function AllRecipesScreen() {
     setActiveCuisine("All");
     setActiveCookingStyle("All");
     setActiveFood("All");
-    setActiveTime("All");
   };
   const renderChip = (
     label: string,
@@ -364,9 +371,9 @@ export default function AllRecipesScreen() {
           color={active ? "#FFFFFF" : "#68736D"}
         />
       ) : null}
-      <Text style={[styles.chipText, active && styles.chipTextActive]}>
+      <AppText style={[styles.chipText, active && styles.chipTextActive]}>
         {label}
-      </Text>
+      </AppText>
     </Pressable>
   );
   const renderRecipe = ({ item }: { item: RecipeItem }) => {
@@ -411,42 +418,42 @@ export default function AllRecipesScreen() {
           )}
           {item.mealType ? (
             <View style={styles.mealBadge}>
-              <Text style={styles.mealBadgeText}>{item.mealType}</Text>
+              <AppText style={styles.mealBadgeText}>{item.mealType}</AppText>
             </View>
           ) : null}
         </View>
         <View style={styles.recipeInfo}>
           <View style={styles.nameRatingRow}>
-            <Text style={styles.recipeName} numberOfLines={2}>
+            <AppText variant="cardTitle" style={styles.recipeName} numberOfLines={2}>
               {item.name || "Untitled recipe"}
-            </Text>
+            </AppText>
             {ratings.length > 0 ? (
               <View style={styles.ratingPill}>
                 <Ionicons name="star" size={12} color="#D99A18" />
-                <Text style={styles.ratingText}>
+                <AppText variant="label" style={styles.ratingText}>
                   {averageRating.toFixed(1)}
-                </Text>
+                </AppText>
               </View>
             ) : null}
           </View>
-          <Text style={styles.recipeDescription} numberOfLines={2}>
+          <AppText variant="body" style={styles.recipeDescription} numberOfLines={2}>
             {item.description?.trim() ||
               item.categoryName ||
               "Discover this recipe."}
-          </Text>
+          </AppText>
           <View style={styles.metaRow}>
             {item.cuisine ? (
               <View style={styles.metaItem}>
                 <Ionicons name="globe-outline" size={13} color="#68736D" />
-                <Text style={styles.metaText} numberOfLines={1}>
+                <AppText variant="helper" style={styles.metaText} numberOfLines={1}>
                   {item.cuisine}
-                </Text>
+                </AppText>
               </View>
             ) : null}
             {totalTime > 0 ? (
               <View style={styles.metaItem}>
                 <Ionicons name="time-outline" size={13} color="#68736D" />
-                <Text style={styles.metaText}>{formatMinutes(totalTime)}</Text>
+                <AppText variant="helper" style={styles.metaText}>{formatMinutes(totalTime)}</AppText>
               </View>
             ) : null}
           </View>
@@ -454,29 +461,29 @@ export default function AllRecipesScreen() {
             {item.baseServings ? (
               <View style={styles.metaItem}>
                 <Ionicons name="people-outline" size={13} color="#68736D" />
-                <Text style={styles.metaText}>
+                <AppText variant="helper" style={styles.metaText}>
                   {item.baseServings} servings
-                </Text>
+                </AppText>
               </View>
             ) : null}
             {weight ? (
               <View style={styles.metaItem}>
                 <Ionicons name="scale-outline" size={13} color="#68736D" />
-                <Text style={styles.metaText}>{weight}</Text>
+                <AppText variant="helper" style={styles.metaText}>{weight}</AppText>
               </View>
             ) : null}
           </View>
           <View style={styles.bottomRow}>
             <View style={styles.bottomLeft}>
               {item.chefName ? (
-                <Text style={styles.chefText} numberOfLines={1}>
+                <AppText variant="label" style={styles.chefText} numberOfLines={1}>
                   By {item.chefName}
-                </Text>
+                </AppText>
               ) : null}
               {ratings.length > 0 ? (
-                <Text style={styles.reviewCount}>
+                <AppText variant="helper" style={styles.reviewCount}>
                   {ratings.length} {ratings.length === 1 ? "review" : "reviews"}
-                </Text>
+                </AppText>
               ) : null}
             </View>
             <Ionicons name="chevron-forward" size={19} color="#A6AEA8" />
@@ -485,7 +492,7 @@ export default function AllRecipesScreen() {
             <View style={styles.tagsRow}>
               {tagNames.map((tag, index) => (
                 <View key={`${tag}-${index}`} style={styles.tag}>
-                  <Text style={styles.tagText}>{tag}</Text>
+                  <AppText variant="label" style={styles.tagText}>{tag}</AppText>
                 </View>
               ))}
             </View>
@@ -515,30 +522,11 @@ export default function AllRecipesScreen() {
       >
         <View style={styles.headingRow}>
           <View style={styles.headingTextWrap}>
-            <Text style={styles.title}>All Recipes</Text>
-            <Text style={styles.subtitle}>Find your next favourite dish</Text>
+            <AppText variant="pageTitle" style={styles.title}>All Recipes</AppText>
+            <AppText variant="subtitle" style={styles.subtitle}>Find your next favourite dish</AppText>
           </View>
           <Pressable
-            style={[
-              styles.refreshButton,
-              { transform: [{ scale: refreshScale }] },
-            ]}
-            onPressIn={() =>
-              Animated.spring(refreshScale, {
-                toValue: 0.92,
-                useNativeDriver: true,
-                speed: 28,
-                bounciness: 4,
-              }).start()
-            }
-            onPressOut={() =>
-              Animated.spring(refreshScale, {
-                toValue: 1,
-                useNativeDriver: true,
-                speed: 24,
-                bounciness: 6,
-              }).start()
-            }
+            style={styles.refreshButton}
             onPress={load}
             accessibilityRole="button"
             accessibilityLabel="Refresh recipes"
@@ -553,121 +541,234 @@ export default function AllRecipesScreen() {
             placeholder="Search recipes, ingredients, chefs..."
           />
         </View>
-        <View style={styles.filterHeadingRow}>
-          <Text style={styles.filterHeading}>Meal type</Text>
-          <Pressable
-            onPress={() => setShowAdvancedFilters((current) => !current)}
-            style={styles.filterToggle}
-          >
-            <Ionicons name="options-outline" size={16} color="#1F7655" />
-            <Text style={styles.filterToggleText}>
-              {showAdvancedFilters ? "Less filters" : "More filters"}
-            </Text>
-          </Pressable>
+        <View style={styles.foodToggleRow}>
+          {([
+            { label: "All", icon: "restaurant-outline" as const },
+            { label: "Veg", icon: "leaf-outline" as const },
+            { label: "Non Veg", icon: "fish-outline" as const },
+          ] as const).map((option) => (
+            <Pressable
+              key={option.label}
+              style={[
+                styles.foodToggleButton,
+                activeFood === option.label && styles.foodToggleButtonActive,
+                option.label === "Veg" && activeFood === "Veg" && styles.vegToggleActive,
+                option.label === "Non Veg" && activeFood === "Non Veg" && styles.nonVegToggleActive,
+              ]}
+              onPress={() => setActiveFood(option.label)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: activeFood === option.label }}
+            >
+              <Ionicons
+                name={option.icon}
+                size={15}
+                color={activeFood === option.label ? "#FFFFFF" : option.label === "Veg" ? "#27834B" : option.label === "Non Veg" ? "#C44949" : "#68736D"}
+              />
+              <AppText style={[
+                styles.foodToggleText,
+                activeFood === option.label && styles.foodToggleTextActive,
+              ]}>
+                {option.label}
+              </AppText>
+            </Pressable>
+          ))}
         </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.chipsRow}
-          keyboardShouldPersistTaps="handled"
-        >
-          {mealOptions.map((meal) =>
-            renderChip(
-              meal,
-              activeMeal === meal,
-              () => setActiveMeal(meal),
-              meal === "All" ? "apps-outline" : "restaurant-outline",
-            ),
-          )}
-        </ScrollView>
-        {showAdvancedFilters ? (
-          <View style={styles.advancedFilters}>
-            <Text style={styles.filterHeading}>Cuisine</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.chipsRow}
-              keyboardShouldPersistTaps="handled"
-            >
-              {cuisineOptions.map((cuisine) =>
-                renderChip(
-                  cuisine,
-                  activeCuisine === cuisine,
-                  () => setActiveCuisine(cuisine),
-                  "globe-outline",
-                ),
-              )}
-            </ScrollView>
-            <Text style={styles.filterHeading}>Cooking style</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.chipsRow}
-              keyboardShouldPersistTaps="handled"
-            >
-              {cookingStyleOptions.map((style) =>
-                renderChip(
-                  style,
-                  activeCookingStyle === style,
-                  () => setActiveCookingStyle(style),
-                  "flame-outline",
-                ),
-              )}
-            </ScrollView>
-            <Text style={styles.filterHeading}>Diet</Text>
-            <View style={styles.chipsRow}>
-              {renderChip(
-                "All",
-                activeFood === "All",
-                () => setActiveFood("All"),
-                "apps-outline",
-              )}
-              {renderChip(
-                "Veg",
-                activeFood === "Veg",
-                () => setActiveFood(activeFood === "Veg" ? "All" : "Veg"),
-                "leaf-outline",
-              )}
-              {renderChip(
-                "Non Veg",
-                activeFood === "Non Veg",
-                () =>
-                  setActiveFood(activeFood === "Non Veg" ? "All" : "Non Veg"),
-                "fast-food-outline",
-              )}
+        <View style={styles.filterTableWrap}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterTableRow}
+            keyboardShouldPersistTaps="handled"
+          >
+            {(
+              [
+                {
+                  key: "meal",
+                  title: "Meal type",
+                  value: activeMeal,
+                  options: mealOptions,
+                },
+                {
+                  key: "cuisine",
+                  title: "Cuisine",
+                  value: activeCuisine,
+                  options: cuisineOptions,
+                },
+                {
+                  key: "style",
+                  title: "Cooking style",
+                  value: activeCookingStyle,
+                  options: cookingStyleOptions,
+                },
+              ] as const
+            ).map((filter) => (
+              <Pressable
+                key={filter.key}
+                style={[
+                  styles.filterDropdown,
+                  activeDropdown === filter.key && styles.filterDropdownOpen,
+                  filter.value !== "All" && styles.filterDropdownSelected,
+                ]}
+                onPress={() => {
+                  setDropdownSearch("");
+                  setActiveDropdown((current) =>
+                    current === filter.key ? null : filter.key,
+                  );
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`Choose ${filter.title}`}
+                accessibilityState={{ expanded: activeDropdown === filter.key }}
+              >
+                <AppText variant="label" style={styles.filterDropdownTitle} numberOfLines={1}>
+                  {filter.title}
+                </AppText>
+                <View style={styles.filterDropdownValueRow}>
+                  <AppText
+                    style={[
+                      styles.filterDropdownValue,
+                      filter.value !== "All" &&
+                      styles.filterDropdownValueSelected,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {filter.value}
+                  </AppText>
+                  <Ionicons
+                    name={
+                      activeDropdown === filter.key
+                        ? "chevron-up"
+                        : "chevron-down"
+                    }
+                    size={13}
+                    color={filter.value !== "All" ? "#1F7655" : "#778179"}
+                  />
+                </View>
+              </Pressable>
+            ))}
+          </ScrollView>
+          {activeDropdown ? (
+            <View style={styles.filterDropdownMenu}>
+              <View style={styles.filterDropdownMenuHeader}>
+                {/* <AppText style={styles.filterDropdownMenuTitle}>
+                  {activeDropdown === "meal"
+                    ? "Meal type"
+                    : activeDropdown === "cuisine"
+                      ? "Cuisine"
+                      : activeDropdown === "style"
+                        ? "Cooking style"
+                        : "Cooking style"}
+                </AppText> */}
+                <Pressable
+                  onPress={() => {
+                    setActiveDropdown(null);
+                    setDropdownSearch("");
+                  }}
+                  hitSlop={8}
+                >
+                  <Ionicons name="close" size={18} color="#66736A" />
+                </Pressable>
+              </View>
+              <View style={styles.dropdownSearchBox}>
+                <Ionicons name="search-outline" size={16} color="#849087" />
+                <TextInput
+                  value={dropdownSearch}
+                  onChangeText={setDropdownSearch}
+                  placeholder={`Search ${activeDropdown === "meal" ? "meal types" : activeDropdown === "cuisine" ? "cuisines" : activeDropdown === "style" ? "cooking styles" : "filter options"}...`}
+                  placeholderTextColor="#929D95"
+                  style={styles.dropdownSearchInput}
+                  autoCorrect={false}
+                  autoCapitalize="none"
+                  returnKeyType="search"
+                  accessibilityLabel="Search filter options"
+                />
+                {!!dropdownSearch && (
+                  <Pressable onPress={() => setDropdownSearch("")} hitSlop={8}>
+                    <Ionicons name="close-circle" size={16} color="#849087" />
+                  </Pressable>
+                )}
+              </View>
+              <ScrollView
+                style={styles.filterDropdownOptions}
+                nestedScrollEnabled
+                keyboardShouldPersistTaps="handled"
+              >
+                {(activeDropdown === "meal"
+                  ? mealOptions
+                  : activeDropdown === "cuisine"
+                    ? cuisineOptions
+                    : cookingStyleOptions
+                )
+                  .filter((option) =>
+                    normalize(option).includes(normalize(dropdownSearch)),
+                  )
+                  .map((option) => {
+                    const selectedValue =
+                      activeDropdown === "meal"
+                        ? activeMeal
+                        : activeDropdown === "cuisine"
+                          ? activeCuisine
+                          : activeCookingStyle;
+                    const isSelected = option === selectedValue;
+                    return (
+                      <Pressable
+                        key={option}
+                        style={[
+                          styles.filterDropdownOption,
+                          isSelected && styles.filterDropdownOptionActive,
+                        ]}
+                        onPress={() => {
+                          if (activeDropdown === "meal") setActiveMeal(option);
+                          else if (activeDropdown === "cuisine")
+                            setActiveCuisine(option);
+                          else setActiveCookingStyle(option);
+                          setActiveDropdown(null);
+                        }}
+                      >
+                        <AppText
+                          style={[
+                            styles.filterDropdownOptionText,
+                            isSelected && styles.filterDropdownOptionTextActive,
+                          ]}
+                        >
+                          {option}
+                        </AppText>
+                        {isSelected ? (
+                          <Ionicons
+                            name="checkmark-circle"
+                            size={18}
+                            color="#1F7655"
+                          />
+                        ) : null}
+                      </Pressable>
+                    );
+                  })}
+                {!(activeDropdown === "meal"
+                  ? mealOptions
+                  : activeDropdown === "cuisine"
+                    ? cuisineOptions
+                    : cookingStyleOptions
+                ).some((option) =>
+                  normalize(option).includes(normalize(dropdownSearch)),
+                ) ? (
+                  <AppText variant="helper" style={styles.dropdownNoResults}>
+                    No matching options
+                  </AppText>
+                ) : null}
+              </ScrollView>
             </View>
-            <Text style={styles.filterHeading}>Total time</Text>
-            <View style={styles.chipsRow}>
-              {(
-                [
-                  "All",
-                  "Under 30 min",
-                  "30–60 min",
-                  "Over 60 min",
-                ] as TimeFilter[]
-              ).map((time) =>
-                renderChip(
-                  time,
-                  activeTime === time,
-                  () => setActiveTime(time),
-                  "time-outline",
-                ),
-              )}
-            </View>
-          </View>
-        ) : null}
+          ) : null}
+        </View>
         <View style={styles.resultsRow}>
-          <Text style={styles.resultsText}>
+          <AppText variant="helper" style={styles.resultsText}>
             {filtered.length} {filtered.length === 1 ? "recipe" : "recipes"}
-          </Text>
+          </AppText>
           {activeMeal !== "All" ||
-          activeCuisine !== "All" ||
-          activeCookingStyle !== "All" ||
-          activeFood !== "All" ||
-          activeTime !== "All" ||
-          search.trim() ? (
+            activeCuisine !== "All" ||
+            activeCookingStyle !== "All" ||
+            activeFood !== "All" ||
+            search.trim() ? (
             <Pressable onPress={resetFilters}>
-              <Text style={styles.clearText}>Clear filters</Text>
+              <AppText variant="label" style={styles.clearText}>Clear filters</AppText>
             </Pressable>
           ) : null}
         </View>
@@ -689,34 +790,34 @@ export default function AllRecipesScreen() {
         ]}
       >
         <FlatList
-        data={filtered}
-        keyExtractor={(item) => String(item.id)}
-        renderItem={renderRecipe}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[
-          styles.listContent,
-          filtered.length === 0 && styles.emptyListContent,
-        ]}
-        keyboardShouldPersistTaps="handled"
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <View style={styles.emptyIcon}>
-              <Ionicons name="search-outline" size={30} color="#1F7655" />
+          data={filtered}
+          keyExtractor={(item) => String(item.id)}
+          renderItem={renderRecipe}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[
+            styles.listContent,
+            filtered.length === 0 && styles.emptyListContent,
+          ]}
+          keyboardShouldPersistTaps="handled"
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <View style={styles.emptyIcon}>
+                <Ionicons name="search-outline" size={30} color="#1F7655" />
+              </View>
+              <AppText variant="sectionTitle" style={styles.emptyTitle}>No recipes found</AppText>
+              <AppText style={styles.emptyText}>
+                Try another search or remove some filters.
+              </AppText>
+              <Pressable style={styles.resetButton} onPress={resetFilters}>
+                <AppText variant="button" style={styles.resetButtonText}>
+                  Clear search and filters
+                </AppText>
+              </Pressable>
             </View>
-            <Text style={styles.emptyTitle}>No recipes found</Text>
-            <Text style={styles.emptyText}>
-              Try another search or remove some filters.
-            </Text>
-            <Pressable style={styles.resetButton} onPress={resetFilters}>
-              <Text style={styles.resetButtonText}>
-                Clear search and filters
-              </Text>
-            </Pressable>
-          </View>
-        }
-        ListFooterComponent={
-          filtered.length > 0 ? <View style={styles.listFooter} /> : null
-        }
+          }
+          ListFooterComponent={
+            filtered.length > 0 ? <View style={styles.listFooter} /> : undefined
+          }
         />
       </Animated.View>
     </SafeAreaView>
@@ -755,7 +856,138 @@ const styles = StyleSheet.create({
     backgroundColor: "#EAF3ED",
     marginLeft: 12,
   },
-  searchContainer: { marginTop: 16, marginBottom: 16 },
+  searchContainer: { marginTop: 16, marginBottom: 12 },
+  foodToggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 10,
+    marginTop: 2,
+  },
+  foodToggleButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingHorizontal: 15,
+    paddingVertical: 9,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#E0E7E0",
+    backgroundColor: "#FFFFFF",
+  },
+  foodToggleButtonActive: {
+    backgroundColor: "#1F7655",
+    borderColor: "#1F7655",
+  },
+  vegToggleActive: { backgroundColor: "#27834B", borderColor: "#27834B" },
+  nonVegToggleActive: { backgroundColor: "#C44949", borderColor: "#C44949" },
+  foodToggleText: { fontSize: 12, fontWeight: "700", color: "#68736D" },
+  foodToggleTextActive: { color: "#FFFFFF" },
+  filterTableWrap: { marginTop: 2, zIndex: 5 },
+  filterTableRow: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    gap: 7,
+    paddingBottom: 3,
+  },
+  filterDropdown: {
+    width: 103,
+    minHeight: 54,
+    borderWidth: 1,
+    borderColor: "#E0E7E0",
+    borderRadius: 10,
+    paddingHorizontal: 9,
+    paddingVertical: 7,
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+  },
+  filterDropdownOpen: { borderColor: "#1F7655", backgroundColor: "#F5FAF6" },
+  filterDropdownSelected: { borderColor: "#B6D5C1" },
+  filterDropdownTitle: {
+    color: "#657268",
+    fontSize: 10,
+    fontWeight: "700",
+    marginBottom: 5,
+  },
+  filterDropdownValueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 4,
+  },
+  filterDropdownValue: {
+    flex: 1,
+    color: "#25332B",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  filterDropdownValueSelected: { color: "#1F7655" },
+  filterDropdownMenu: {
+    marginTop: 7,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#DDE7DE",
+    borderRadius: 13,
+    padding: 10,
+    shadowColor: "#17231E",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  filterDropdownMenuHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 3,
+    paddingBottom: 7,
+    borderBottomWidth: 1,
+    borderBottomColor: "#EEF2ED",
+  },
+  filterDropdownMenuTitle: {
+    color: "#1B2D22",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  dropdownSearchBox: {
+    minHeight: 38,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderColor: "#E0E7E0",
+    backgroundColor: "#FBFCFA",
+    borderRadius: 9,
+    paddingHorizontal: 9,
+    marginTop: 9,
+    marginBottom: 5,
+  },
+  dropdownSearchInput: {
+    flex: 1,
+    color: "#25332B",
+    fontSize: 12,
+    paddingVertical: 7,
+  },
+  dropdownNoResults: {
+    color: "#778179",
+    fontSize: 12,
+    textAlign: "center",
+    paddingVertical: 16,
+  },
+  filterDropdownOptions: { maxHeight: 190 },
+  filterDropdownOption: {
+    minHeight: 40,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 9,
+    borderRadius: 8,
+    marginTop: 3,
+  },
+  filterDropdownOptionActive: { backgroundColor: "#EAF4ED" },
+  filterDropdownOptionText: { color: "#425047", fontSize: 12, flex: 1 },
+  filterDropdownOptionTextActive: { color: "#1F7655", fontWeight: "800" },
   filterHeadingRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -796,7 +1028,12 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   chipActive: { backgroundColor: "#1F7655", borderColor: "#1F7655" },
-  chipText: { fontSize: 12, lineHeight: 16, fontWeight: "600", color: "#68736D" },
+  chipText: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: "600",
+    color: "#68736D",
+  },
   chipTextActive: { color: "#FFFFFF" },
   advancedFilters: { marginTop: 9, gap: 3 },
   resultsRow: {
@@ -812,36 +1049,38 @@ const styles = StyleSheet.create({
   emptyListContent: { flexGrow: 1 },
   recipeCard: {
     flexDirection: "row",
+    alignItems: "stretch",
     backgroundColor: "#FFFFFF",
-    borderRadius: 20,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: "#E6EAE4",
-    padding: 11,
-    marginBottom: 13,
+    padding: 10,
+    marginBottom: 12,
     overflow: "hidden",
     shadowColor: "#17231E",
-    shadowOffset: { width: 0, height: 3 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.035,
-    shadowRadius: 8,
+    shadowRadius: 5,
     elevation: 1,
   },
   cardImageWrap: {
     width: 112,
-    minHeight: 132,
+    height: 150,
+    flexShrink: 0,
     position: "relative",
-    alignSelf: "stretch",
+    overflow: "hidden",
+    borderRadius: 12,
   },
   recipeImage: {
     width: "100%",
     height: "100%",
-    minHeight: 132,
-    borderRadius: 14,
+    borderRadius: 12,
     backgroundColor: "#E7F1EA",
   },
   imageFallback: {
-    flex: 1,
-    minHeight: 132,
-    borderRadius: 14,
+    width: "100%",
+    height: "100%",
+    borderRadius: 12,
     backgroundColor: "#E7F1EA",
     alignItems: "center",
     justifyContent: "center",
@@ -859,6 +1098,8 @@ const styles = StyleSheet.create({
   mealBadgeText: { fontSize: 10, fontWeight: "800", color: "#1F7655" },
   recipeInfo: {
     flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
     marginLeft: 12,
     paddingVertical: 2,
     justifyContent: "center",
@@ -951,7 +1192,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 14,
   },
-  emptyTitle: { fontSize: 18, lineHeight: 24, fontWeight: "800", color: "#17231E" },
+  emptyTitle: {
+    fontSize: 18,
+    lineHeight: 24,
+    fontWeight: "800",
+    color: "#17231E",
+  },
   emptyText: {
     fontSize: 13,
     color: "#778179",

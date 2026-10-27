@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import {
   View,
-  Text,
   FlatList,
   Pressable,
   StyleSheet,
@@ -17,8 +16,9 @@ import type { RecipeResponse } from "../../types/recipe";
 import { recipeApi } from "../../api/recipeApi";
 import { favoriteApi } from "../../api/favoriteApi";
 import ScreenLoader from "../../components/common/ScreenLoader";
+import AppText from "../../components/common/AppText";
 import { getAuthToken } from "../../utils/authStorage";
-import type { FavoriteCustomization } from "../../api/favoriteApi";
+import type { FavoriteCustomization, FavoriteEntry } from "../../api/favoriteApi";
 
 import SearchBar from "../../components/common/SearchBar";
 
@@ -26,13 +26,15 @@ export default function FavoritesScreen() {
   const router = useRouter();
 
   type FavoriteRecipeItem = RecipeResponse & {
+    favoriteId: number;
+    requiredServings: number;
     customization?: FavoriteCustomization | null;
   };
 
   const [recipes, setRecipes] = useState<FavoriteRecipeItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showRemoveModal, setShowRemoveModal] = useState(false);
-  const [selectedRecipeId, setSelectedRecipeId] = useState<number | null>(null);
+  const [selectedFavoriteId, setSelectedFavoriteId] = useState<number | null>(null);
   const [removing, setRemoving] = useState(false);
   const [search, setSearch] = useState("");
 
@@ -47,26 +49,21 @@ export default function FavoritesScreen() {
         return;
       }
 
-      const recipeIds = await favoriteApi.getMyFavorites();
+      const favoriteEntries: FavoriteEntry[] = await favoriteApi.getMyFavorites();
 
       const results = await Promise.all(
-        recipeIds.map(async (id): Promise<FavoriteRecipeItem> => {
-          const recipe = await recipeApi.getById(id);
-
+        favoriteEntries.map(async (entry): Promise<FavoriteRecipeItem> => {
+          const recipe = await recipeApi.getById(entry.recipeId);
           let customization: FavoriteCustomization | null = null;
-
           try {
-            customization = await favoriteApi.getCustomized(id);
-          } catch (error) {
-            // Older favorites may not have customized quantities saved.
-            console.log(
-              `No saved ingredient customization for recipe ${id}.`,
-              error,
-            );
+            customization = await favoriteApi.getCustomized(entry.favoriteId);
+          } catch {
+            // Basic favorites may not have a saved ingredient customization.
           }
-
           return {
             ...recipe,
+            favoriteId: entry.favoriteId,
+            requiredServings: entry.requiredServings,
             customization,
           };
         }),
@@ -94,7 +91,7 @@ export default function FavoritesScreen() {
         );
       } else {
         Alert.alert(
-          "Unable to load favorites",
+          "Unable to load favourites",
           error instanceof Error ? error.message : "Please try again.",
         );
       }
@@ -109,8 +106,8 @@ export default function FavoritesScreen() {
     }, [load]),
   );
 
-  const openRemoveConfirmation = (recipeId: number) => {
-    setSelectedRecipeId(recipeId);
+  const openRemoveConfirmation = (favoriteId: number) => {
+    setSelectedFavoriteId(favoriteId);
     setShowRemoveModal(true);
   };
 
@@ -118,23 +115,23 @@ export default function FavoritesScreen() {
     if (removing) return;
 
     setShowRemoveModal(false);
-    setSelectedRecipeId(null);
+    setSelectedFavoriteId(null);
   };
 
   const handleRemoveFavorite = async () => {
-    if (selectedRecipeId === null || removing) return;
+    if (selectedFavoriteId === null || removing) return;
 
     try {
       setRemoving(true);
 
-      await favoriteApi.remove(selectedRecipeId);
+      await favoriteApi.remove(selectedFavoriteId);
 
       setRecipes((current) =>
-        current.filter((recipe) => recipe.id !== selectedRecipeId),
+        current.filter((recipe) => recipe.favoriteId !== selectedFavoriteId),
       );
 
       setShowRemoveModal(false);
-      setSelectedRecipeId(null);
+      setSelectedFavoriteId(null);
     } catch (error) {
       console.error("Failed to remove favorite:", error);
 
@@ -177,8 +174,8 @@ export default function FavoritesScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <Text style={styles.title}>My Favorites</Text>
-        <Text style={styles.subtitle}>Your saved recipes</Text>
+        <AppText variant="pageTitle" style={styles.title}>My Favourites</AppText>
+        <AppText variant="subtitle" style={styles.subtitle}>Your saved recipes</AppText>
         <View style={styles.searchContainer}>
           <SearchBar
             value={search}
@@ -189,7 +186,7 @@ export default function FavoritesScreen() {
       </View>
       <FlatList
         data={filteredRecipes}
-        keyExtractor={(item) => String(item.id)}
+        keyExtractor={(item) => String(item.favoriteId)}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
         renderItem={({ item }) => (
@@ -201,6 +198,7 @@ export default function FavoritesScreen() {
                 params: {
                   id: String(item.id),
                   fromFavorites: "true",
+                  favoriteId: String(item.favoriteId),
                 },
               })
             }
@@ -213,24 +211,24 @@ export default function FavoritesScreen() {
                   resizeMode="cover"
                 />
               ) : (
-                <Text style={styles.recipeEmoji}>{item.name.charAt(0)}</Text>
+                <AppText variant="cardTitle" style={styles.recipeEmoji}>{item.name.charAt(0)}</AppText>
               )}
             </View>
 
             <View style={styles.recipeInfo}>
-              <Text style={styles.recipeName} numberOfLines={1}>
+              <AppText variant="cardTitle" style={styles.recipeName} numberOfLines={1}>
                 {item.name}
-              </Text>
+              </AppText>
 
-              <Text style={styles.recipeMeta}>
-                {item.categoryName} · {item.baseServings} servings
-              </Text>
+              <AppText variant="helper" style={styles.recipeMeta}>
+                {item.categoryName} · {item.requiredServings} servings
+              </AppText>
               {item.customization && (
                 <View style={styles.savedCustomization}>
-                  <Text style={styles.savedServings}>
+                  <AppText variant="helper" style={styles.savedServings}>
                     Customized for {item.customization.requiredServings}{" "}
                     servings
-                  </Text>
+                  </AppText>
                 </View>
               )}
             </View>
@@ -239,10 +237,10 @@ export default function FavoritesScreen() {
               style={styles.heartButton}
               onPress={(event) => {
                 event.stopPropagation();
-                openRemoveConfirmation(item.id);
+                openRemoveConfirmation(item.favoriteId);
               }}
               accessibilityRole="button"
-              accessibilityLabel={`Remove ${item.name} from favorites`}
+              accessibilityLabel={`Remove ${item.name} from favourites`}
             >
               <Ionicons name="heart" size={22} color="#E91E63" />
             </Pressable>
@@ -256,22 +254,22 @@ export default function FavoritesScreen() {
               color="#C5C9C4"
             />
 
-            <Text style={styles.emptyTitle}>
-              {search.trim() ? "No matching recipes" : "No favorites yet"}
-            </Text>
+            <AppText variant="sectionTitle" style={styles.emptyTitle}>
+              {search.trim() ? "No matching recipes" : "No favourites yet"}
+            </AppText>
 
-            <Text style={styles.emptyText}>
+            <AppText variant="body" style={styles.emptyText}>
               {search.trim()
                 ? "Try another recipe, category, or ingredient."
                 : "Save recipes to see them here"}
-            </Text>
+            </AppText>
 
             {!search.trim() && (
               <Pressable
                 style={styles.browseButton}
                 onPress={() => router.replace("/categories")}
               >
-                <Text style={styles.browseButtonText}>Browse Recipes</Text>
+                <AppText variant="button" style={styles.browseButtonText}>Browse Recipes</AppText>
               </Pressable>
             )}
           </View>
@@ -294,11 +292,11 @@ export default function FavoritesScreen() {
               />
             </View>
 
-            <Text style={styles.confirmTitle}>Remove from Favorites?</Text>
+            <AppText variant="sectionTitle" style={styles.confirmTitle}>Remove from Favourites?</AppText>
 
-            <Text style={styles.confirmMessage}>
-              Are you sure you want to remove this recipe from your favorites?
-            </Text>
+            <AppText variant="body" style={styles.confirmMessage}>
+              Are you sure you want to remove this recipe from your favourites?
+            </AppText>
 
             <View style={styles.confirmActions}>
               <Pressable
@@ -306,7 +304,7 @@ export default function FavoritesScreen() {
                 onPress={closeRemoveConfirmation}
                 disabled={removing}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <AppText variant="button" style={styles.cancelButtonText}>Cancel</AppText>
               </Pressable>
 
               <Pressable
@@ -317,9 +315,9 @@ export default function FavoritesScreen() {
                 onPress={handleRemoveFavorite}
                 disabled={removing}
               >
-                <Text style={styles.removeButtonText}>
+                <AppText variant="button" style={styles.removeButtonText}>
                   {removing ? "Removing..." : "Remove"}
-                </Text>
+                </AppText>
               </Pressable>
             </View>
           </View>
@@ -341,14 +339,13 @@ const styles = StyleSheet.create({
   },
 
   header: {
-    paddingTop: 10,
+    paddingTop: 8,
     paddingBottom: 16,
     paddingHorizontal: 20,
     backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
     borderBottomColor: "#E0E0E0",
     zIndex: 10,
-    marginBottom: 15,
   },
 
   headerTop: {

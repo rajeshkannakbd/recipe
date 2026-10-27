@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RecipePro.Api.Data;
@@ -42,48 +41,89 @@ public class FunctionPlanShoppingListController : ControllerBase
         }
 
         var items = plan.Recipes
+            .Where(planRecipe =>
+                planRecipe.Recipe.BaseServings > 0)
             .SelectMany(planRecipe =>
                 planRecipe.Recipe.RecipeIngredients.Select(recipeIngredient =>
-                    new
+                {
+                    var ingredient = recipeIngredient.Ingredient;
+
+                    var originalUnit = NormalizeUnit(
+                        recipeIngredient.Unit);
+
+                    var canonicalUnit = GetCanonicalUnit(originalUnit);
+
+                    var quantity =
+                        recipeIngredient.Quantity *
+                        (decimal)planRecipe.RequiredServings /
+                        planRecipe.Recipe.BaseServings;
+
+                    var canonicalQuantity = ConvertQuantity(
+                        quantity,
+                        originalUnit,
+                        canonicalUnit);
+
+                    return new
                     {
-                        Ingredient = recipeIngredient.Ingredient,
+                        Ingredient = ingredient,
                         IngredientId = recipeIngredient.IngredientId,
-                        IngredientName = recipeIngredient.Ingredient.Name,
-                        PhotoUrl = recipeIngredient.Ingredient.PhotoUrl,
-
-                        Quantity = recipeIngredient.Quantity *
-                            (decimal)planRecipe.RequiredServings /
-                            planRecipe.Recipe.BaseServings,
-
-                        Unit = recipeIngredient.Unit.Trim(),
+                        IngredientName = ingredient.Name,
+                        PhotoUrl = ingredient.PhotoUrl,
+                        Quantity = canonicalQuantity,
+                        Unit = canonicalUnit,
                         RecipeName = planRecipe.Recipe.Name
-                    }))
+                    };
+                }))
             .ToList();
 
+        // Group by ingredient and canonical unit.
+        // Example: 2 l + 9000 ml = 11000 ml = 11 l.
         var groupedItems = items
             .GroupBy(x => new
             {
                 x.IngredientId,
-                UnitKey = NormalizeUnit(x.Unit)
+                x.Unit
             })
             .Select(group =>
             {
                 var first = group.First();
                 var ingredient = first.Ingredient;
 
-                var totalQuantity = Math.Round(
-                    group.Sum(x => x.Quantity),
+                var totalCanonicalQuantity = group.Sum(
+                    x => x.Quantity);
+
+                // Prefer litres and kilograms for display when the
+                // total reaches at least one whole unit.
+                var displayUnit = GetDisplayUnit(
+                    group.Key.Unit,
+                    totalCanonicalQuantity);
+
+                var displayQuantity = ConvertQuantity(
+                    totalCanonicalQuantity,
+                    group.Key.Unit,
+                    displayUnit);
+
+                displayQuantity = Math.Round(
+                    displayQuantity,
                     3,
                     MidpointRounding.AwayFromZero);
 
+                // Calculate cost using the unrounded canonical quantity.
                 var cost = CalculateCost(
-                    totalQuantity,
-                    first.Unit,
+                    totalCanonicalQuantity,
+                    group.Key.Unit,
                     ingredient.PurchasePrice,
                     ingredient.PurchaseQuantity,
                     ingredient.PurchaseUnit,
                     ingredient.GramsPerMilliliter,
                     ingredient.GramsPerPiece);
+
+                // Cost per displayed unit. Keep extra precision here
+                // so small unit prices do not incorrectly become zero.
+                decimal? unitPrice = cost.HasValue &&
+                                     totalCanonicalQuantity > 0
+                    ? cost.Value / displayQuantity
+                    : null;
 
                 return new ShoppingListItemResponse
                 {
@@ -91,8 +131,8 @@ public class FunctionPlanShoppingListController : ControllerBase
                     IngredientName = first.IngredientName,
                     PhotoUrl = first.PhotoUrl,
 
-                    TotalQuantity = totalQuantity,
-                    Unit = first.Unit,
+                    TotalQuantity = displayQuantity,
+                    Unit = displayUnit,
 
                     UsedInRecipes = group
                         .Select(x => x.RecipeName)
@@ -104,15 +144,14 @@ public class FunctionPlanShoppingListController : ControllerBase
                     PurchaseQuantity = ingredient.PurchaseQuantity,
                     PurchaseUnit = ingredient.PurchaseUnit,
 
-                    UnitPrice = cost.HasValue && totalQuantity > 0
+                    UnitPrice = unitPrice.HasValue
                         ? Math.Round(
-                            cost.Value / totalQuantity,
-                            2,
+                            unitPrice.Value,
+                            4,
                             MidpointRounding.AwayFromZero)
                         : null,
 
                     EstimatedCost = cost,
-
                     IsPriceAvailable = cost.HasValue
                 };
             })
@@ -120,12 +159,18 @@ public class FunctionPlanShoppingListController : ControllerBase
             .ThenBy(x => x.Unit)
             .ToList();
 
+        // Total cost is complete only when every item has a price.
         var isTotalCostComplete = groupedItems.Count > 0 &&
             groupedItems.All(x => x.EstimatedCost.HasValue);
 
-        decimal? totalEstimatedCost = isTotalCostComplete
+        // Return the subtotal of available prices even when some
+        // ingredient prices are missing.
+        decimal? totalEstimatedCost = groupedItems.Any(
+            x => x.EstimatedCost.HasValue)
             ? Math.Round(
-                groupedItems.Sum(x => x.EstimatedCost!.Value),
+                groupedItems
+                    .Where(x => x.EstimatedCost.HasValue)
+                    .Sum(x => x.EstimatedCost!.Value),
                 2,
                 MidpointRounding.AwayFromZero)
             : null;
@@ -150,7 +195,7 @@ public class FunctionPlanShoppingListController : ControllerBase
         decimal? gramsPerMilliliter,
         decimal? gramsPerPiece)
     {
-              if (requiredQuantity < 0 ||
+        if (requiredQuantity < 0 ||
             !purchasePrice.HasValue ||
             !purchaseQuantity.HasValue ||
             string.IsNullOrWhiteSpace(purchaseUnit) ||
@@ -180,14 +225,16 @@ public class FunctionPlanShoppingListController : ControllerBase
             return null;
         }
 
-        // Only calculate when both units represent the same dimension.
         if (requiredDimension != purchaseDimension)
         {
             return null;
         }
 
-        var requiredBaseQuantity = requiredQuantity * requiredFactor;
-        var purchasedBaseQuantity = purchaseQuantity.Value * purchaseFactor;
+        var requiredBaseQuantity =
+            requiredQuantity * requiredFactor;
+
+        var purchasedBaseQuantity =
+            purchaseQuantity.Value * purchaseFactor;
 
         if (purchasedBaseQuantity <= 0)
         {
@@ -211,11 +258,8 @@ public class FunctionPlanShoppingListController : ControllerBase
         out decimal factor,
         out string dimension)
     {
-        var normalized = NormalizeUnit(unit);
-
-        switch (normalized)
+        switch (NormalizeUnit(unit))
         {
-            // Base unit: grams.
             case "g":
                 factor = 1m;
                 dimension = "weight";
@@ -226,7 +270,6 @@ public class FunctionPlanShoppingListController : ControllerBase
                 dimension = "weight";
                 return true;
 
-            // Base unit: millilitres.
             case "ml":
                 factor = 1m;
                 dimension = "volume";
@@ -237,7 +280,6 @@ public class FunctionPlanShoppingListController : ControllerBase
                 dimension = "volume";
                 return true;
 
-            // Base unit: teaspoons.
             case "tsp":
                 factor = 1m;
                 dimension = "spoon";
@@ -248,11 +290,7 @@ public class FunctionPlanShoppingListController : ControllerBase
                 dimension = "spoon";
                 return true;
 
-            // Base unit: pieces.
             case "piece":
-            case "pieces":
-            case "pc":
-            case "pcs":
                 factor = 1m;
                 dimension = "piece";
                 return true;
@@ -264,9 +302,79 @@ public class FunctionPlanShoppingListController : ControllerBase
         }
     }
 
+    private static string GetCanonicalUnit(string unit)
+    {
+        return NormalizeUnit(unit) switch
+        {
+            "kg" or "g" => "g",
+            "l" or "ml" => "ml",
+            "tsp" or "tbsp" => "tsp",
+            "piece" => "piece",
+            _ => NormalizeUnit(unit)
+        };
+    }
+
+    private static string GetDisplayUnit(
+        string canonicalUnit,
+        decimal quantity)
+    {
+        return canonicalUnit switch
+        {
+            "g" when quantity >= 1000m => "kg",
+            "g" => "g",
+
+            "ml" when quantity >= 1000m => "l",
+            "ml" => "ml",
+
+            "tsp" when quantity >= 3m => "tbsp",
+            "tsp" => "tsp",
+
+            _ => canonicalUnit
+        };
+    }
+
+    private static decimal ConvertQuantity(
+        decimal quantity,
+        string fromUnit,
+        string toUnit)
+    {
+        fromUnit = NormalizeUnit(fromUnit);
+        toUnit = NormalizeUnit(toUnit);
+
+        if (fromUnit == toUnit)
+        {
+            return quantity;
+        }
+
+        // Weight conversions.
+        if (fromUnit == "kg" && toUnit == "g")
+            return quantity * 1000m;
+
+        if (fromUnit == "g" && toUnit == "kg")
+            return quantity / 1000m;
+
+        // Volume conversions.
+        if (fromUnit == "l" && toUnit == "ml")
+            return quantity * 1000m;
+
+        if (fromUnit == "ml" && toUnit == "l")
+            return quantity / 1000m;
+
+        // Spoon conversions: 1 tbsp = 3 tsp.
+        if (fromUnit == "tbsp" && toUnit == "tsp")
+            return quantity * 3m;
+
+        if (fromUnit == "tsp" && toUnit == "tbsp")
+            return quantity / 3m;
+
+        // Unknown or incompatible units cannot be converted safely.
+        throw new InvalidOperationException(
+            $"Cannot convert from '{fromUnit}' to '{toUnit}'.");
+    }
+
     private static string NormalizeUnit(string unit)
     {
-        return unit.Trim().ToLowerInvariant() switch
+        return (unit ?? string.Empty).Trim().ToLowerInvariant() switch
         {
             "gram" or "grams" or "g" => "g",
             "kilogram" or "kilograms" or "kg" => "kg",

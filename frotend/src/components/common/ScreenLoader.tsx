@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
 import LottieView from "lottie-react-native";
+import AppText from "./AppText";
 
 export default function ScreenLoader() {
   return (
@@ -14,7 +15,7 @@ export default function ScreenLoader() {
         />
       </View>
 
-      <Text style={styles.loadingText}>Loading...</Text>
+      <AppText variant="subtitle" style={styles.loadingText}>Loading...</AppText>
     </View>
   );
 }
@@ -43,8 +44,8 @@ const styles = StyleSheet.create({
 
   loadingText: {
     marginTop: -30,
-    fontSize: 14,
-    lineHeight: 20,
+    // fontSize: 14,
+    // lineHeight: 20,
     fontWeight: "500",
     color: "#68736D",
     textAlign: "center",

@@ -47,11 +47,9 @@ export default function CategoryRecipesScreen() {
 
   const router = useRouter();
 
-  const [category, setCategory] =
-    useState<CategoryResponse | null>(null);
+  const [category, setCategory] = useState<CategoryResponse | null>(null);
 
-  const [recipes, setRecipes] =
-    useState<RecipeResponse[]>([]);
+  const [recipes, setRecipes] = useState<RecipeResponse[]>([]);
 
   const [search, setSearch] = useState("");
 
@@ -70,11 +68,7 @@ export default function CategoryRecipesScreen() {
 
       setCategory(cat);
 
-      setRecipes(
-        allRecipes.filter(
-          (r) => r.categoryId === Number(id)
-        )
-      );
+      setRecipes(allRecipes.filter((r) => r.categoryId === Number(id)));
     } catch (e) {
       console.error(e);
     } finally {
@@ -93,11 +87,9 @@ export default function CategoryRecipesScreen() {
   const filtered = useMemo(
     () =>
       recipes.filter((r) =>
-        r.name
-          .toLowerCase()
-          .includes(search.toLowerCase())
+        r.name.toLowerCase().includes(search.toLowerCase()),
       ),
-    [recipes, search]
+    [recipes, search],
   );
 
   /* =====================================================
@@ -116,17 +108,10 @@ export default function CategoryRecipesScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>
-            Category not found
-          </Text>
+          <Text style={styles.errorText}>Category not found</Text>
 
-          <Pressable
-            onPress={() => router.back()}
-            style={styles.backButton}
-          >
-            <Text style={styles.backButtonText}>
-              Go Back
-            </Text>
+          <Pressable onPress={() => router.back()} style={styles.backButton}>
+            <Text style={styles.backButtonText}>Go Back</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -137,22 +122,13 @@ export default function CategoryRecipesScreen() {
      CATEGORY IMAGE
   ===================================================== */
 
-  const categoryKey = category.name
-    .trim()
-    .toLowerCase();
+  const categoryKey = category.name.trim().toLowerCase();
 
-  const categoryImageUrl =
-    CATEGORY_IMAGES[categoryKey];
+  const categoryImageUrl = CATEGORY_IMAGES[categoryKey];
 
   return (
-    <SafeAreaView
-      style={styles.container}
-      edges={["top"]}
-    >
-      <Pressable
-        onPress={() => router.back()}
-        style={styles.backBtnFixed}
-      >
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      <Pressable onPress={() => router.back()} style={styles.backBtnFixed}>
         <Ionicons name="arrow-back" size={24} color="#17231E" />
       </Pressable>
       <FlatList
@@ -160,7 +136,6 @@ export default function CategoryRecipesScreen() {
         keyExtractor={(item) => String(item.id)}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
-
         /* =================================================
            HEADER
         ================================================== */
@@ -182,7 +157,7 @@ export default function CategoryRecipesScreen() {
                       console.log(
                         "CATEGORY IMAGE LOADED:",
                         category.name,
-                        categoryImageUrl
+                        categoryImageUrl,
                       )
                     }
                     onError={(error) =>
@@ -190,7 +165,7 @@ export default function CategoryRecipesScreen() {
                         "CATEGORY IMAGE ERROR:",
                         category.name,
                         categoryImageUrl,
-                        error.nativeEvent
+                        error.nativeEvent,
                       )
                     }
                   />
@@ -199,31 +174,25 @@ export default function CategoryRecipesScreen() {
                     {category.name === "Tiffin"
                       ? "🍳"
                       : category.name === "Meals"
-                      ? "🍽"
-                      : category.name === "Dinner"
-                      ? "🌙"
-                      : category.name === "Snacks"
-                      ? "🍿"
-                      : category.name === "Desserts"
-                      ? "🍰"
-                      : "🍚"}
+                        ? "🍽"
+                        : category.name === "Dinner"
+                          ? "🌙"
+                          : category.name === "Snacks"
+                            ? "🍿"
+                            : category.name === "Desserts"
+                              ? "🍰"
+                              : "🍚"}
                   </Text>
                 )}
               </View>
 
-              <Text style={styles.categoryName}>
-                {category.name}
-              </Text>
+              <Text style={styles.categoryName}>{category.name}</Text>
 
-              <Text
-                style={styles.categoryDescription}
-              >
+              <Text style={styles.categoryDescription}>
                 {category.description}
               </Text>
 
-              <Text style={styles.recipeCount}>
-                {recipes.length} recipes
-              </Text>
+              <Text style={styles.recipeCount}>{recipes.length} recipes</Text>
             </View>
 
             {/* SEARCH */}
@@ -237,7 +206,6 @@ export default function CategoryRecipesScreen() {
             </View>
           </View>
         }
-
         /* =================================================
            RECIPE CARD
         ================================================== */
@@ -268,7 +236,7 @@ export default function CategoryRecipesScreen() {
                     console.log(
                       "CATEGORY RECIPE IMAGE LOADED:",
                       item.name,
-                      item.photoUrl
+                      item.photoUrl,
                     )
                   }
                   onError={(error) =>
@@ -276,24 +244,19 @@ export default function CategoryRecipesScreen() {
                       "CATEGORY RECIPE IMAGE ERROR:",
                       item.name,
                       item.photoUrl,
-                      error.nativeEvent
+                      error.nativeEvent,
                     )
                   }
                 />
               ) : (
-                <Text style={styles.recipeEmoji}>
-                  {item.name.charAt(0)}
-                </Text>
+                <Text style={styles.recipeEmoji}>{item.name.charAt(0)}</Text>
               )}
             </View>
 
             {/* RECIPE INFORMATION */}
 
             <View style={styles.recipeInfo}>
-              <Text
-                style={styles.recipeName}
-                numberOfLines={1}
-              >
+              <Text style={styles.recipeName} numberOfLines={1}>
                 {item.name}
               </Text>
 
@@ -326,29 +289,18 @@ export default function CategoryRecipesScreen() {
 
             {/* ARROW */}
 
-            <Ionicons
-              name="chevron-forward"
-              size={20}
-              color="#C5C9C4"
-            />
+            <Ionicons name="chevron-forward" size={20} color="#C5C9C4" />
           </Pressable>
         )}
-
         /* =================================================
            EMPTY STATE
         ================================================== */
 
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Ionicons
-              name="restaurant-outline"
-              size={48}
-              color="#C5C9C4"
-            />
+            <Ionicons name="restaurant-outline" size={48} color="#C5C9C4" />
 
-            <Text style={styles.emptyTitle}>
-              No recipes yet
-            </Text>
+            <Text style={styles.emptyTitle}>No recipes yet</Text>
 
             <Text style={styles.emptyText}>
               Recipes in this category will appear here

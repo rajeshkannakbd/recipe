@@ -269,8 +269,7 @@ namespace MyApi.Migrations
 
                     b.HasIndex("RecipeId");
 
-                    b.HasIndex("UserId", "RecipeId")
-                        .IsUnique();
+                    b.HasIndex("UserId", "RecipeId");
 
                     b.ToTable("Favorites");
                 });
@@ -332,6 +331,9 @@ namespace MyApi.Migrations
 
                     b.Property<long?>("UpdatedBy")
                         .HasColumnType("bigint");
+
+                    b.Property<string>("UserId")
+                        .HasColumnType("longtext");
 
                     b.HasKey("Id");
 

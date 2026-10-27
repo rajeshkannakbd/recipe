@@ -10,13 +10,14 @@ import {
   ScrollView,
   StatusBar,
   StyleSheet,
-  Text,
   TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+
+import AppText from "../../components/common/AppText";
 
 import { recipeApi } from "../../api/recipeApi";
 import {
@@ -46,6 +47,28 @@ const formatDate = (value?: string | null) => {
   return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : datePart;
 };
 
+const toLocalISODate = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const startOfDay = (date: Date) =>
+  new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+const formatSelectedDate = (value: string) => {
+  if (!value) return "";
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  return date.toLocaleDateString(undefined, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+};
+
 const normalizeRecipe = (item: any): RecipeChoice | null => {
   const id = Number(item?.id ?? item?.recipeId ?? item?.Id ?? item?.RecipeId);
   const name = String(
@@ -57,10 +80,7 @@ const normalizeRecipe = (item: any): RecipeChoice | null => {
   return {
     id,
     name,
-    baseServings: toPositiveNumber(
-      item?.baseServings ?? item?.BaseServings,
-      1,
-    ),
+    baseServings: toPositiveNumber(item?.baseServings ?? item?.BaseServings, 1),
     categoryName:
       item?.categoryName ?? item?.CategoryName ?? item?.category?.name ?? null,
   };
@@ -78,11 +98,19 @@ export default function FunctionPlannerScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const [addModalVisible, setAddModalVisible] = useState(false);
+  const [editingPlan, setEditingPlan] = useState<FunctionPlanResponse | null>(
+    null,
+  );
   const [saving, setSaving] = useState(false);
   const [loadingRecipes, setLoadingRecipes] = useState(false);
 
   const [planName, setPlanName] = useState("");
   const [eventDate, setEventDate] = useState("");
+  const [calendarVisible, setCalendarVisible] = useState(false);
+  const [displayedMonth, setDisplayedMonth] = useState(() => {
+    const today = new Date();
+    return new Date(today.getFullYear(), today.getMonth(), 1);
+  });
   const [notes, setNotes] = useState("");
   const [recipeSearch, setRecipeSearch] = useState("");
   const [selected, setSelected] = useState<SelectedRecipes>({});
@@ -97,7 +125,9 @@ export default function FunctionPlannerScreen() {
     } catch (error) {
       Alert.alert(
         "Unable to load functions",
-        error instanceof Error ? error.message : "Please check your connection and permissions.",
+        error instanceof Error
+          ? error.message
+          : "Please check your connection and permissions.",
       );
     } finally {
       setLoading(false);
@@ -121,8 +151,13 @@ export default function FunctionPlannerScreen() {
 
       const normalized = rows
         .map(normalizeRecipe)
-        .filter((recipe: RecipeChoice | null): recipe is RecipeChoice => recipe !== null)
-        .sort((a: RecipeChoice, b: RecipeChoice) => a.name.localeCompare(b.name));
+        .filter(
+          (recipe: RecipeChoice | null): recipe is RecipeChoice =>
+            recipe !== null,
+        )
+        .sort((a: RecipeChoice, b: RecipeChoice) =>
+          a.name.localeCompare(b.name),
+        );
 
       setRecipes(normalized);
       if (!normalized.length) {
@@ -147,23 +182,70 @@ export default function FunctionPlannerScreen() {
 
   const filteredRecipes = useMemo(() => {
     const term = recipeSearch.trim().toLowerCase();
-    return recipes.filter(
-      (recipe) =>
-        !term ||
-        recipe.name.toLowerCase().includes(term) ||
-        (recipe.categoryName ?? "").toLowerCase().includes(term),
+
+    return (
+      recipes
+        .filter(
+          (recipe) =>
+            !term ||
+            recipe.name.toLowerCase().includes(term) ||
+            (recipe.categoryName ?? "").toLowerCase().includes(term),
+        )
+        // Keep selected recipes at the top of the scroll list.
+        // Within each group, preserve the existing alphabetical order.
+        .sort((a, b) => {
+          const aSelected = selected[a.id] !== undefined;
+          const bSelected = selected[b.id] !== undefined;
+
+          if (aSelected !== bSelected) {
+            return aSelected ? -1 : 1;
+          }
+
+          return a.name.localeCompare(b.name);
+        })
     );
-  }, [recipes, recipeSearch]);
+  }, [recipes, recipeSearch, selected]);
 
   const selectedRecipeRows = useMemo(
     () =>
       recipes
         .filter((recipe) => selected[recipe.id] !== undefined)
-        .map((recipe) => ({ ...recipe, requiredServings: selected[recipe.id] })),
+        .map((recipe) => ({
+          ...recipe,
+          requiredServings: selected[recipe.id],
+        })),
     [recipes, selected],
   );
 
+  const today = startOfDay(new Date());
+  const todayISO = toLocalISODate(today);
+  const calendarCells = useMemo(() => {
+    const year = displayedMonth.getFullYear();
+    const month = displayedMonth.getMonth();
+    const firstWeekday = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    return [
+      ...Array.from({ length: firstWeekday }, (_, index) => ({
+        key: `blank-${index}`,
+        day: null as number | null,
+        date: "",
+      })),
+      ...Array.from({ length: daysInMonth }, (_, index) => {
+        const day = index + 1;
+        const date = toLocalISODate(new Date(year, month, day));
+        return { key: date, day, date };
+      }),
+    ];
+  }, [displayedMonth]);
+
+  const openCalendar = () => {
+    const baseDate = eventDate ? new Date(`${eventDate}T00:00:00`) : new Date();
+    setDisplayedMonth(new Date(baseDate.getFullYear(), baseDate.getMonth(), 1));
+    setCalendarVisible(true);
+  };
+
   const openAddModal = async () => {
+    setEditingPlan(null);
     setPlanName("");
     setEventDate("");
     setNotes("");
@@ -173,9 +255,27 @@ export default function FunctionPlannerScreen() {
     await loadRecipes();
   };
 
+  const openEditModal = async (plan: FunctionPlanResponse) => {
+    setEditingPlan(plan);
+    setPlanName(plan.name ?? "");
+    setEventDate(plan.eventDate ? String(plan.eventDate).slice(0, 10) : "");
+    setNotes(plan.notes ?? "");
+    setRecipeSearch("");
+    const existingSelections: SelectedRecipes = {};
+    getPlanRecipes(plan).forEach((item) => {
+      const recipeId = Number(item.recipeId);
+      const servings = toPositiveNumber(item.requiredServings, 10);
+      if (recipeId > 0) existingSelections[recipeId] = servings;
+    });
+    setSelected(existingSelections);
+    setAddModalVisible(true);
+    await loadRecipes();
+  };
+
   const closeAddModal = () => {
     if (saving) return;
     setAddModalVisible(false);
+    setEditingPlan(null);
   };
 
   const toggleRecipe = (recipe: RecipeChoice) => {
@@ -214,27 +314,63 @@ export default function FunctionPlannerScreen() {
 
   const validateForm = () => {
     if (planName.trim().length < 2) {
-      Alert.alert("Function name required", "Enter a function name with at least 2 characters.");
+      Alert.alert(
+        "Function name required",
+        "Enter a function name with at least 2 characters.",
+      );
       return false;
     }
     if (!eventDate.trim()) {
-      Alert.alert("Event date required", "Enter the function date in YYYY-MM-DD format.");
+      Alert.alert(
+        "Event date required",
+        "Select an event date from the calendar.",
+      );
       return false;
     }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(eventDate.trim()) || Number.isNaN(Date.parse(`${eventDate.trim()}T00:00:00`))) {
-      Alert.alert("Invalid event date", "Use YYYY-MM-DD format, for example 2026-12-25.");
+    const selectedDate = new Date(`${eventDate.trim()}T00:00:00`);
+    if (
+      !/^\d{4}-\d{2}-\d{2}$/.test(eventDate.trim()) ||
+      Number.isNaN(selectedDate.getTime()) ||
+      toLocalISODate(selectedDate) !== eventDate.trim()
+    ) {
+      Alert.alert(
+        "Invalid event date",
+        "Please select a valid date from the calendar.",
+      );
+      return false;
+    }
+    if (!editingPlan && eventDate.trim() < todayISO) {
+      Alert.alert(
+        "Past date not allowed",
+        "Choose today or a future date for the event.",
+      );
       return false;
     }
     if (!notes.trim()) {
-      Alert.alert("Notes required", "Add useful notes for this function before saving.");
+      Alert.alert(
+        "Notes required",
+        "Add useful notes for this function before saving.",
+      );
       return false;
     }
     if (!selectedRecipeRows.length) {
-      Alert.alert("Select recipes", "Select at least one recipe for this function.");
+      Alert.alert(
+        "Select recipes",
+        "Select at least one recipe for this function.",
+      );
       return false;
     }
-    if (selectedRecipeRows.some((recipe) => !Number.isInteger(recipe.requiredServings) || recipe.requiredServings < 1)) {
-      Alert.alert("Invalid servings", "Each selected recipe must have at least 1 serving.");
+    if (
+      selectedRecipeRows.some(
+        (recipe) =>
+          !Number.isInteger(recipe.requiredServings) ||
+          recipe.requiredServings < 1,
+      )
+    ) {
+      Alert.alert(
+        "Invalid servings",
+        "Each selected recipe must have at least 1 serving.",
+      );
       return false;
     }
     return true;
@@ -255,18 +391,28 @@ export default function FunctionPlannerScreen() {
 
     setSaving(true);
     try {
-      const created = await functionPlanApi.create(request);
-      setPlans((current) => [created, ...current.filter((plan) => plan.id !== created.id)]);
+      const saved = editingPlan
+        ? await functionPlanApi.update(editingPlan.id, request)
+        : await functionPlanApi.create(request);
+      setPlans((current) =>
+        editingPlan
+          ? current.map((plan) => (plan.id === saved.id ? saved : plan))
+          : [saved, ...current.filter((plan) => plan.id !== saved.id)],
+      );
       setAddModalVisible(false);
+      setEditingPlan(null);
       setSelected({});
       setPlanName("");
       setEventDate("");
       setNotes("");
-      Alert.alert("Function saved", `"${created.name}" was saved successfully.`);
+      Alert.alert(
+        editingPlan ? "Function updated" : "Function saved",
+        `"${saved.name}" was ${editingPlan ? "updated" : "saved"} successfully.`,
+      );
       await loadPlans(false);
     } catch (error) {
       Alert.alert(
-        "Could not save function",
+        editingPlan ? "Could not update function" : "Could not save function",
         error instanceof Error
           ? error.message
           : "The server rejected the request. Check the API response and your permissions.",
@@ -277,52 +423,57 @@ export default function FunctionPlannerScreen() {
   };
 
   const deletePlan = (plan: FunctionPlanResponse) => {
-    Alert.alert("Delete function?", `Delete "${plan.name}"? This cannot be undone.`, [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          setDeletingPlanId(plan.id);
-          try {
-            await functionPlanApi.delete(plan.id);
-            setPlans((current) => current.filter((item) => item.id !== plan.id));
-          } catch (error) {
-            Alert.alert(
-              "Delete failed",
-              error instanceof Error ? error.message : "Please try again.",
-            );
-          } finally {
-            setDeletingPlanId(null);
-          }
+    Alert.alert(
+      "Delete function?",
+      `Delete "${plan.name}"? This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            setDeletingPlanId(plan.id);
+            try {
+              await functionPlanApi.delete(plan.id);
+              setPlans((current) =>
+                current.filter((item) => item.id !== plan.id),
+              );
+            } catch (error) {
+              Alert.alert(
+                "Delete failed",
+                error instanceof Error ? error.message : "Please try again.",
+              );
+            } finally {
+              setDeletingPlanId(null);
+            }
+          },
         },
-      },
-    ]);
+      ],
+    );
   };
 
   const renderPlanRecipeSummary = (plan: FunctionPlanResponse) => {
     const planRecipes = getPlanRecipes(plan);
     if (!planRecipes.length) {
-      return <Text style={styles.muted}>Recipe details are not available.</Text>;
+      return (
+        <AppText style={styles.muted} variant="helper">Recipe details are not available.</AppText>
+      );
     }
 
     return (
       <View style={styles.planRecipeList}>
         {planRecipes.map((item, index) => (
-          <View
-            key={`${item.recipeId}-${index}`}
-            style={styles.planRecipeRow}
-          >
+          <View key={`${item.recipeId}-${index}`} style={styles.planRecipeRow}>
             <View style={styles.recipeBullet}>
               <Ionicons name="restaurant-outline" size={14} color="#267653" />
             </View>
-            <Text style={styles.planRecipeName} numberOfLines={2}>
+            <AppText style={styles.planRecipeName} variant="body" numberOfLines={2}>
               {item.recipeName || `Recipe #${item.recipeId}`}
-            </Text>
+            </AppText>
             <View style={styles.servingBadge}>
-              <Text style={styles.servingBadgeText}>
+              <AppText style={styles.servingBadgeText} variant="label">
                 {item.requiredServings} servings
-              </Text>
+              </AppText>
             </View>
           </View>
         ))}
@@ -332,7 +483,7 @@ export default function FunctionPlannerScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F6F8F5" />
+      <StatusBar barStyle="dark-content" />
       <View style={styles.page}>
         <View style={styles.header}>
           {/* <Pressable
@@ -349,11 +500,11 @@ export default function FunctionPlannerScreen() {
           </Pressable> */}
 
           <View style={styles.headerText}>
-            {/* <Text style={styles.eyebrow}></Text> */}
-            <Text style={styles.pageTitle}>EVENT'S</Text>
-            <Text style={styles.headerSubtitle}>
+            {/* <AppText style={styles.eyebrow} variant="label"></AppText> */}
+            <AppText style={styles.pageTitle} variant="pageTitle">EVENT'S</AppText>
+            <AppText style={styles.headerSubtitle} variant="subtitle">
               Plan menus and manage ingredient requirements.
-            </Text>
+            </AppText>
           </View>
 
           <Pressable
@@ -363,7 +514,7 @@ export default function FunctionPlannerScreen() {
             onPress={openAddModal}
           >
             <Ionicons name="add" size={20} color="#FFFFFF" />
-            <Text style={styles.addButtonText}>Add</Text>
+            <AppText style={styles.addButtonText} variant="button">Add</AppText>
           </Pressable>
         </View>
 
@@ -384,10 +535,10 @@ export default function FunctionPlannerScreen() {
         >
           <View style={styles.listHeading}>
             <View>
-              <Text style={styles.sectionTitle}>Saved functions</Text>
-              <Text style={styles.muted}>
+              <AppText style={styles.sectionTitle} variant="sectionTitle">Saved functions</AppText>
+              <AppText style={styles.muted} variant="helper">
                 {plans.length} {plans.length === 1 ? "function" : "functions"}
-              </Text>
+              </AppText>
             </View>
             <Pressable
               style={styles.refreshButton}
@@ -402,21 +553,21 @@ export default function FunctionPlannerScreen() {
           {loading ? (
             <View style={styles.loadingBox}>
               <ActivityIndicator size="large" color="#267653" />
-              <Text style={styles.muted}>Loading saved functions…</Text>
+              <AppText style={styles.muted} variant="helper">Loading saved functions…</AppText>
             </View>
           ) : plans.length === 0 ? (
             <View style={styles.emptyState}>
               <View style={styles.emptyIcon}>
                 <Ionicons name="calendar-outline" size={30} color="#267653" />
               </View>
-              <Text style={styles.emptyTitle}>No functions yet</Text>
-              <Text style={styles.emptyDescription}>
-                Create your first function to select recipes, set serving counts,
-                and prepare a combined shopping list.
-              </Text>
+              <AppText style={styles.emptyTitle} variant="cardTitle">No functions yet</AppText>
+              <AppText style={styles.emptyDescription} variant="body">
+                Create your first function to select recipes, set serving
+                counts, and prepare a combined shopping list.
+              </AppText>
               <Pressable style={styles.emptyAction} onPress={openAddModal}>
                 <Ionicons name="add" size={18} color="#FFFFFF" />
-                <Text style={styles.emptyActionText}>Create function</Text>
+                <AppText style={styles.emptyActionText} variant="button">Create function</AppText>
               </Pressable>
             </View>
           ) : (
@@ -433,13 +584,26 @@ export default function FunctionPlannerScreen() {
                       <Ionicons name="calendar" size={19} color="#267653" />
                     </View>
                     <View style={styles.functionTitleWrap}>
-                      <Text style={styles.functionName}>{plan.name}</Text>
-                      <Text style={styles.functionDate}>
+                      <AppText style={styles.functionName} variant="cardTitle">{plan.name}</AppText>
+                      <AppText style={styles.functionDate} variant="helper">
                         {plan.eventDate
                           ? `Event date · ${formatDate(plan.eventDate)}`
                           : "Event date not set"}
-                      </Text>
+                      </AppText>
                     </View>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Edit ${plan.name}`}
+                      style={styles.editButton}
+                      onPress={() => openEditModal(plan)}
+                      disabled={deletingPlanId === plan.id || saving}
+                    >
+                      <Ionicons
+                        name="create-outline"
+                        size={18}
+                        color="#267653"
+                      />
+                    </Pressable>
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel={`Delete ${plan.name}`}
@@ -450,27 +614,39 @@ export default function FunctionPlannerScreen() {
                       {deletingPlanId === plan.id ? (
                         <ActivityIndicator size="small" color="#B63D3D" />
                       ) : (
-                        <Ionicons name="trash-outline" size={18} color="#B63D3D" />
+                        <Ionicons
+                          name="trash-outline"
+                          size={18}
+                          color="#B63D3D"
+                        />
                       )}
                     </Pressable>
                   </View>
 
                   <View style={styles.metricsRow}>
                     <View style={styles.metric}>
-                      <Ionicons name="restaurant-outline" size={15} color="#637368" />
-                      <Text style={styles.metricText}>
-                        {planRecipes.length} {planRecipes.length === 1 ? "recipe" : "recipes"}
-                      </Text>
+                      <Ionicons
+                        name="restaurant-outline"
+                        size={15}
+                        color="#637368"
+                      />
+                      <AppText style={styles.metricText} variant="helper">
+                        {planRecipes.length}{" "}
+                        {planRecipes.length === 1 ? "recipe" : "recipes"}
+                      </AppText>
                     </View>
                     <View style={styles.metricDivider} />
                     <View style={styles.metric}>
-                      <Ionicons name="people-outline" size={15} color="#637368" />
-                      <Text style={styles.metricText}>
+                      <Ionicons
+                        name="people-outline"
+                        size={15}
+                        color="#637368"
+                      />
+                      <AppText style={styles.metricText} variant="helper">
                         {totalServings.toLocaleString()} total servings
-                      </Text>
+                      </AppText>
                     </View>
                   </View>
-
 
                   <Pressable
                     accessibilityRole="button"
@@ -480,17 +656,18 @@ export default function FunctionPlannerScreen() {
                         pathname: "/function-plan-detail",
                         params: { planId: String(plan.id) },
                       } as never)
-                    }                  >
+                    }
+                  >
                     <Ionicons name="cart-outline" size={18} color="#FFFFFF" />
-                    <Text style={styles.shoppingButtonText}>View shopping list</Text>
+                    <AppText style={styles.shoppingButtonText} variant="button">
+                      View shopping list
+                    </AppText>
                     <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
                   </Pressable>
                 </View>
               );
             })
           )}
-
-
         </ScrollView>
       </View>
 
@@ -511,15 +688,21 @@ export default function FunctionPlannerScreen() {
                 onPress={closeAddModal}
                 disabled={saving}
                 accessibilityRole="button"
-                accessibilityLabel="Close add function"
+                accessibilityLabel={
+                  editingPlan ? "Close edit function" : "Close add function"
+                }
               >
                 <Ionicons name="close" size={22} color="#27382D" />
               </Pressable>
               <View style={styles.modalHeaderText}>
-                <Text style={styles.modalTitle}>Add Events</Text>
-                <Text style={styles.modalSubtitle}>
-                  Add event details and choose recipes.
-                </Text>
+                <AppText style={styles.modalTitle} variant="sectionTitle">
+                  {editingPlan ? "Edit Event" : "Add Events"}
+                </AppText>
+                <AppText style={styles.modalSubtitle} variant="subtitle">
+                  {editingPlan
+                    ? "Update event details and selected recipes."
+                    : "Add event details and choose recipes."}
+                </AppText>
               </View>
               <View style={{ width: 42 }} />
             </View>
@@ -529,11 +712,12 @@ export default function FunctionPlannerScreen() {
               contentContainerStyle={styles.modalContent}
               keyboardShouldPersistTaps="handled"
             >
-                <Text style={styles.formSectionTitle}>Event details</Text>
+              <AppText style={styles.formSectionTitle} variant="sectionTitle">Event details</AppText>
 
               <View style={styles.formCard}>
-              
-                <Text style={styles.label}>Event name *</Text>
+                <AppText style={styles.label} variant="label">
+                  Event name <AppText style={styles.requiredMark} variant="label">*</AppText>
+                </AppText>
                 <TextInput
                   value={planName}
                   onChangeText={setPlanName}
@@ -544,24 +728,38 @@ export default function FunctionPlannerScreen() {
                   returnKeyType="next"
                 />
 
-                <Text style={styles.label}>Event date *</Text>
-                <View style={styles.inputWithIcon}>
-                  <Ionicons name="calendar-outline" size={18} color="#7A897F" />
-                  <TextInput
-                    value={eventDate}
-                    onChangeText={setEventDate}
-                    placeholder="YYYY-MM-DD"
-                    placeholderTextColor="#929D95"
-                    style={styles.iconInput}
-                    keyboardType="numbers-and-punctuation"
-                    maxLength={10}
-                  />
-                </View>
-                <Text style={styles.helperText}>
-                  Enter the date in year-month-day format, for example 2026-12-25.
-                </Text>
+                <AppText style={styles.label} variant="label">
+                  Event date <AppText style={styles.requiredMark} variant="label">*</AppText>
+                </AppText>
+                <Pressable
+                  style={styles.inputWithIcon}
+                  onPress={openCalendar}
+                  accessibilityRole="button"
+                  accessibilityLabel="Select event date from calendar"
+                  disabled={saving}
+                >
+                  <Ionicons name="calendar-outline" size={18} color="#267653" />
+                  <AppText
+                    style={[
+                      styles.iconInput,
+                      !eventDate && styles.datePlaceholder,
+                    ]} variant="body"
+                    numberOfLines={1}
+                  >
+                    {eventDate
+                      ? formatSelectedDate(eventDate)
+                      : "Select event date"}
+                  </AppText>
+                  <Ionicons name="chevron-down" size={18} color="#7A897F" />
+                </Pressable>
+                <AppText style={styles.helperText} variant="helper">
+                  Past dates are disabled. You can select today or any future
+                  date.
+                </AppText>
 
-                <Text style={styles.label}>Notes *</Text>
+                <AppText style={styles.label} variant="label">
+                  Notes <AppText style={styles.requiredMark} variant="label">*</AppText>
+                </AppText>
                 <TextInput
                   value={notes}
                   onChangeText={setNotes}
@@ -572,21 +770,24 @@ export default function FunctionPlannerScreen() {
                   textAlignVertical="top"
                   maxLength={2000}
                 />
-                <Text style={styles.characterCount}>{notes.length}/2000</Text>
+                <AppText style={styles.characterCount} variant="helper">{notes.length}/2000</AppText>
               </View>
 
               <View style={styles.recipePickerSection}>
                 <View style={styles.pickerTitleRow}>
                   <View style={styles.flex}>
-                    <Text style={styles.formSectionTitle}>Select recipes *</Text>
-                    <Text style={styles.helperText}>
-                      Tap a recipe to select it. New selections start at 10 servings.
-                    </Text>
+                    <AppText style={styles.formSectionTitle} variant="sectionTitle">
+                      Select recipes *
+                    </AppText>
+                    <AppText style={styles.helperText} variant="helper">
+                      Tap a recipe to select it. New selections start at 10
+                      servings.
+                    </AppText>
                   </View>
                   <View style={styles.selectedPill}>
-                    <Text style={styles.selectedPillText}>
+                    <AppText style={styles.selectedPillText} variant="label">
                       {selectedRecipeRows.length} selected
-                    </Text>
+                    </AppText>
                   </View>
                 </View>
 
@@ -614,13 +815,15 @@ export default function FunctionPlannerScreen() {
                 {loadingRecipes ? (
                   <View style={styles.recipeLoading}>
                     <ActivityIndicator color="#267653" />
-                    <Text style={styles.muted}>Loading recipes…</Text>
+                    <AppText style={styles.muted} variant="helper">Loading recipes…</AppText>
                   </View>
                 ) : filteredRecipes.length === 0 ? (
                   <View style={styles.noRecipes}>
                     <Ionicons name="search-outline" size={24} color="#9AA69D" />
-                    <Text style={styles.noRecipesTitle}>No matching recipes</Text>
-                    <Text style={styles.muted}>Try a different search.</Text>
+                    <AppText style={styles.noRecipesTitle} variant="cardTitle">
+                      No matching recipes
+                    </AppText>
+                    <AppText style={styles.muted} variant="helper">Try a different search.</AppText>
                   </View>
                 ) : (
                   <View style={styles.recipeListFrame}>
@@ -652,42 +855,77 @@ export default function FunctionPlannerScreen() {
                                 ]}
                               >
                                 {isSelected && (
-                                  <Ionicons name="checkmark" size={15} color="#FFFFFF" />
+                                  <Ionicons
+                                    name="checkmark"
+                                    size={15}
+                                    color="#FFFFFF"
+                                  />
                                 )}
                               </View>
                               <View style={styles.recipeOptionText}>
-                                <Text style={styles.recipeOptionName} numberOfLines={2}>
+                                <AppText
+                                  style={styles.recipeOptionName} variant="cardTitle"
+                                  numberOfLines={2}
+                                >
                                   {recipe.name}
-                                </Text>
-                                <Text style={styles.recipeOptionMeta} numberOfLines={1}>
-                                  {recipe.categoryName || "Recipe"} · Base {recipe.baseServings}
-                                </Text>
+                                </AppText>
+                                <AppText
+                                  style={styles.recipeOptionMeta} variant="helper"
+                                  numberOfLines={1}
+                                >
+                                  {recipe.categoryName || "Recipe"} · Base{" "}
+                                  {recipe.baseServings}
+                                </AppText>
                               </View>
                               {isSelected && (
                                 <View style={styles.selectedCheck}>
-                                  <Ionicons name="checkmark-circle" size={18} color="#267653" />
+                                  <Ionicons
+                                    name="checkmark-circle"
+                                    size={18}
+                                    color="#267653"
+                                  />
                                 </View>
                               )}
                             </Pressable>
 
                             {isSelected && (
                               <View style={styles.servingsEditor}>
-                                <Text style={styles.servingsLabel}>Required servings</Text>
+                                <AppText style={styles.servingsLabel} variant="label">
+                                  Required servings
+                                </AppText>
                                 <View style={styles.stepper}>
                                   <Pressable
                                     style={styles.stepButton}
-                                    onPress={() => adjustServings(recipe.id, -1)}
+                                    onPress={() =>
+                                      adjustServings(recipe.id, -1)
+                                    }
                                     accessibilityRole="button"
                                     accessibilityLabel={`Decrease servings for ${recipe.name}`}
                                   >
-                                    <Ionicons name="remove" size={18} color="#267653" />
+                                    <Ionicons
+                                      name="remove"
+                                      size={18}
+                                      color="#267653"
+                                    />
                                   </Pressable>
                                   <TextInput
-                                    value={selected[recipe.id] > 0 ? String(selected[recipe.id]) : ""}
-                                    onChangeText={(value) => updateServings(recipe.id, value)}
+                                    value={
+                                      selected[recipe.id] > 0
+                                        ? String(selected[recipe.id])
+                                        : ""
+                                    }
+                                    onChangeText={(value) =>
+                                      updateServings(recipe.id, value)
+                                    }
                                     onBlur={() => {
-                                      if (!selected[recipe.id] || selected[recipe.id] < 1) {
-                                        setSelected((current) => ({ ...current, [recipe.id]: 10 }));
+                                      if (
+                                        !selected[recipe.id] ||
+                                        selected[recipe.id] < 1
+                                      ) {
+                                        setSelected((current) => ({
+                                          ...current,
+                                          [recipe.id]: 10,
+                                        }));
                                       }
                                     }}
                                     keyboardType="number-pad"
@@ -700,7 +938,11 @@ export default function FunctionPlannerScreen() {
                                     accessibilityRole="button"
                                     accessibilityLabel={`Increase servings for ${recipe.name}`}
                                   >
-                                    <Ionicons name="add" size={18} color="#267653" />
+                                    <Ionicons
+                                      name="add"
+                                      size={18}
+                                      color="#267653"
+                                    />
                                   </Pressable>
                                 </View>
                               </View>
@@ -710,10 +952,14 @@ export default function FunctionPlannerScreen() {
                       })}
                     </ScrollView>
                     <View style={styles.scrollHint}>
-                      <Ionicons name="swap-vertical-outline" size={14} color="#78867D" />
-                      <Text style={styles.scrollHintText}>
+                      <Ionicons
+                        name="swap-vertical-outline"
+                        size={14}
+                        color="#78867D"
+                      />
+                      <AppText style={styles.scrollHintText} variant="helper">
                         Scroll to browse all {filteredRecipes.length} recipes
-                      </Text>
+                      </AppText>
                     </View>
                   </View>
                 )}
@@ -722,12 +968,15 @@ export default function FunctionPlannerScreen() {
 
             <View style={styles.modalFooter}>
               <View style={styles.footerSummary}>
-                <Text style={styles.footerSummaryTitle}>
+                <AppText style={styles.footerSummaryTitle} variant="cardTitle">
                   {selectedRecipeRows.length} recipes selected
-                </Text>
-                <Text style={styles.footerSummaryText}>
-                  {selectedRecipeRows.reduce((sum, item) => sum + item.requiredServings, 0).toLocaleString()} total servings
-                </Text>
+                </AppText>
+                <AppText style={styles.footerSummaryText} variant="helper">
+                  {selectedRecipeRows
+                    .reduce((sum, item) => sum + item.requiredServings, 0)
+                    .toLocaleString()}{" "}
+                  total servings
+                </AppText>
               </View>
               <Pressable
                 style={[styles.saveButton, saving && styles.buttonDisabled]}
@@ -739,14 +988,169 @@ export default function FunctionPlannerScreen() {
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
                   <>
-                    <Ionicons name="checkmark-circle-outline" size={19} color="#FFFFFF" />
-                    <Text style={styles.saveButtonText}>Save function</Text>
+                    <Ionicons
+                      name="checkmark-circle-outline"
+                      size={19}
+                      color="#FFFFFF"
+                    />
+                    <AppText style={styles.saveButtonText} variant="button">
+                      {editingPlan ? "Update function" : "Save function"}
+                    </AppText>
                   </>
                 )}
               </Pressable>
             </View>
           </KeyboardAvoidingView>
         </SafeAreaView>
+      </Modal>
+
+      <Modal
+        visible={calendarVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCalendarVisible(false)}
+      >
+        <View style={styles.calendarOverlay}>
+          <Pressable
+            style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 } as const}
+            onPress={() => setCalendarVisible(false)}
+            accessibilityRole="button"
+            accessibilityLabel="Close calendar"
+          />
+          <View style={styles.calendarCard}>
+            <View style={styles.calendarHeader}>
+              <View>
+                <AppText style={styles.calendarTitle} variant="sectionTitle">Choose event date</AppText>
+                <AppText style={styles.calendarSubtitle} variant="subtitle">
+                  Today or a future date
+                </AppText>
+              </View>
+              <Pressable
+                style={styles.calendarCloseButton}
+                onPress={() => setCalendarVisible(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Close date picker"
+              >
+                <Ionicons name="close" size={20} color="#33463A" />
+              </Pressable>
+            </View>
+
+            <View style={styles.calendarMonthRow}>
+              <Pressable
+                style={[
+                  styles.calendarNavButton,
+                  displayedMonth.getFullYear() === today.getFullYear() &&
+                    displayedMonth.getMonth() === today.getMonth() &&
+                    styles.calendarNavButtonDisabled,
+                ]}
+                disabled={
+                  displayedMonth.getFullYear() === today.getFullYear() &&
+                  displayedMonth.getMonth() === today.getMonth()
+                }
+                onPress={() =>
+                  setDisplayedMonth(
+                    new Date(
+                      displayedMonth.getFullYear(),
+                      displayedMonth.getMonth() - 1,
+                      1,
+                    ),
+                  )
+                }
+                accessibilityRole="button"
+                accessibilityLabel="Previous month"
+              >
+                <Ionicons name="chevron-back" size={18} color="#267653" />
+              </Pressable>
+              <AppText style={styles.calendarMonthText} variant="cardTitle">
+                {displayedMonth.toLocaleDateString(undefined, {
+                  month: "long",
+                  year: "numeric",
+                })}
+              </AppText>
+              <Pressable
+                style={styles.calendarNavButton}
+                onPress={() =>
+                  setDisplayedMonth(
+                    new Date(
+                      displayedMonth.getFullYear(),
+                      displayedMonth.getMonth() + 1,
+                      1,
+                    ),
+                  )
+                }
+                accessibilityRole="button"
+                accessibilityLabel="Next month"
+              >
+                <Ionicons name="chevron-forward" size={18} color="#267653" />
+              </Pressable>
+            </View>
+
+            <View style={styles.calendarWeekRow}>
+              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+                <AppText key={day} style={styles.calendarWeekday} variant="label">
+                  {day}
+                </AppText>
+              ))}
+            </View>
+
+            <View style={styles.calendarGrid}>
+              {calendarCells.map((cell) => {
+                if (cell.day === null) {
+                  return <View key={cell.key} style={styles.calendarDayCell} />;
+                }
+                const isPast = cell.date < todayISO;
+                const isToday = cell.date === todayISO;
+                const isSelected = cell.date === eventDate;
+                return (
+                  <Pressable
+                    key={cell.key}
+                    style={[
+                      styles.calendarDayCell,
+                      isToday && styles.calendarTodayCell,
+                      isSelected && styles.calendarSelectedCell,
+                      isPast && styles.calendarPastCell,
+                    ]}
+                    disabled={isPast}
+                    onPress={() => {
+                      setEventDate(cell.date);
+                      setCalendarVisible(false);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${cell.date}${isPast ? ", unavailable" : ""}`}
+                    accessibilityState={{
+                      disabled: isPast,
+                      selected: isSelected,
+                    }}
+                  >
+                    <AppText
+                      style={[
+                        styles.calendarDayText,
+                        isToday && styles.calendarTodayText,
+                        isSelected && styles.calendarSelectedText,
+                        isPast && styles.calendarPastText,
+                      ]} variant="body"
+                    >
+                      {cell.day}
+                    </AppText>
+                    {isToday && !isSelected && (
+                      <View style={styles.calendarTodayDot} />
+                    )}
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <View style={styles.calendarLegend}>
+              <View style={styles.calendarLegendItem}>
+                <View style={styles.calendarLegendTodayDot} />
+                <AppText style={styles.calendarLegendText} variant="helper">Today</AppText>
+              </View>
+              <AppText style={styles.calendarHint} variant="helper">
+                Past dates cannot be selected
+              </AppText>
+            </View>
+          </View>
+        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -784,8 +1188,18 @@ const styles = StyleSheet.create({
     letterSpacing: 1.25,
     marginBottom: 4,
   },
-  pageTitle: { color: "#182A20", fontSize: 25, fontWeight: "800", letterSpacing: -0.5 },
-  headerSubtitle: { color: "#758278", fontSize: 12, lineHeight: 17, marginTop: 3 },
+  pageTitle: {
+    color: "#182A20",
+    fontSize: 25,
+    fontWeight: "800",
+    letterSpacing: -0.5,
+  },
+  headerSubtitle: {
+    color: "#758278",
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 3,
+  },
   addButton: {
     minHeight: 42,
     borderRadius: 13,
@@ -891,6 +1305,14 @@ const styles = StyleSheet.create({
   functionTitleWrap: { flex: 1 },
   functionName: { color: "#1C2F23", fontSize: 16, fontWeight: "800" },
   functionDate: { color: "#7B887E", fontSize: 11, marginTop: 4 },
+  editButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 11,
+    backgroundColor: "#EAF4ED",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   deleteButton: {
     width: 36,
     height: 36,
@@ -928,7 +1350,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  planRecipeName: { flex: 1, color: "#2A3A30", fontSize: 12, fontWeight: "600", lineHeight: 17 },
+  planRecipeName: {
+    flex: 1,
+    color: "#2A3A30",
+    fontSize: 12,
+    fontWeight: "600",
+    lineHeight: 17,
+  },
   servingBadge: {
     backgroundColor: "#EAF4ED",
     borderRadius: 8,
@@ -957,7 +1385,12 @@ const styles = StyleSheet.create({
     marginTop: 13,
     paddingHorizontal: 12,
   },
-  shoppingButtonText: { color: "#FFFFFF", fontSize: 12, fontWeight: "800", flex: 1 },
+  shoppingButtonText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "800",
+    flex: 1,
+  },
   shoppingCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 18,
@@ -975,7 +1408,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  listSummary: { color: "#267653", fontSize: 12, fontWeight: "800", marginTop: 14, marginBottom: 5 },
+  listSummary: {
+    color: "#267653",
+    fontSize: 12,
+    fontWeight: "800",
+    marginTop: 14,
+    marginBottom: 5,
+  },
   ingredientRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -985,7 +1424,13 @@ const styles = StyleSheet.create({
     borderBottomColor: "#EEF2ED",
   },
   ingredientName: { color: "#26372B", fontSize: 13, fontWeight: "800" },
-  quantity: { color: "#267653", fontSize: 13, fontWeight: "800", maxWidth: 120, textAlign: "right" },
+  quantity: {
+    color: "#267653",
+    fontSize: 13,
+    fontWeight: "800",
+    maxWidth: 120,
+    textAlign: "right",
+  },
   modalHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -1016,8 +1461,21 @@ const styles = StyleSheet.create({
     padding: 15,
     marginBottom: 20,
   },
-  formSectionTitle: { color: "#1B2D22", fontSize: 15, fontWeight: "800", marginVertical:4, paddingBottom:2 },
-  label: { color: "#4F6054", fontSize: 12, fontWeight: "800", marginTop: 15, marginBottom: 7 },
+  formSectionTitle: {
+    color: "#1B2D22",
+    fontSize: 15,
+    fontWeight: "800",
+    marginVertical: 4,
+    paddingBottom: 2,
+  },
+  label: {
+    color: "#4F6054",
+    fontSize: 12,
+    fontWeight: "800",
+    marginTop: 15,
+    marginBottom: 7,
+  },
+  requiredMark: { color: "#D33636", fontWeight: "900" },
   input: {
     minHeight: 45,
     borderWidth: 1,
@@ -1041,12 +1499,129 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   iconInput: { flex: 1, color: "#1D2D22", fontSize: 13, paddingVertical: 10 },
+  datePlaceholder: { color: "#929D95" },
+  calendarOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(15, 28, 19, 0.42)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  calendarCard: {
+    width: "100%",
+    maxWidth: 390,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 22,
+    padding: 18,
+    shadowColor: "#102719",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+    elevation: 8,
+  },
+  calendarHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 18,
+  },
+  calendarTitle: { color: "#1B2D22", fontSize: 18, fontWeight: "800" },
+  calendarSubtitle: { color: "#7C897F", fontSize: 12, marginTop: 4 },
+  calendarCloseButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: "#F0F4F0",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  calendarMonthRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 14,
+  },
+  calendarNavButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 11,
+    backgroundColor: "#EAF4ED",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  calendarNavButtonDisabled: { opacity: 0.3 },
+  calendarMonthText: { color: "#22372A", fontSize: 15, fontWeight: "800" },
+  calendarWeekRow: { flexDirection: "row", marginBottom: 7 },
+  calendarWeekday: {
+    width: `${100 / 7}%`,
+    textAlign: "center",
+    color: "#7C897F",
+    fontSize: 11,
+    fontWeight: "700",
+    paddingVertical: 7,
+  },
+  calendarGrid: { flexDirection: "row", flexWrap: "wrap" },
+  calendarDayCell: {
+    width: `${100 / 7}%`,
+    aspectRatio: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    marginBottom: 2,
+  },
+  calendarDayText: { color: "#26382C", fontSize: 13, fontWeight: "600" },
+  calendarTodayCell: { borderWidth: 1, borderColor: "#267653" },
+  calendarTodayText: { color: "#267653", fontWeight: "900" },
+  calendarSelectedCell: { backgroundColor: "#267653", borderColor: "#267653" },
+  calendarSelectedText: { color: "#FFFFFF", fontWeight: "900" },
+  calendarPastCell: { backgroundColor: "transparent" },
+  calendarPastText: { color: "#C7CEC8" },
+  calendarTodayDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#267653",
+    marginTop: 2,
+  },
+  calendarLegend: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderTopWidth: 1,
+    borderTopColor: "#EEF2ED",
+    marginTop: 12,
+    paddingTop: 13,
+  },
+  calendarLegendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
+  calendarLegendTodayDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#267653",
+  },
+  calendarLegendText: { color: "#657368", fontSize: 11, fontWeight: "600" },
+  calendarHint: { color: "#8A958D", fontSize: 10 },
   helperText: { color: "#879289", fontSize: 10, lineHeight: 15, marginTop: 5 },
   notesInput: { minHeight: 88, textAlignVertical: "top" },
-  characterCount: { textAlign: "right", color: "#879289", fontSize: 10, marginTop: 5 },
+  characterCount: {
+    textAlign: "right",
+    color: "#879289",
+    fontSize: 10,
+    marginTop: 5,
+  },
   recipePickerSection: { marginBottom: 6 },
-  pickerTitleRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 },
-  selectedPill: { backgroundColor: "#EAF4ED", borderRadius: 9, paddingHorizontal: 9, paddingVertical: 7 },
+  pickerTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 12,
+  },
+  selectedPill: {
+    backgroundColor: "#EAF4ED",
+    borderRadius: 9,
+    paddingHorizontal: 9,
+    paddingVertical: 7,
+  },
   selectedPillText: { color: "#267653", fontSize: 10, fontWeight: "800" },
   searchContainer: {
     minHeight: 44,
@@ -1080,7 +1655,12 @@ const styles = StyleSheet.create({
     borderColor: "#E5EBE5",
     borderRadius: 14,
   },
-  noRecipesTitle: { color: "#3B4C40", fontSize: 13, fontWeight: "800", marginTop: 8 },
+  noRecipesTitle: {
+    color: "#3B4C40",
+    fontSize: 13,
+    fontWeight: "800",
+    marginTop: 8,
+  },
   recipeListFrame: {
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
@@ -1089,9 +1669,19 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   recipeListScroll: { maxHeight: 520 },
-  recipeOption: { paddingHorizontal: 11, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: "#EFF2EE" },
+  recipeOption: {
+    paddingHorizontal: 11,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#EFF2EE",
+  },
   recipeOptionSelected: { backgroundColor: "#F2F8F3" },
-  recipeOptionMain: { flexDirection: "row", alignItems: "center", minHeight: 42, gap: 10 },
+  recipeOptionMain: {
+    flexDirection: "row",
+    alignItems: "center",
+    minHeight: 42,
+    gap: 10,
+  },
   checkbox: {
     width: 23,
     height: 23,
@@ -1103,7 +1693,12 @@ const styles = StyleSheet.create({
   },
   checkboxSelected: { backgroundColor: "#267653", borderColor: "#267653" },
   recipeOptionText: { flex: 1 },
-  recipeOptionName: { color: "#24362A", fontSize: 12, fontWeight: "700", lineHeight: 16 },
+  recipeOptionName: {
+    color: "#24362A",
+    fontSize: 12,
+    fontWeight: "700",
+    lineHeight: 16,
+  },
   recipeOptionMeta: { color: "#849087", fontSize: 10, marginTop: 3 },
   selectedCheck: { marginLeft: 2 },
   servingsEditor: {

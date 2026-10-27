@@ -1,6 +1,5 @@
 import {
   View,
-  Text,
   TextInput,
   Animated,
   Easing,
@@ -17,6 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
 import { API_BASE_URL } from "../api/client";
 import { useEffect, useRef, useState } from "react";
+import AppText from "@/components/common/AppText";
 
 const TOKEN_KEY = "recipepro_token";
 const USER_KEY = "recipepro_user";
@@ -167,11 +167,11 @@ export default function LoginScreen() {
 
         if (role === "admin") {
           router.replace("/admin");
-        } else if (
+                  } else if (
           ["user", "hotelmess", "hotel/mess", "hotel", "mess"].includes(role)
         ) {
           router.replace("/categories");
-        }
+                  }
       } catch (error) {
         console.error("Existing session check failed:", error);
       }
@@ -182,7 +182,11 @@ export default function LoginScreen() {
     return () => {
       active = false;
     };
-  }, [router]);
+    // Run ONCE on mount. `router` must not be a dependency: its identity can
+    // change on every navigation, which re-ran this check and kept sending
+    // logged-in users back to /admin or /categories.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const { redirectTo } = useLocalSearchParams<{
     redirectTo?: string;
@@ -250,9 +254,11 @@ export default function LoginScreen() {
       }
 
       // Make the current token available to existing in-memory API consumers.
-      (globalThis as typeof globalThis & {
-        recipeProAuth?: { token?: string };
-      }).recipeProAuth = { token: result.token };
+      (
+        globalThis as typeof globalThis & {
+          recipeProAuth?: { token?: string };
+        }
+      ).recipeProAuth = { token: result.token };
 
       // Store authentication according to the Remember Me selection.
       if (rememberMe) {
@@ -335,10 +341,9 @@ export default function LoginScreen() {
               <Ionicons name="restaurant" size={40} color="#1F7655" />
             </Animated.View>
 
-            <Text style={styles.logoText}>RecipePro</Text>
-            <Text style={styles.tagline}>Plan • Cook • Scale • Manage</Text>
-            <Text style={styles.subText}>Login to continue</Text>
-
+            <AppText variant="pageTitle" style={styles.logoText}>RecipePro</AppText>
+            <AppText variant="subtitle" style={styles.tagline}>Plan • Cook • Scale • Manage</AppText>
+            <AppText variant="subtitle" style={styles.subText}>Login to continue</AppText>
           </Animated.View>
 
           <Animated.View
@@ -371,7 +376,6 @@ export default function LoginScreen() {
                 returnKeyType="next"
               />
             </View>
-
             <View style={styles.inputContainer}>
               <Ionicons
                 name="lock-closed-outline"
@@ -429,7 +433,7 @@ export default function LoginScreen() {
                   )}
                 </View>
 
-                <Text style={styles.rememberText}>Remember me</Text>
+                <AppText variant="body" style={styles.rememberText}>Remember me</AppText>
               </Pressable>
 
               {/* <Pressable
@@ -447,7 +451,7 @@ export default function LoginScreen() {
 
             {!!error && (
               <View style={styles.errorBox}>
-                <Text style={styles.errorText}>{error}</Text>
+                <AppText variant="body" style={styles.errorText}>{error}</AppText>
               </View>
             )}
 
@@ -463,7 +467,7 @@ export default function LoginScreen() {
               {loading ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.loginButtonText}>Login</Text>
+                <AppText variant="button" style={styles.loginButtonText}>Login</AppText>
               )}
             </Pressable>
             {/* 
@@ -533,13 +537,13 @@ export default function LoginScreen() {
               },
             ]}
           >
-            <Text style={styles.footerText}>Don't have an account? </Text>
+            <AppText variant="body" style={styles.footerText}>Don't have an account? </AppText>
 
             <Pressable
               onPress={() => router.push("/signup")}
               disabled={loading}
             >
-              <Text style={styles.signupText}>Sign Up</Text>
+              <AppText variant="button" style={styles.signupText}>Sign Up</AppText>
             </Pressable>
           </Animated.View>
         </View>
@@ -560,7 +564,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 24,
     justifyContent: "center",
-    paddingVertical:35
+    paddingVertical: 35,
   },
 
   header: {
@@ -588,10 +592,10 @@ const styles = StyleSheet.create({
     color: "#17231E",
   },
   subText: {
-    fontSize: 14,
+    // fontSize: 14,
     color: "#68736D",
     marginTop: 8,
-    marginBottom:5
+    marginBottom: 5,
   },
   form: {
     width: "100%",
@@ -708,7 +712,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     marginTop: 15,
-    marginBottom:60,
+    marginBottom: 60,
   },
   footerText: {
     fontSize: 14,
@@ -720,10 +724,10 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   tagline: {
-    fontSize: 14,
+    // fontSize: 14,
     color: "#68736D",
     // marginTop: 3,
-    fontWeight: "500",
+    // fontWeight: "500",
     marginBottom: 6,
   },
 });

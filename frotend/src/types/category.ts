@@ -1,7 +1,7 @@
 export interface CategoryRequest {
   name: string;
   description?: string | null;
-  imageUrl: string | null;
+  imageUrl?: string | null;
 }
 
 export interface CategoryResponse {

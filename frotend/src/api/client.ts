@@ -1,19 +1,15 @@
 import { getAuthToken } from "../utils/authStorage";
 
-export const API_BASE_URL =
-  (process.env.EXPO_PUBLIC_API_BASE_URL || "http://localhost:5204/api").replace(/\/+$/, "");
+export const API_BASE_URL = (
+  process.env.EXPO_PUBLIC_API_BASE_URL || "http://192.168.1.37:5204/api"
+).replace(/\/+$/, "");
 
 export class ApiError extends Error {
   status: number;
   data: unknown;
   url: string;
 
-  constructor(
-    message: string,
-    status = 0,
-    data?: unknown,
-    url = ""
-  ) {
+  constructor(message: string, status = 0, data?: unknown, url = "") {
     super(message);
     this.name = "ApiError";
     this.status = status;
@@ -22,11 +18,8 @@ export class ApiError extends Error {
   }
 }
 
-async function parseResponse(
-  response: Response
-): Promise<unknown> {
-  const contentType =
-    response.headers.get("content-type") || "";
+async function parseResponse(response: Response): Promise<unknown> {
+  const contentType = response.headers.get("content-type") || "";
 
   if (contentType.includes("application/json")) {
     try {
@@ -40,10 +33,7 @@ async function parseResponse(
   return text || null;
 }
 
-function messageFromData(
-  data: unknown,
-  fallback: string
-): string {
+function messageFromData(data: unknown, fallback: string): string {
   if (typeof data === "string" && data.trim()) {
     return data;
   }
@@ -59,23 +49,15 @@ function messageFromData(
       return value.title;
     }
 
-    if (
-      value.errors &&
-      typeof value.errors === "object"
-    ) {
-      const errors =
-        value.errors as Record<string, unknown>;
+    if (value.errors && typeof value.errors === "object") {
+      const errors = value.errors as Record<string, unknown>;
 
-      const messages = Object.values(errors).flatMap(
-        (item) =>
-          Array.isArray(item)
-            ? item.filter(
-                (x): x is string =>
-                  typeof x === "string"
-              )
-            : typeof item === "string"
-              ? [item]
-              : []
+      const messages = Object.values(errors).flatMap((item) =>
+        Array.isArray(item)
+          ? item.filter((x): x is string => typeof x === "string")
+          : typeof item === "string"
+            ? [item]
+            : [],
       );
 
       if (messages.length > 0) {
@@ -89,12 +71,11 @@ function messageFromData(
 
 export async function apiRequest<T>(
   path: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
 ): Promise<T> {
   const baseUrl = API_BASE_URL.replace(/\/+$/, "");
 
-  const endpoint =
-    `${baseUrl}/${path.replace(/^\/+/, "")}`;
+  const endpoint = `${baseUrl}/${path.replace(/^\/+/, "")}`;
 
   let response: Response;
 
@@ -116,17 +97,11 @@ export async function apiRequest<T>(
     }
 
     if (token) {
-      headers.set(
-        "Authorization",
-        `Bearer ${token}`
-      );
+      headers.set("Authorization", `Bearer ${token}`);
     } else {
       headers.delete("Authorization");
 
-      console.warn(
-        "No authentication token found for API request:",
-        endpoint
-      );
+      console.warn("No authentication token found for API request:", endpoint);
     }
 
     response = await fetch(endpoint, {
@@ -140,7 +115,7 @@ export async function apiRequest<T>(
         : "Network request failed.",
       0,
       error,
-      endpoint
+      endpoint,
     );
   }
 
@@ -149,7 +124,7 @@ export async function apiRequest<T>(
   if (!response.ok) {
     const message = messageFromData(
       data,
-      `Request failed with status ${response.status}`
+      `Request failed with status ${response.status}`,
     );
 
     console.error("API request failed:", {
@@ -158,33 +133,21 @@ export async function apiRequest<T>(
       responseData: data,
     });
 
-    throw new ApiError(
-      message,
-      response.status,
-      data,
-      endpoint
-    );
+    throw new ApiError(message, response.status, data, endpoint);
   }
 
   return data as T;
 }
 
-export const get = <T>(path: string) =>
-  apiRequest<T>(path);
+export const get = <T>(path: string) => apiRequest<T>(path);
 
-export const post = <T>(
-  path: string,
-  body: unknown
-) =>
+export const post = <T>(path: string, body: unknown) =>
   apiRequest<T>(path, {
     method: "POST",
     body: JSON.stringify(body),
   });
 
-export const put = <T>(
-  path: string,
-  body: unknown
-) =>
+export const put = <T>(path: string, body: unknown) =>
   apiRequest<T>(path, {
     method: "PUT",
     body: JSON.stringify(body),

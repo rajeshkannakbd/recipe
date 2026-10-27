@@ -7,7 +7,11 @@ interface Props {
   onChange: (value: number) => void;
 }
 
-export default function ServingControl({ baseServings, servings, onChange }: Props) {
+export default function ServingControl({
+  baseServings,
+  servings,
+  onChange,
+}: Props) {
   return (
     <View className="rounded-3xl border border-recipe-border bg-white p-4">
       <View className="flex-row items-center justify-between">
@@ -27,7 +31,9 @@ export default function ServingControl({ baseServings, servings, onChange }: Pro
           >
             <Ionicons name="remove" size={24} color="#fff" />
           </Pressable>
-          <Text className="mx-5 text-2xl font-bold text-recipe-dark">{servings}</Text>
+          <Text className="mx-5 text-2xl font-bold text-recipe-dark">
+            {servings}
+          </Text>
           <Pressable
             onPress={() => onChange(servings + 1)}
             className="h-11 w-11 items-center justify-center rounded-full bg-recipe-primary"

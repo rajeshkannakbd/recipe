@@ -35,15 +35,23 @@ export const chefApi = {
     return normalize(unwrapItem<any>(await metadataRequest(`chefs/${id}`)));
   },
   async create(request: ChefRequest): Promise<ChefRecord> {
-    return normalize(unwrapItem<any>(await metadataRequest("chefs", {
-      method: "POST", body: JSON.stringify(request),
-    })));
+    return normalize(
+      unwrapItem<any>(
+        await metadataRequest("chefs", {
+          method: "POST",
+          body: JSON.stringify(request),
+        }),
+      ),
+    );
   },
   async update(id: number, request: ChefRequest): Promise<ChefRecord> {
     const result = await metadataRequest<any>(`chefs/${id}`, {
-      method: "PUT", body: JSON.stringify(request),
+      method: "PUT",
+      body: JSON.stringify(request),
     });
-    return result == null ? { id, ...request } as ChefRecord : normalize(unwrapItem<any>(result));
+    return result == null
+      ? ({ id, ...request } as ChefRecord)
+      : normalize(unwrapItem<any>(result));
   },
   async delete(id: number): Promise<void> {
     await metadataRequest<void>(`chefs/${id}`, { method: "DELETE" });
