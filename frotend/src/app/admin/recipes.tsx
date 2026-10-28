@@ -248,7 +248,7 @@ export default function AdminRecipesScreen() {
         ]}
       >
         <View style={styles.headerTop}>
-          <View style={{ flexDirection: "column" }}>
+          <View style={styles.headerTitle}>
             <AppText variant="pageTitle" style={styles.title}>Manage Recipes</AppText>
             <AppText variant="label" style={styles.brandCaption}>ADMIN WORKSPACE</AppText>
           </View>
@@ -572,23 +572,30 @@ const styles = StyleSheet.create({
 
   headerTop: {
     flexDirection: "row",
-
+    flexWrap: "wrap",
     justifyContent: "space-between",
-
     alignItems: "center",
-
     marginBottom: 16,
     paddingTop: 8,
   },
 
-  title: {
+  headerTitle: {
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 180,
+    minWidth: 0,
+    marginRight: 12,
+  },
 
+  title: {
     color: "#17231E",
+    flexShrink: 1,
   },
 
   addButton: {
     flexDirection: "row",
-
+    flexShrink: 0,
+    marginLeft: "auto",
     alignItems: "center",
 
     backgroundColor: "#1F7655",

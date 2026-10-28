@@ -784,7 +784,7 @@ export default function AdminCategoriesScreen() {
 
         <View style={styles.headerTop}>
 
-          <View style={{ flexDirection: "column" }}>
+          <View style={styles.headerTitle}>
 
             <AppText variant="pageTitle" style={styles.title}>Recipe Categories</AppText>
 
@@ -1628,7 +1628,7 @@ const styles = StyleSheet.create({
 
     flexDirection: "row",
 
-
+    flexWrap: "wrap",
 
     justifyContent: "space-between",
 
@@ -1643,13 +1643,17 @@ const styles = StyleSheet.create({
     paddingTop: 8,
 
   },
-
-
+  headerTitle: {
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 180,
+    minWidth: 0,
+    marginRight: 12,
+  },
 
   title: {
-
     color: "#17231E",
-
+    flexShrink: 1,
   },
 
 
@@ -1658,7 +1662,8 @@ const styles = StyleSheet.create({
 
     flexDirection: "row",
 
-
+    flexShrink: 0,
+    marginLeft: "auto",
 
     alignItems: "center",
 

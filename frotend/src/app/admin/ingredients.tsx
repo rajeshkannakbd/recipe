@@ -682,7 +682,7 @@ export default function AdminIngredientsScreen() {
 
         <View style={styles.headerTop}>
 
-          <View style={{ flexDirection: "column" }}>
+          <View style={styles.headerTitle}>
 
             <AppText variant="pageTitle" style={styles.title}>Manage Ingredients</AppText>
 
@@ -1891,30 +1891,27 @@ const styles = StyleSheet.create({
   },
 
   headerTop: {
-
     flexDirection: "row",
-
     justifyContent: "space-between",
-
     alignItems: "center",
-
     marginBottom: 16,
-
     paddingTop: 8,
+  },
 
+  headerTitle: {
+    flex: 1,
+    minWidth: 0,
+    marginRight: 12,
   },
 
   title: {
-
-
     color: "#17231E",
-
+    flexShrink: 1,
   },
 
   addButton: {
-
     flexDirection: "row",
-
+    flexShrink: 0,
     alignItems: "center",
 
     backgroundColor: "#1F7655",

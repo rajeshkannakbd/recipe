@@ -207,8 +207,31 @@ public class AppDbContext : DbContext
             .HasForeignKey(x => x.IngredientId)
             .OnDelete(DeleteBehavior.Restrict);
 
-
-
+        // Map every entity to the lowercase table names already present in Aiven MySQL.
+        // MySQL is configured with lower_case_table_names = 0, so table-name casing matters.
+        modelBuilder.Entity<Category>().ToTable("categories");
+        modelBuilder.Entity<Ingredient>().ToTable("ingredients");
+        modelBuilder.Entity<Recipe>().ToTable("recipes");
+        modelBuilder.Entity<RecipeIngredient>().ToTable("recipeingredients");
+        modelBuilder.Entity<RecipeProcedure>().ToTable("recipeprocedures");
+        modelBuilder.Entity<ApplicationUser>().ToTable("applicationusers");
+        modelBuilder.Entity<ApplicationRole>().ToTable("applicationroles");
+        modelBuilder.Entity<Permission>().ToTable("permissions");
+        modelBuilder.Entity<RolePermission>().ToTable("rolepermissions");
+        modelBuilder.Entity<RecipeRevision>().ToTable("reciperevisions");
+        modelBuilder.Entity<Favorite>().ToTable("favorites");
+        modelBuilder.Entity<FavoriteIngredient>().ToTable("favoriteingredients");
+        modelBuilder.Entity<Chef>().ToTable("chefs");
+        modelBuilder.Entity<CookingStyle>().ToTable("cookingstyles");
+        modelBuilder.Entity<RecipeNutrition>().ToTable("recipenutritions");
+        modelBuilder.Entity<RecipeReview>().ToTable("recipereviews");
+        modelBuilder.Entity<RecipeVariation>().ToTable("recipevariations");
+        modelBuilder.Entity<IngredientSubstitution>().ToTable("ingredientsubstitutions");
+        modelBuilder.Entity<RecipeTag>().ToTable("recipetags");
+        modelBuilder.Entity<RecipeTagMapping>().ToTable("recipetagmappings");
+        modelBuilder.Entity<Cuisine>().ToTable("cuisines");
+        modelBuilder.Entity<FunctionPlan>().ToTable("functionplans");
+        modelBuilder.Entity<FunctionPlanRecipe>().ToTable("functionplanrecipes");
     }
 
 
