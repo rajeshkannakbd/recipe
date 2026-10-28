@@ -372,7 +372,7 @@ export default function AdminIngredientsScreen() {
 
     const apiBaseUrl = (
 
-      process.env.EXPO_PUBLIC_API_BASE_URL || "http://192.168.1.37:5204/api"
+      process.env.EXPO_PUBLIC_API_BASE_URL || "https://recipepro-api.onrender.com/api"
 
     ).replace(/[\\/]+$/, "");
 

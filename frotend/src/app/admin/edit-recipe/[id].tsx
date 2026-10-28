@@ -285,7 +285,7 @@ export default function EditRecipeScreen() {
       setIngredients(ings);
 
       const apiBaseUrl = (
-        process.env.EXPO_PUBLIC_API_BASE_URL || "http://192.168.1.37:5204/api"
+        process.env.EXPO_PUBLIC_API_BASE_URL || "https://recipepro-api.onrender.com/api"
       ).replace(/\/$/, "");
       const token = await getStoredAuthToken();
       const getLookup = async (
@@ -590,7 +590,7 @@ export default function EditRecipeScreen() {
     setCreatingMetadata(kind);
     try {
       const apiBaseUrl = (
-        process.env.EXPO_PUBLIC_API_BASE_URL || "http://192.168.1.37:5204/api"
+        process.env.EXPO_PUBLIC_API_BASE_URL || "https://recipepro-api.onrender.com/api"
       ).replace(/\/$/, "");
       const token = await getStoredAuthToken();
       const path =
@@ -753,7 +753,7 @@ export default function EditRecipeScreen() {
     if (!selectedImage) return;
 
     const apiBaseUrl = (
-      process.env.EXPO_PUBLIC_API_BASE_URL || "http://192.168.1.37:5204/api"
+      process.env.EXPO_PUBLIC_API_BASE_URL || "https://recipepro-api.onrender.com/api"
     ).replace(/\/$/, "");
 
     const formData = new FormData();
@@ -874,7 +874,7 @@ export default function EditRecipeScreen() {
       value: string,
     ): Promise<{ id: number; name: string }> => {
       const apiBaseUrl = (
-        process.env.EXPO_PUBLIC_API_BASE_URL || "http://192.168.1.37:5204/api"
+        process.env.EXPO_PUBLIC_API_BASE_URL || "https://recipepro-api.onrender.com/api"
       ).replace(/\/$/, "");
       const token = await getStoredAuthToken();
       const response = await fetch(`${apiBaseUrl}/${path}`, {
@@ -1155,7 +1155,7 @@ export default function EditRecipeScreen() {
         Object.values(nutrition).some((value) => value.trim() !== "")
       ) {
         const apiBaseUrl = (
-          process.env.EXPO_PUBLIC_API_BASE_URL || "http://192.168.1.37:5204/api"
+          process.env.EXPO_PUBLIC_API_BASE_URL || "https://recipepro-api.onrender.com/api"
         ).replace(/\/$/, "");
         const token = await getStoredAuthToken();
         const nutritionPayload = {

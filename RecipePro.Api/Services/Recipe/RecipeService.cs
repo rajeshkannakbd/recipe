@@ -214,89 +214,115 @@ public class RecipeService : IRecipeService
                 .ToList()
         };
     }
-    public async Task<List<RecipeResponse>> GetAllAsync()
-    {
-        var recipes = await _context.Recipes
-            .AsNoTracking()
-            .Include(x => x.Category)
-            .Include(x => x.RecipeIngredients)
-                .ThenInclude(x => x.Ingredient)
-            .Include(x => x.Procedures)
-            .Include(x => x.Chef)
-            .Include(x => x.CookingStyle)
-            .Include(x => x.CuisineEntity)
-            .Include(x => x.RecipeTags)
-            .ThenInclude(x => x.RecipeTag)
-            .OrderBy(x => x.Name)
-            .ToListAsync();
-
-        return recipes.Select(recipe => new RecipeResponse
-        {
-            Id = recipe.Id,
-            Name = recipe.Name,
-            Description = recipe.Description,
-            CategoryId = recipe.CategoryId,
-            CategoryName = recipe.Category.Name,
-            BaseServings = recipe.BaseServings,
-            BaseCookedWeightGrams = recipe.BaseCookedWeightGrams,
-            Status = recipe.Status.ToString(),
-            PhotoUrl = recipe.PhotoUrl,
-            CreatedAt = recipe.CreatedAt,
-            UpdatedAt = recipe.UpdatedAt,
-            Cuisine = recipe.Cuisine,
-            MealType = recipe.MealType,
-
-            ChefId = recipe.ChefId,
-            ChefName = recipe.Chef?.Name,
-
-            CookingStyleId = recipe.CookingStyleId,
-            CookingStyleName = recipe.CookingStyle?.Name,
-
-            PreparationTimeMinutes = recipe.PreparationTimeMinutes,
-            CookingTimeMinutes = recipe.CookingTimeMinutes,
-
-            StorageInstructions = recipe.StorageInstructions,
-            ShelfLifeHours = recipe.ShelfLifeHours,
-
-            SourceName = recipe.SourceName,
-            SourceUrl = recipe.SourceUrl,
-            Tags = recipe.RecipeTags
-.Select(x => new RecipeTagResponse
+ 
+public async Task<List<RecipeResponse>> GetAllAsync()
 {
-    Id = x.RecipeTag.Id,
-    Name = x.RecipeTag.Name,
-    RecipeCount = _context.RecipeTagMappings
-            .Count(m => m.RecipeTagId == x.RecipeTag.Id)
-})
-.OrderBy(x => x.Name)
-.ToList(),
+    // Load recipes and related collections without tracking.
+    // SplitQuery avoids one large JOIN across multiple collections.
+    var recipes = await _context.Recipes
+        .AsNoTracking()
+        .AsSplitQuery()
+        .Include(x => x.Category)
+        .Include(x => x.RecipeIngredients)
+            .ThenInclude(x => x.Ingredient)
+        .Include(x => x.Procedures)
+        .Include(x => x.Chef)
+        .Include(x => x.CookingStyle)
+        .Include(x => x.CuisineEntity)
+        .Include(x => x.RecipeTags)
+            .ThenInclude(x => x.RecipeTag)
+        .OrderBy(x => x.Name)
+        .ToListAsync();
 
-            Ingredients = recipe.RecipeIngredients
-                .OrderBy(x => x.Id)
-                .Select(x => new RecipeIngredientResponse
-                {
-                    IngredientId = x.IngredientId,
-                    IngredientName = x.Ingredient.Name,
-                    IngredientPhotoUrl =
-                        x.Ingredient.PhotoUrl ?? string.Empty,
-                    Quantity = x.Quantity,
-                    Unit = x.Unit
-                })
-                .ToList(),
+    // Collect all distinct tag IDs from the loaded recipes.
+    var tagIds = recipes
+        .SelectMany(r => r.RecipeTags)
+        .Select(t => t.RecipeTagId)
+        .Distinct()
+        .ToList();
 
-            Procedures = recipe.Procedures
-                .OrderBy(x => x.StepNumber)
-                .Select(x => new RecipeProcedureResponse
-                {
-                    StepNumber = x.StepNumber,
-                    Title = x.Title,
-                    Description = x.Description
-                })
-                .ToList()
+    // Count recipes per tag in one grouped query instead of
+    // issuing a separate COUNT query for every tag.
+    var tagCounts = await _context.RecipeTagMappings
+        .AsNoTracking()
+        .Where(m => tagIds.Contains(m.RecipeTagId))
+        .GroupBy(m => m.RecipeTagId)
+        .Select(g => new
+        {
+            TagId = g.Key,
+            RecipeCount = g.Count()
+        })
+        .ToDictionaryAsync(x => x.TagId, x => x.RecipeCount);
 
-        }).ToList();
-    }
-    public async Task<RecipeResponse?> GetByIdAsync(long id)
+    return recipes.Select(recipe => new RecipeResponse
+    {
+        Id = recipe.Id,
+        Name = recipe.Name,
+        Description = recipe.Description,
+        CategoryId = recipe.CategoryId,
+        CategoryName = recipe.Category.Name,
+        BaseServings = recipe.BaseServings,
+        BaseCookedWeightGrams = recipe.BaseCookedWeightGrams,
+        Status = recipe.Status.ToString(),
+        PhotoUrl = recipe.PhotoUrl,
+        CreatedAt = recipe.CreatedAt,
+        UpdatedAt = recipe.UpdatedAt,
+        Cuisine = recipe.Cuisine,
+        MealType = recipe.MealType,
+
+        ChefId = recipe.ChefId,
+        ChefName = recipe.Chef?.Name,
+
+        CookingStyleId = recipe.CookingStyleId,
+        CookingStyleName = recipe.CookingStyle?.Name,
+
+        PreparationTimeMinutes = recipe.PreparationTimeMinutes,
+        CookingTimeMinutes = recipe.CookingTimeMinutes,
+
+        StorageInstructions = recipe.StorageInstructions,
+        ShelfLifeHours = recipe.ShelfLifeHours,
+
+        SourceName = recipe.SourceName,
+        SourceUrl = recipe.SourceUrl,
+
+        Tags = recipe.RecipeTags
+            .Select(x => new RecipeTagResponse
+            {
+                Id = x.RecipeTag.Id,
+                Name = x.RecipeTag.Name,
+                RecipeCount = tagCounts.TryGetValue(
+                    x.RecipeTagId, out var count)
+                    ? count
+                    : 0
+            })
+            .OrderBy(x => x.Name)
+            .ToList(),
+
+        Ingredients = recipe.RecipeIngredients
+            .OrderBy(x => x.Id)
+            .Select(x => new RecipeIngredientResponse
+            {
+                IngredientId = x.IngredientId,
+                IngredientName = x.Ingredient.Name,
+                IngredientPhotoUrl =
+                    x.Ingredient.PhotoUrl ?? string.Empty,
+                Quantity = x.Quantity,
+                Unit = x.Unit
+            })
+            .ToList(),
+
+        Procedures = recipe.Procedures
+            .OrderBy(x => x.StepNumber)
+            .Select(x => new RecipeProcedureResponse
+            {
+                StepNumber = x.StepNumber,
+                Title = x.Title,
+                Description = x.Description
+            })
+            .ToList()
+    }).ToList();
+}
+public async Task<RecipeResponse?> GetByIdAsync(long id)
     {
         var recipe = await _context.Recipes
             .AsNoTracking()

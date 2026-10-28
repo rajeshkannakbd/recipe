@@ -1,7 +1,7 @@
 import { getAuthToken } from "../utils/authStorage";
 
 export const API_BASE_URL = (
-  process.env.EXPO_PUBLIC_API_BASE_URL || "http://192.168.1.37:5204/api"
+  process.env.EXPO_PUBLIC_API_BASE_URL || "https://recipepro-api.onrender.com/api"
 ).replace(/\/+$/, "");
 
 export class ApiError extends Error {
