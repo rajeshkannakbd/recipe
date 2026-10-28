@@ -71,12 +71,12 @@ public sealed class DataGovMandiPriceService : IMandiPriceService
                 "DataGov:ApiKey and DataGov:ResourceId.");
         }
 
-        string url =
-            $"https://api.data.gov.in/resource/{Uri.EscapeDataString(resourceId)}" +
-            $"?api-key={Uri.EscapeDataString(apiKey)}" +
-            "&format=json&limit=100" +
-            $"&filters[state]={Uri.EscapeDataString("Tamil Nadu")}" +
-            $"&filters[commodity]={Uri.EscapeDataString(commodity)}";
+        string url = "https://www.data.gov.in/backend/dataapi/v1/resource/9ef84268-d588-465a-a308-a864a43d0070?api-key=579b464db66ec23bdd0000017ff8241db8ea40f04b3055bd1cc40e83&format=json&limit=10";
+            // $"https://api.data.gov.in/resource/{Uri.EscapeDataString(resourceId)}" +
+            // $"?api-key={Uri.EscapeDataString(apiKey)}" +
+            // "&format=json&limit=100" +
+            // $"&filters[state]={Uri.EscapeDataString("Tamil Nadu")}" +
+            // $"&filters[commodity]={Uri.EscapeDataString(commodity)}";
 
         try
         {
