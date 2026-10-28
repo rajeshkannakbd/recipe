@@ -5,9 +5,11 @@ import {
   Pressable,
   StyleSheet,
   ScrollView,
+  KeyboardAvoidingView,
   Modal,
   TextInput,
   Alert,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -196,47 +198,58 @@ export default function AdminRolesScreen() {
         onRequestClose={() => setModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                {editingId ? "Edit Role" : "New Role"}
-              </Text>
-              <Pressable onPress={() => setModalVisible(false)}>
-                <Ionicons name="close" size={28} color="#17231E" />
-              </Pressable>
-            </View>
-            <Text style={styles.inputLabel}>Role Name</Text>
-            <TextInput
-              style={styles.input}
-              value={roleName}
-              onChangeText={setRoleName}
-              placeholder="Role name"
-              placeholderTextColor="#8A938E"
-            />
-            <Text style={styles.inputLabel}>Description</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              value={roleDescription}
-              onChangeText={setRoleDescription}
-              placeholder="Role description"
-              placeholderTextColor="#8A938E"
-              multiline
-              numberOfLines={3}
-            />
-            <Pressable
-              style={styles.saveButton}
-              onPress={handleSave}
-              disabled={saving}
+          <KeyboardAvoidingView
+            style={styles.modalKeyboardView}
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+          >
+            <ScrollView
+              contentContainerStyle={styles.modalScrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
             >
-              <Text style={styles.saveButtonText}>
-                {saving
-                  ? "Saving..."
-                  : editingId
-                    ? "Save Changes"
-                    : "Create Role"}
-              </Text>
-            </Pressable>
-          </View>
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>
+                    {editingId ? "Edit Role" : "New Role"}
+                  </Text>
+                  <Pressable onPress={() => setModalVisible(false)}>
+                    <Ionicons name="close" size={28} color="#17231E" />
+                  </Pressable>
+                </View>
+                <Text style={styles.inputLabel}>Role Name</Text>
+                <TextInput
+                  style={styles.input}
+                  value={roleName}
+                  onChangeText={setRoleName}
+                  placeholder="Role name"
+                  placeholderTextColor="#8A938E"
+                />
+                <Text style={styles.inputLabel}>Description</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  value={roleDescription}
+                  onChangeText={setRoleDescription}
+                  placeholder="Role description"
+                  placeholderTextColor="#8A938E"
+                  multiline
+                  numberOfLines={3}
+                />
+                <Pressable
+                  style={styles.saveButton}
+                  onPress={handleSave}
+                  disabled={saving}
+                >
+                  <Text style={styles.saveButtonText}>
+                    {saving
+                      ? "Saving..."
+                      : editingId
+                        ? "Save Changes"
+                        : "Create Role"}
+                  </Text>
+                </Pressable>
+              </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
     </SafeAreaView>
@@ -347,6 +360,14 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.3)",
+    justifyContent: "flex-end",
+  },
+  modalKeyboardView: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  modalScrollContent: {
+    flexGrow: 1,
     justifyContent: "flex-end",
   },
   modalContent: {

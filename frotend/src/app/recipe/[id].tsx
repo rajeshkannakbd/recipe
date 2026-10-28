@@ -4,6 +4,7 @@ import {
   Alert,
   Animated,
   Image,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -1565,7 +1566,16 @@ export default function RecipeDetailScreen() {
         onRequestClose={() => setShowAddToEventModal(false)}
       >
         <View style={styles.eventModalOverlay}>
-          <View style={styles.eventModal}>
+          <KeyboardAvoidingView
+            style={styles.keyboardModalView}
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+          >
+            <ScrollView
+              contentContainerStyle={styles.keyboardModalContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.eventModal}>
             <View style={styles.eventModalHeader}>
               <View style={{ flex: 1 }}>
                 <AppText style={styles.eventModalTitle}>Add to Event</AppText>
@@ -1674,6 +1684,7 @@ export default function RecipeDetailScreen() {
                     style={styles.eventList}
                     showsVerticalScrollIndicator={false}
                     keyboardShouldPersistTaps="handled"
+                    nestedScrollEnabled
                   >
                     {functionPlans.map((plan) => {
                       const alreadyAdded =
@@ -1735,7 +1746,9 @@ export default function RecipeDetailScreen() {
             {isSavingFunctionPlan ? (
               <AppText style={styles.eventSavingText}>Saving event…</AppText>
             ) : null}
-          </View>
+              </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
 
@@ -1939,7 +1952,16 @@ export default function RecipeDetailScreen() {
         onRequestClose={() => setShowReviewModal(false)}
       >
         <View style={styles.reviewModalOverlay}>
-          <View style={styles.reviewModal}>
+          <KeyboardAvoidingView
+            style={styles.keyboardModalView}
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+          >
+            <ScrollView
+              contentContainerStyle={styles.keyboardModalContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.reviewModal}>
             <View style={styles.reviewModalHeader}>
               <View style={styles.reviewModalHeading}>
                 <AppText style={styles.reviewModalTitle}>
@@ -2024,9 +2046,11 @@ export default function RecipeDetailScreen() {
                       : "Submit review"}
                 </AppText>
               </Pressable>
-            </View>
+                </View>
+              </View>
+              </ScrollView>
+            </KeyboardAvoidingView>
           </View>
-        </View>
       </Modal>
 
       {/* FIXED FOOTER: show only metrics returned by the calculation API */}
@@ -2249,7 +2273,16 @@ export default function RecipeDetailScreen() {
         onRequestClose={() => setEditingIngredient(null)}
       >
         <View style={styles.ingredientModalOverlay}>
-          <View style={styles.ingredientModal}>
+          <KeyboardAvoidingView
+            style={styles.centeredKeyboardModalView}
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+          >
+            <ScrollView
+              contentContainerStyle={styles.centeredKeyboardModalContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.ingredientModal}>
             <AppText style={styles.ingredientModalTitle}>Edit Ingredient</AppText>
 
             <AppText style={styles.ingredientModalName}>
@@ -2290,9 +2323,11 @@ export default function RecipeDetailScreen() {
               >
                 <AppText style={styles.ingredientSaveText}>Save Quantity</AppText>
               </Pressable>
-            </View>
+                </View>
+              </View>
+              </ScrollView>
+            </KeyboardAvoidingView>
           </View>
-        </View>
       </Modal>
 
       {/* SAVE SUCCESS POPUP */}
@@ -2767,6 +2802,14 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "flex-end",
     backgroundColor: "rgba(12, 22, 17, 0.48)",
+  },
+  keyboardModalView: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  keyboardModalContent: {
+    flexGrow: 1,
+    justifyContent: "flex-end",
   },
   reviewModal: {
     backgroundColor: "#FFFFFF",
@@ -3698,6 +3741,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 24,
+  },
+  centeredKeyboardModalView: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  centeredKeyboardModalContent: {
+    flexGrow: 1,
+    justifyContent: "center",
   },
 
   ingredientModal: {

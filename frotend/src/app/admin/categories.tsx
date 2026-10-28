@@ -7,10 +7,11 @@ import {
   Alert,
   FlatList,
   Image,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
-
+  ScrollView,
   StyleSheet,
   TextInput,
   View,
@@ -1081,8 +1082,16 @@ export default function AdminCategoriesScreen() {
       >
 
         <View style={styles.modalOverlay}>
-
-          <View style={styles.modalContent}>
+          <KeyboardAvoidingView
+            style={styles.modalKeyboardView}
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+          >
+            <ScrollView
+              contentContainerStyle={styles.modalScrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.modalContent}>
 
             {/* MODAL HEADER */}
 
@@ -1241,7 +1250,6 @@ export default function AdminCategoriesScreen() {
                 ) : null}
 
               </View>
-
             </View>
 
 
@@ -1306,6 +1314,8 @@ export default function AdminCategoriesScreen() {
 
           </View>
 
+          </ScrollView>
+          </KeyboardAvoidingView>
         </View>
 
       </Modal>
@@ -1978,10 +1988,17 @@ const styles = StyleSheet.create({
 
 
     justifyContent: "flex-end",
-
   },
 
+  modalKeyboardView: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
 
+  modalScrollContent: {
+    flexGrow: 1,
+    justifyContent: "flex-end",
+  },
 
   modalContent: {
 
