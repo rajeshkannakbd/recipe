@@ -2,10 +2,11 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
-COPY MyApi.csproj ./
+COPY RecipePro.Api/MyApi.csproj ./RecipePro.Api/
+WORKDIR /src/RecipePro.Api
 RUN dotnet restore MyApi.csproj
 
-COPY . .
+COPY RecipePro.Api/ ./
 RUN dotnet publish MyApi.csproj -c Release -o /app/publish --no-restore
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
