@@ -254,6 +254,23 @@ public async Task<List<RecipeResponse>> GetAllAsync()
         })
         .ToDictionaryAsync(x => x.TagId, x => x.RecipeCount);
 
+    var recipeIds = recipes.Select(recipe => recipe.Id).ToList();
+    var reviewStats = recipeIds.Count == 0
+        ? new Dictionary<long, (double AverageRating, int ReviewCount)>()
+        : await _context.RecipeReviews
+            .AsNoTracking()
+            .Where(review => recipeIds.Contains(review.RecipeId))
+            .GroupBy(review => review.RecipeId)
+            .Select(group => new
+            {
+                RecipeId = group.Key,
+                AverageRating = group.Average(review => (double)review.Rating),
+                ReviewCount = group.Count()
+            })
+            .ToDictionaryAsync(
+                item => item.RecipeId,
+                item => (item.AverageRating, item.ReviewCount));
+
     return recipes.Select(recipe => new RecipeResponse
     {
         Id = recipe.Id,
@@ -267,6 +284,8 @@ public async Task<List<RecipeResponse>> GetAllAsync()
         PhotoUrl = recipe.PhotoUrl,
         CreatedAt = recipe.CreatedAt,
         UpdatedAt = recipe.UpdatedAt,
+        AverageRating = reviewStats.GetValueOrDefault(recipe.Id).AverageRating,
+        ReviewCount = reviewStats.GetValueOrDefault(recipe.Id).ReviewCount,
         Cuisine = recipe.Cuisine,
         MealType = recipe.MealType,
 

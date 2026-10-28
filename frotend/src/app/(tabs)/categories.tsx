@@ -23,7 +23,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { categoryApi } from "../../api/categoryApi";
 
 import { recipeApi } from "../../api/recipeApi";
-import { get } from "../../api/client";
 
 import type { CategoryResponse } from "../../types/category";
 
@@ -72,16 +71,6 @@ type MealType =
   | "beverages";
 
 type FoodType = "all" | "veg" | "nonveg";
-
-type RecipeReview = {
-  id?: number;
-  recipeId?: number;
-  userId?: number;
-  userName?: string;
-  rating?: number | null;
-  comment?: string | null;
-  createdAt?: string;
-};
 
 type RecipeWithOptionalRating = RecipeResponse & {
   rating?: number | null;
@@ -187,8 +176,6 @@ export default function CategoriesScreen() {
 
   const [recipes, setRecipes] = useState<RecipeResponse[]>([]);
 
-  const [reviewsByRecipeId, setReviewsByRecipeId] = useState<Record<string, RecipeReview[]>>({});
-
   const [search, setSearch] = useState("");
 
   const [loading, setLoading] = useState(true);
@@ -207,51 +194,6 @@ export default function CategoriesScreen() {
 
       setCategories(cats);
       setRecipes(recs);
-
-      // Reviews are returned by a separate endpoint, not by GET /api/recipes.
-      // Load them separately so Popular Recipes can show real ratings/counts.
-      const publishedRecipes = recs.filter((recipe) => {
-        const status = String(recipe.status ?? "").trim().toLowerCase();
-        return !status || status === "published" || status === "2";
-      });
-
-      const reviewEntries = await Promise.all(
-        publishedRecipes.map(async (recipe) => {
-          try {
-            const response = await get<unknown>(`/recipes/${recipe.id}/reviews`);
-            let payload = response as unknown;
-
-            if (payload && typeof payload === "object" && !Array.isArray(payload)) {
-              const wrapper = payload as {
-                items?: unknown;
-                data?: unknown;
-                reviews?: unknown;
-              };
-              payload = wrapper.items ?? wrapper.reviews ?? wrapper.data ?? payload;
-            }
-
-            const reviewList = Array.isArray(payload)
-              ? payload
-              : payload && typeof payload === "object" && "rating" in payload
-                ? [payload]
-                : [];
-
-            return [
-              String(recipe.id),
-              reviewList.filter(
-                (review): review is RecipeReview =>
-                  !!review && typeof review === "object" && "rating" in review,
-              ),
-            ] as const;
-          } catch (reviewError) {
-            // Keep the home screen usable if reviews are unavailable for a recipe.
-            console.warn(`Unable to load reviews for recipe ${recipe.id}:`, reviewError);
-            return [String(recipe.id), []] as const;
-          }
-        }),
-      );
-
-      setReviewsByRecipeId(Object.fromEntries(reviewEntries));
     } catch (e) {
       console.error(
         "LOAD CATEGORIES ERROR:",
@@ -448,35 +390,20 @@ export default function CategoriesScreen() {
       return !status || status === "published" || status === "2";
     });
 
-    const getReviews = (recipe: RecipeResponse) => reviewsByRecipeId[String(recipe.id)] ?? [];
-    const getLiveRating = (recipe: RecipeResponse): number | null => {
-      const ratings = getReviews(recipe)
-        .map((review) => Number(review.rating))
-        .filter((rating) => Number.isFinite(rating) && rating >= 1 && rating <= 5);
-      if (ratings.length > 0) {
-        return ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length;
-      }
-      return getRecipeRating(recipe);
-    };
-    const getLiveReviewCount = (recipe: RecipeResponse) => {
-      const count = getReviews(recipe).length;
-      return count > 0 ? count : getReviewCount(recipe);
-    };
-
     return [...published]
       .sort((a, b) => {
-        const ratingA = getLiveRating(a) ?? -1;
-        const ratingB = getLiveRating(b) ?? -1;
+        const ratingA = getRecipeRating(a) ?? -1;
+        const ratingB = getRecipeRating(b) ?? -1;
         if (ratingA !== ratingB) return ratingB - ratingA;
 
-        const reviewsA = getLiveReviewCount(a);
-        const reviewsB = getLiveReviewCount(b);
+        const reviewsA = getReviewCount(a);
+        const reviewsB = getReviewCount(b);
         if (reviewsA !== reviewsB) return reviewsB - reviewsA;
 
         return cleanText(a.name).localeCompare(cleanText(b.name));
       })
       .slice(0, 8);
-  }, [recipes, reviewsByRecipeId]);
+  }, [recipes]);
 
   const handleMealPress = (meal: MealType) => {
     setActiveMeal(meal);
@@ -621,16 +548,8 @@ export default function CategoriesScreen() {
                 contentContainerStyle={styles.popularCardsContent}
               >
                 {popularRecipes.map((recipe) => {
-                  const recipeReviews = reviewsByRecipeId[String(recipe.id)] ?? [];
-                  const validRatings = recipeReviews
-                    .map((review) => Number(review.rating))
-                    .filter((value) => Number.isFinite(value) && value >= 1 && value <= 5);
-                  const rating = validRatings.length > 0
-                    ? validRatings.reduce((sum, value) => sum + value, 0) / validRatings.length
-                    : getRecipeRating(recipe);
-                  const reviewCount = recipeReviews.length > 0
-                    ? recipeReviews.length
-                    : getReviewCount(recipe);
+                  const rating = getRecipeRating(recipe);
+                  const reviewCount = getReviewCount(recipe);
                   const photoUrl = cleanText(recipe.photoUrl);
                   return (
                     <Pressable

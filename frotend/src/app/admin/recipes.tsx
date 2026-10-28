@@ -81,36 +81,13 @@ export default function AdminRecipesScreen() {
     }
   }, []);
 
-  // Refresh immediately whenever this screen becomes active, then poll every
-  // 5 seconds while it remains focused. The interval is cleaned up on blur.
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
-      let requestInProgress = false;
+ 
+useFocusEffect(
+  useCallback(() => {
+    void load(false);
+  }, [load]),
+);
 
-      const refreshRecipes = async (silent: boolean) => {
-        if (!active || requestInProgress || deleting) return;
-
-        requestInProgress = true;
-        try {
-          await load(silent);
-        } finally {
-          requestInProgress = false;
-        }
-      };
-
-      void refreshRecipes(false);
-
-      const intervalId = setInterval(() => {
-        void refreshRecipes(true);
-      }, 5000);
-
-      return () => {
-        active = false;
-        clearInterval(intervalId);
-      };
-    }, [load, deleting]),
-  );
 
   const filtered = useMemo(() => {
     let result = recipes;
@@ -727,7 +704,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexWrap: "nowrap",
     overflow:"hidden",
-    gap: 4,
+    gap: 2,
     marginTop: 6,
     minWidth: 0,
     justifyContent: "flex-start",

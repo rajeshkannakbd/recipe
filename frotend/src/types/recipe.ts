@@ -62,6 +62,8 @@ export interface RecipeResponse {
   photoUrl: string;
   createdAt: string;
   updatedAt: string | null;
+  averageRating?: number | null;
+  reviewCount?: number;
   ingredients: RecipeIngredientResponse[];
   procedures: RecipeProcedureResponse[];
   // Optional fields returned by the backend / used by the recipe detail screen.

@@ -86,10 +86,14 @@ public sealed class DataGovMandiPriceService : IMandiPriceService
 
             if (!response.IsSuccessStatusCode)
             {
+                string errorBody = await response.Content.ReadAsStringAsync(
+         cancellationToken);
+
                 _logger.LogWarning(
-                    "Data.gov.in returned HTTP {StatusCode} for commodity {Commodity}.",
+                    "Data.gov.in HTTP {StatusCode} for {Commodity}. Response: {Body}",
                     (int)response.StatusCode,
-                    commodity);
+                    commodity,
+                    errorBody.Length > 500 ? errorBody[..500] : errorBody);
 
                 return null;
             }
@@ -100,6 +104,15 @@ public sealed class DataGovMandiPriceService : IMandiPriceService
             using JsonDocument document = await JsonDocument.ParseAsync(
                 stream,
                 cancellationToken: cancellationToken);
+
+            string responseJson = document.RootElement.ToString();
+
+            _logger.LogInformation(
+                "Data.gov.in returned response for {Commodity}: {Json}",
+                commodity,
+                responseJson.Length > 1000
+                    ? responseJson[..1000]
+                    : responseJson);
 
             if (!TryGetPropertyIgnoreCase(
                     document.RootElement,

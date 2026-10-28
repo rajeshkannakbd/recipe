@@ -26,6 +26,10 @@ public class RecipeResponse
 
     public DateTime? UpdatedAt { get; set; }
 
+    public double? AverageRating { get; set; }
+
+    public int ReviewCount { get; set; }
+
     // Recipe metadata
     public string? Cuisine { get; set; }
 

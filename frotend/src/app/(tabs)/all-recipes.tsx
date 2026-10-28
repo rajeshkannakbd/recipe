@@ -13,7 +13,6 @@ import {
   View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { get } from "../../api/client";
 import { ingredientApi } from "../../api/ingredientApi";
 import { recipeApi } from "../../api/recipeApi";
 import AppText from "../../components/common/AppText";
@@ -33,14 +32,6 @@ type RecipeIngredient = {
   unit?: string;
 };
 type RecipeTag = { id?: number; name?: string };
-type RecipeReview = {
-  id?: number;
-  recipeId?: number;
-  rating?: number;
-  comment?: string;
-  userName?: string;
-  createdAt?: string;
-};
 type RecipeItem = {
   id: number;
   name: string;
@@ -59,6 +50,8 @@ type RecipeItem = {
   cookingStyleName?: string | null;
   preparationTimeMinutes?: number | null;
   cookingTimeMinutes?: number | null;
+  averageRating?: number | null;
+  reviewCount?: number;
   storageInstructions?: string | null;
   shelfLifeHours?: number | null;
   sourceName?: string | null;
@@ -92,21 +85,6 @@ function uniqueFilterOptions(
 function isPublished(recipe: RecipeItem): boolean {
   return normalize(recipe.status) === "published" || recipe.status === 2;
 }
-function extractReviews(payload: unknown): RecipeReview[] {
-  if (Array.isArray(payload)) return payload as RecipeReview[];
-  if (payload && typeof payload === "object") {
-    const value = payload as Record<string, unknown>;
-    for (const key of ["items", "reviews", "data"]) {
-      if (Array.isArray(value[key])) return value[key] as RecipeReview[];
-      if (value[key] && typeof value[key] === "object") {
-        const nested = extractReviews(value[key]);
-        if (nested.length) return nested;
-      }
-    }
-    if ("rating" in value) return [value as RecipeReview];
-  }
-  return [];
-}
 function formatMinutes(total: number): string {
   if (total < 60) return `${total} min`;
   const hours = Math.floor(total / 60);
@@ -126,9 +104,6 @@ export default function AllRecipesScreen() {
   const [recipes, setRecipes] = useState<RecipeItem[]>([]);
   const [ingredientTypesById, setIngredientTypesById] = useState<
     Record<number, number>
-  >({});
-  const [reviewsByRecipeId, setReviewsByRecipeId] = useState<
-    Record<number, RecipeReview[]>
   >({});
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -194,28 +169,9 @@ export default function AllRecipesScreen() {
         );
         setIngredientTypesById({});
       }
-      // Reviews are returned by a separate endpoint, not as part of each recipe response.
-      const publishedRecipes = recipeList.filter(isPublished);
-      const reviewResults = await Promise.all(
-        publishedRecipes.map(async (recipe) => {
-          try {
-            const payload = await get<unknown>(`/recipes/${recipe.id}/reviews`);
-            return [recipe.id, extractReviews(payload)] as const;
-          } catch {
-            // One recipe's review endpoint failing should not prevent the page loading.
-            return [recipe.id, []] as const;
-          }
-        }),
-      );
-      const reviewMap: Record<number, RecipeReview[]> = {};
-      reviewResults.forEach(([recipeId, reviews]) => {
-        reviewMap[recipeId] = [...reviews];
-      });
-      setReviewsByRecipeId(reviewMap);
     } catch (error) {
       console.error("Failed to load recipes:", error);
       setRecipes([]);
-      setReviewsByRecipeId({});
     } finally {
       setLoading(false);
     }
@@ -319,17 +275,9 @@ export default function AllRecipesScreen() {
     // Show recipes with the strongest ratings/review activity first, while retaining stable ordering for ties.
     return result
       .map((recipe, index) => {
-        const reviews = reviewsByRecipeId[recipe.id] ?? [];
-        const validRatings = reviews
-          .map((review) => Number(review.rating))
-          .filter(
-            (rating) => Number.isFinite(rating) && rating >= 1 && rating <= 5,
-          );
-        const average = validRatings.length
-          ? validRatings.reduce((sum, rating) => sum + rating, 0) /
-          validRatings.length
-          : 0;
-        return { recipe, index, average, count: validRatings.length };
+        const average = Number(recipe.averageRating) || 0;
+        const count = Number(recipe.reviewCount) || 0;
+        return { recipe, index, average, count };
       })
       .sort(
         (a, b) =>
@@ -344,7 +292,6 @@ export default function AllRecipesScreen() {
     activeCookingStyle,
     activeFood,
     getRecipeDietType,
-    reviewsByRecipeId,
   ]);
   const resetFilters = () => {
     setSearch("");
@@ -377,15 +324,8 @@ export default function AllRecipesScreen() {
     </Pressable>
   );
   const renderRecipe = ({ item }: { item: RecipeItem }) => {
-    const reviews = reviewsByRecipeId[item.id] ?? [];
-    const ratings = reviews
-      .map((review) => Number(review.rating))
-      .filter(
-        (rating) => Number.isFinite(rating) && rating >= 1 && rating <= 5,
-      );
-    const averageRating = ratings.length
-      ? ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length
-      : 0;
+    const averageRating = Number(item.averageRating) || 0;
+    const reviewCount = Number(item.reviewCount) || 0;
     const totalTime =
       (Number(item.preparationTimeMinutes) || 0) +
       (Number(item.cookingTimeMinutes) || 0);
@@ -427,7 +367,7 @@ export default function AllRecipesScreen() {
             <AppText variant="cardTitle" style={styles.recipeName} numberOfLines={2}>
               {item.name || "Untitled recipe"}
             </AppText>
-            {ratings.length > 0 ? (
+            {reviewCount > 0 && averageRating > 0 ? (
               <View style={styles.ratingPill}>
                 <Ionicons name="star" size={12} color="#D99A18" />
                 <AppText variant="label" style={styles.ratingText}>
@@ -480,9 +420,9 @@ export default function AllRecipesScreen() {
                   By {item.chefName}
                 </AppText>
               ) : null}
-              {ratings.length > 0 ? (
+              {reviewCount > 0 ? (
                 <AppText variant="helper" style={styles.reviewCount}>
-                  {ratings.length} {ratings.length === 1 ? "review" : "reviews"}
+                  {reviewCount} {reviewCount === 1 ? "review" : "reviews"}
                 </AppText>
               ) : null}
             </View>
