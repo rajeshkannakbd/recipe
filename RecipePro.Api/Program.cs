@@ -104,4 +104,40 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+
+app.MapGet("/api/diagnostics/mandi-connectivity", async (
+    IHttpClientFactory httpClientFactory,
+    ILogger<Program> logger) =>
+{
+    var client = httpClientFactory.CreateClient();
+
+    try
+    {
+        using var cts = new CancellationTokenSource(
+            TimeSpan.FromSeconds(10));
+
+        using var response = await client.GetAsync(
+            "https://api.data.gov.in/",
+            cts.Token);
+
+        return Results.Ok(new
+        {
+            success = true,
+            statusCode = (int)response.StatusCode,
+            message = "HTTPS connection established."
+        });
+    }
+
+catch (Exception ex)
+{
+    logger.LogError(ex, "Mandi connectivity diagnostic failed.");
+
+    return Results.Problem(
+        title: "Government API connection failed",
+        detail: ex.Message,
+        statusCode: 503);
+}
+});
+
+
 app.Run();
