@@ -1,77 +1,64 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+
 import AppText from "../../components/common/AppText";
 
-
-
 import {
+
   Alert,
+
   FlatList,
+
   Image,
+
   KeyboardAvoidingView,
+
   Modal,
+
   Platform,
+
   Pressable,
+
   ScrollView,
+
   StyleSheet,
+
   TextInput,
+
   View,
+
 } from "react-native";
 
-
-
-
-
 import {
+
   SafeAreaView,
 
   useSafeAreaInsets,
+
 } from "react-native-safe-area-context";
-
-
 
 import { Ionicons } from "@expo/vector-icons";
 
-
-
 import { categoryApi } from "../../api/categoryApi";
-
-
 
 import type { CategoryResponse } from "../../types/category";
 
-
-
 import SearchBar from "../../components/common/SearchBar";
-
-
 
 import ScreenLoader from "../../components/common/ScreenLoader";
 
 import LottieView from "lottie-react-native";
 
-
-
 import { useRouter } from "expo-router";
-
-
 
 import * as ImagePicker from "expo-image-picker";
 
 import { usePathname } from "expo-router";
 
-
-
 /* =====================================================
-
-
 
    CATEGORY IMAGES
 
-
-
-===================================================== */
-
-
+\===================================================== */
 
 const CATEGORY_IMAGES: Record<string, string> = {
 
@@ -79,19 +66,13 @@ const CATEGORY_IMAGES: Record<string, string> = {
 
     "https://res.cloudinary.com/ktlem6cf/image/upload/v1791379593/images_6.jpg",
 
-
-
   meals:
 
     "https://res.cloudinary.com/ktlem6cf/image/upload/v1791379593/images_5.jpg",
 
-
-
   snacks:
 
     "https://res.cloudinary.com/ktlem6cf/image/upload/v1791379592/images_7.jpg",
-
-
 
   beverages:
 
@@ -99,41 +80,23 @@ const CATEGORY_IMAGES: Record<string, string> = {
 
 };
 
-
-
 export default function AdminCategoriesScreen() {
 
   const [categories, setCategories] = useState<CategoryResponse[]>([]);
 
-
-
   const [search, setSearch] = useState("");
-
-
 
   const [loading, setLoading] = useState(true);
 
-
-
   const [modalVisible, setModalVisible] = useState(false);
-
-
 
   const [editingId, setEditingId] = useState<number | null>(null);
 
-
-
   const insets = useSafeAreaInsets();
-
-
 
   const [name, setName] = useState("");
 
-
-
   const [description, setDescription] = useState("");
-
-
 
   const [saving, setSaving] = useState(false);
 
@@ -159,43 +122,33 @@ export default function AdminCategoriesScreen() {
 
   const [successMessage, setSuccessMessage] = useState("");
 
-
-
   const [selectedImage, setSelectedImage] =
 
     useState<ImagePicker.ImagePickerAsset | null>(null);
 
-
-
   const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(null);
-
-
 
   const router = useRouter();
 
   const pathname = usePathname();
 
   useEffect(() => {
+
     console.log("[CATEGORY SCREEN] Mounted at:", pathname);
 
     return () => {
+
       console.log("[CATEGORY SCREEN] Unmounted");
+
     };
+
   }, [pathname]);
-
-
 
   /* =====================================================
 
-
-
      LOAD CATEGORIES
 
-
-
   ===================================================== */
-
-
 
   const load = useCallback(async () => {
 
@@ -209,8 +162,6 @@ export default function AdminCategoriesScreen() {
 
         "Error",
 
-
-
         "Unable to load categories.",
 
       );
@@ -223,27 +174,17 @@ export default function AdminCategoriesScreen() {
 
   }, []);
 
-
-
   useEffect(() => {
 
     load();
 
   }, [load]);
 
-
-
   /* =====================================================
-
-
 
      SEARCH FILTER
 
-
-
   ===================================================== */
-
-
 
   const filtered = useMemo(
 
@@ -253,35 +194,21 @@ export default function AdminCategoriesScreen() {
 
         c.name
 
-
-
           .toLowerCase()
-
-
 
           .includes(search.toLowerCase()),
 
       ),
 
-
-
     [categories, search],
 
   );
 
-
-
   /* =====================================================
-
-
 
      OPEN ADD / EDIT MODAL
 
-
-
   ===================================================== */
-
-
 
   const openModal = (id?: number) => {
 
@@ -289,23 +216,13 @@ export default function AdminCategoriesScreen() {
 
       const cat = categories.find((c) => c.id === id);
 
-
-
       setEditingId(id);
-
-
 
       setName(cat?.name || "");
 
-
-
       setDescription(cat?.description || "");
 
-
-
       setCurrentImageUrl(cat?.imageUrl || null);
-
-
 
       setSelectedImage(null);
 
@@ -313,43 +230,25 @@ export default function AdminCategoriesScreen() {
 
       setEditingId(null);
 
-
-
       setName("");
-
-
 
       setDescription("");
 
-
-
       setCurrentImageUrl(null);
-
-
 
       setSelectedImage(null);
 
     }
 
-
-
     setModalVisible(true);
 
   };
 
-
-
   /* =====================================================
-
-
 
      SAVE CATEGORY
 
-
-
   ===================================================== */
-
-
 
   const pickImage = async () => {
 
@@ -358,8 +257,6 @@ export default function AdminCategoriesScreen() {
       const permission =
 
         await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-
 
       if (!permission.granted) {
 
@@ -371,33 +268,21 @@ export default function AdminCategoriesScreen() {
 
         );
 
-
-
         return;
 
       }
-
-
 
       const result = await ImagePicker.launchImageLibraryAsync({
 
         mediaTypes: ["images"],
 
-
-
         allowsEditing: true,
 
-
-
         aspect: [1, 1],
-
-
 
         quality: 0.85,
 
       });
-
-
 
       if (!result.canceled && result.assets.length > 0)
 
@@ -407,15 +292,11 @@ export default function AdminCategoriesScreen() {
 
       console.error("Image picker error:", error);
 
-
-
       Alert.alert("Image picker error", "Unable to open the photo library.");
 
     }
 
   };
-
-
 
   const uploadCategoryImage = async (
 
@@ -431,33 +312,21 @@ export default function AdminCategoriesScreen() {
 
     ).replace(/[\/\\]+$/, "");
 
-
-
     const formData = new FormData();
-
-
 
     const fileName =
 
       asset.fileName || `category-${categoryId}-${Date.now()}.jpg`;
 
-
-
     const mimeType = asset.mimeType || "image/jpeg";
-
-
 
     if (Platform.OS === "web") {
 
       const imageResponse = await fetch(asset.uri);
 
-
-
       if (!imageResponse.ok)
 
         throw new Error("Unable to read the selected image.");
-
-
 
       formData.append("file", await imageResponse.blob(), fileName);
 
@@ -475,11 +344,7 @@ export default function AdminCategoriesScreen() {
 
     }
 
-
-
     const token = (globalThis as any).recipeProAuth?.token;
-
-
 
     const response = await fetch(
 
@@ -489,8 +354,6 @@ export default function AdminCategoriesScreen() {
 
         method: "POST",
 
-
-
         headers: {
 
           Accept: "application/json",
@@ -499,19 +362,13 @@ export default function AdminCategoriesScreen() {
 
         },
 
-
-
         body: formData,
 
       },
 
     );
 
-
-
     const responseData = await response.json().catch(() => null);
-
-
 
     if (!response.ok)
 
@@ -525,13 +382,9 @@ export default function AdminCategoriesScreen() {
 
       );
 
-
-
     return responseData as CategoryResponse;
 
   };
-
-
 
   const handleSave = () => {
 
@@ -547,8 +400,6 @@ export default function AdminCategoriesScreen() {
 
   };
 
-
-
   const performSave = async () => {
 
     if (!name.trim()) {
@@ -557,37 +408,25 @@ export default function AdminCategoriesScreen() {
 
         "Validation",
 
-
-
         "Category name is required",
 
       );
-
-
 
       return;
 
     }
 
-
-
     setSaving(true);
-
-
 
     try {
 
       let savedCategory: CategoryResponse;
-
-
 
       if (editingId) {
 
         savedCategory = await categoryApi.update(editingId, {
 
           name: name.trim(),
-
-
 
           description: description.trim() || null,
 
@@ -599,15 +438,11 @@ export default function AdminCategoriesScreen() {
 
           name: name.trim(),
 
-
-
           description: description.trim() || null,
 
         });
 
       }
-
-
 
       const wasEditing = editingId !== null;
 
@@ -639,13 +474,9 @@ export default function AdminCategoriesScreen() {
 
       console.error("Unable to save category:", e);
 
-
-
       Alert.alert(
 
         "Error",
-
-
 
         e instanceof Error ? e.message : "Unable to save category.",
 
@@ -659,8 +490,6 @@ export default function AdminCategoriesScreen() {
 
   };
 
-
-
   const handleDelete = (id: number, categoryName: string) => {
 
     setDeletingCategoryId(id);
@@ -671,13 +500,9 @@ export default function AdminCategoriesScreen() {
 
   };
 
-
-
   const confirmDeleteCategory = async () => {
 
     if (deletingCategoryId === null) return;
-
-
 
     setDeleting(true);
 
@@ -735,19 +560,11 @@ export default function AdminCategoriesScreen() {
 
   };
 
-
-
   /* =====================================================
-
-
 
      LOADING
 
-
-
   ===================================================== */
-
-
 
   if (loading) {
 
@@ -755,33 +572,29 @@ export default function AdminCategoriesScreen() {
 
   }
 
-
-
   /* =====================================================
-
-
 
      SCREEN
 
-
-
   ===================================================== */
-
-
 
   return (
 
     <SafeAreaView style={styles.container} edges={[]}>
+
       <View
+
         style={[
+
           styles.header,
+
           { paddingTop: Platform.OS === "web" ? 8 : 8 },
+
         ]}
+
       >
 
         {/* HEADER TOP */}
-
-
 
         <View style={styles.headerTop}>
 
@@ -793,13 +606,9 @@ export default function AdminCategoriesScreen() {
 
           </View>
 
-
-
           <Pressable style={styles.addButton} onPress={() => openModal()}>
 
             <Ionicons name="add" size={20} color="#fff" />
-
-
 
             <AppText variant="button" style={styles.addButtonText}>Add</AppText>
 
@@ -807,11 +616,7 @@ export default function AdminCategoriesScreen() {
 
         </View>
 
-
-
         {/* SEARCH */}
-
-
 
         <View style={styles.searchContainer}>
 
@@ -829,8 +634,6 @@ export default function AdminCategoriesScreen() {
 
       </View>
 
-
-
       <FlatList
 
         data={filtered}
@@ -843,57 +646,55 @@ export default function AdminCategoriesScreen() {
 
         /* =================================================
 
-
-
            CATEGORY CARD
 
-
-
         ================================================== */
-
-
 
         renderItem={({ item }) => {
 
           const categoryKey = item.name
 
-
-
             .trim()
-
-
 
             .toLowerCase();
 
-
-
           const categoryImageUrl = item.imageUrl?.trim() || null;
-
-
 
           return (
 
             <Pressable
+
               style={styles.categoryCard}
+
               onPress={() => {
+
                 console.log("[CATEGORY NAV] Opening category:", {
+
                   categoryId: item.id,
+
                   categoryName: item.name,
+
                 });
 
                 router.push({
+
                   pathname: "/admin/category-recipes",
+
                   params: {
+
                     categoryId: String(item.id),
+
                     categoryName: item.name,
+
                   },
+
                 });
+
               }}
+
             >
 
               {/* CATEGORY IMAGE */}
-
-
 
               <View style={styles.categoryIcon}>
 
@@ -945,17 +746,11 @@ export default function AdminCategoriesScreen() {
 
               </View>
 
-
-
               {/* CATEGORY INFORMATION */}
-
-
 
               <View style={styles.categoryInfo}>
 
                 <AppText variant="cardTitle" style={styles.categoryName}>{item.name}</AppText>
-
-
 
                 <AppText variant="subtitle" style={styles.categoryDescription} numberOfLines={1}>
 
@@ -965,17 +760,11 @@ export default function AdminCategoriesScreen() {
 
               </View>
 
-
-
               {/* ACTIONS */}
-
-
 
               <View style={styles.categoryActions}>
 
                 {/* EDIT */}
-
-
 
                 <Pressable
 
@@ -989,11 +778,7 @@ export default function AdminCategoriesScreen() {
 
                 </Pressable>
 
-
-
                 {/* DELETE */}
-
-
 
                 <Pressable
 
@@ -1004,8 +789,6 @@ export default function AdminCategoriesScreen() {
                     handleDelete(
 
                       item.id,
-
-
 
                       item.name,
 
@@ -1029,23 +812,15 @@ export default function AdminCategoriesScreen() {
 
         /* =================================================
 
-
-
            EMPTY STATE
 
-
-
         ================================================== */
-
-
 
         ListEmptyComponent={
 
           <View style={styles.emptyState}>
 
             <Ionicons name="grid-outline" size={48} color="#C5C9C4" />
-
-
 
             <AppText variant="sectionTitle" style={styles.emptyTitle}>No categories found</AppText>
 
@@ -1055,19 +830,11 @@ export default function AdminCategoriesScreen() {
 
       />
 
-
-
       {/* ===================================================
-
-
 
           ADD / EDIT MODAL
 
-
-
       ==================================================== */}
-
-
 
       <Modal
 
@@ -1082,20 +849,36 @@ export default function AdminCategoriesScreen() {
       >
 
         <View style={styles.modalOverlay}>
+
           <KeyboardAvoidingView
             style={styles.modalKeyboardView}
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            behavior={
+              Platform.OS === "ios"
+                ? "padding"
+                : Platform.OS === "android"
+                  ? "height"
+                  : undefined
+            }
+            keyboardVerticalOffset={0}
           >
             <ScrollView
-              contentContainerStyle={styles.modalScrollContent}
+              style={styles.modalScrollView}
+              contentContainerStyle={[
+                styles.modalScrollContent,
+                { paddingBottom: Math.max(insets.bottom, 20) },
+              ]}
               keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
+              keyboardDismissMode={
+                Platform.OS === "ios" ? "interactive" : "on-drag"
+              }
+              automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
+              showsVerticalScrollIndicator={true}
+              nestedScrollEnabled
             >
+
               <View style={styles.modalContent}>
 
             {/* MODAL HEADER */}
-
-
 
             <View style={styles.modalHeader}>
 
@@ -1105,8 +888,6 @@ export default function AdminCategoriesScreen() {
 
               </AppText>
 
-
-
               <Pressable onPress={() => setModalVisible(false)}>
 
                 <Ionicons name="close" size={28} color="#17231E" />
@@ -1115,15 +896,9 @@ export default function AdminCategoriesScreen() {
 
             </View>
 
-
-
             {/* NAME */}
 
-
-
             <AppText variant="label" style={styles.inputLabel}>Name</AppText>
-
-
 
             <TextInput
 
@@ -1139,15 +914,9 @@ export default function AdminCategoriesScreen() {
 
             />
 
-
-
             {/* CATEGORY IMAGE */}
 
-
-
             <AppText variant="label" style={styles.inputLabel}>Category Image</AppText>
-
-
 
             <View style={styles.imagePickerRow}>
 
@@ -1177,8 +946,6 @@ export default function AdminCategoriesScreen() {
 
               </View>
 
-
-
               <View style={styles.imagePickerActions}>
 
                 <Pressable
@@ -1201,8 +968,6 @@ export default function AdminCategoriesScreen() {
 
                   />
 
-
-
                   <AppText variant="button" style={styles.chooseImageText}>
 
                     {selectedImage
@@ -1219,15 +984,11 @@ export default function AdminCategoriesScreen() {
 
                 </Pressable>
 
-
-
                 <AppText variant="helper" style={styles.imageHint}>
 
                   JPG, PNG or WebP · Maximum 5 MB
 
                 </AppText>
-
-
 
                 {selectedImage ? (
 
@@ -1250,17 +1011,12 @@ export default function AdminCategoriesScreen() {
                 ) : null}
 
               </View>
+
             </View>
-
-
 
             {/* DESCRIPTION */}
 
-
-
             <AppText variant="label" style={styles.inputLabel}>Description</AppText>
-
-
 
             <TextInput
 
@@ -1280,11 +1036,7 @@ export default function AdminCategoriesScreen() {
 
             />
 
-
-
             {/* SAVE */}
-
-
 
             <Pressable
 
@@ -1315,12 +1067,12 @@ export default function AdminCategoriesScreen() {
           </View>
 
           </ScrollView>
+
           </KeyboardAvoidingView>
+
         </View>
 
       </Modal>
-
-
 
       {/* EDIT CONFIRMATION MODAL */}
 
@@ -1370,8 +1122,6 @@ export default function AdminCategoriesScreen() {
 
               </Pressable>
 
-
-
               <Pressable
 
                 style={styles.confirmUpdateButton}
@@ -1403,8 +1153,6 @@ export default function AdminCategoriesScreen() {
         </View>
 
       </Modal>
-
-
 
       {/* DELETE CONFIRMATION MODAL */}
 
@@ -1496,8 +1244,6 @@ export default function AdminCategoriesScreen() {
 
       </Modal>
 
-
-
       {/* SUCCESS POPUP MODAL */}
 
       <Modal
@@ -1550,45 +1296,27 @@ export default function AdminCategoriesScreen() {
 
 }
 
-
-
 /* =====================================================
-
-
 
    STYLES
 
-
-
-===================================================== */
-
-
+\===================================================== */
 
 const styles = StyleSheet.create({
 
   /* ===================================================
 
-
-
      MAIN
 
-
-
   ==================================================== */
-
-
 
   container: {
 
     flex: 1,
 
-
-
     backgroundColor: "#F7F8F3",
 
   },
-
-
 
   listContent: {
 
@@ -1600,19 +1328,11 @@ const styles = StyleSheet.create({
 
   },
 
-
-
   /* ===================================================
-
-
 
      HEADER
 
-
-
   ==================================================== */
-
-
 
   header: {
 
@@ -1632,8 +1352,6 @@ const styles = StyleSheet.create({
 
   },
 
-
-
   headerTop: {
 
     flexDirection: "row",
@@ -1642,80 +1360,67 @@ const styles = StyleSheet.create({
 
     justifyContent: "space-between",
 
-
-
     alignItems: "center",
-
-
 
     marginBottom: 16,
 
     paddingTop: 8,
 
   },
+
   headerTitle: {
+
     flexGrow: 1,
+
     flexShrink: 1,
+
     flexBasis: 180,
+
     minWidth: 0,
+
     marginRight: 12,
+
   },
 
   title: {
+
     color: "#17231E",
+
     flexShrink: 1,
+
   },
-
-
 
   addButton: {
 
     flexDirection: "row",
 
     flexShrink: 0,
+
     marginLeft: "auto",
 
     alignItems: "center",
 
-
-
     backgroundColor: "#1F7655",
-
-
 
     paddingHorizontal: 8,
 
-
-
     paddingVertical: 5,
 
-
-
     borderRadius: 8,
-
-
 
     gap: 4,
 
   },
 
-
-
   addButtonText: {
 
     color: "#fff",
 
-
-
     fontSize: 14,
-
-
 
     fontWeight: "700",
 
   },
-
-
 
   searchContainer: {
 
@@ -1723,111 +1428,63 @@ const styles = StyleSheet.create({
 
   },
 
-
-
   /* ===================================================
-
-
 
      CATEGORY CARD
 
-
-
   ==================================================== */
-
-
 
   categoryCard: {
 
     flexDirection: "row",
 
-
-
     alignItems: "center",
-
-
 
     backgroundColor: "#fff",
 
-
-
     borderRadius: 20,
-
-
 
     borderWidth: 1,
 
-
-
     borderColor: "#E5E8E3",
 
-
-
     padding: 12,
-
-
 
     marginBottom: 12,
 
   },
 
-
-
   /* ===================================================
-
-
 
      CATEGORY IMAGE
 
-
-
   ==================================================== */
-
-
 
   categoryIcon: {
 
     width: 56,
 
-
-
     height: 56,
-
-
 
     borderRadius: 16,
 
-
-
     backgroundColor: "#E7F1EA",
-
-
 
     alignItems: "center",
 
-
-
     justifyContent: "center",
-
-
 
     overflow: "hidden",
 
   },
 
-
-
   categoryImage: {
 
     width: "100%",
 
-
-
     height: "100%",
 
   },
-
-
 
   categoryEmoji: {
 
@@ -1835,75 +1492,45 @@ const styles = StyleSheet.create({
 
   },
 
-
-
   /* ===================================================
-
-
 
      CATEGORY INFORMATION
 
-
-
   ==================================================== */
-
-
 
   categoryInfo: {
 
     flex: 1,
 
-
-
     marginLeft: 12,
 
   },
-
-
 
   categoryName: {
 
     // fontSize: 16,
 
-
-
     fontWeight: "700",
-
-
 
     // color: "#17231E",
 
   },
 
-
-
   categoryDescription: {
 
     fontSize: 13,
 
-
-
     color: "#68736D",
-
-
 
     marginTop: 2,
 
   },
 
-
-
   /* ===================================================
-
-
 
      ACTIONS
 
-
-
   ==================================================== */
-
-
 
   categoryActions: {
 
@@ -1911,250 +1538,159 @@ const styles = StyleSheet.create({
 
   },
 
-
-
   actionButton: {
 
     padding: 8,
 
   },
 
-
-
   /* ===================================================
-
-
 
      EMPTY STATE
 
-
-
   ==================================================== */
-
-
 
   emptyState: {
 
     alignItems: "center",
 
-
-
     paddingVertical: 60,
 
   },
-
-
 
   emptyTitle: {
 
     fontSize: 18,
 
-
-
     fontWeight: "700",
 
-
-
     color: "#17231E",
-
-
 
     marginTop: 16,
 
   },
 
-
-
   /* ===================================================
-
-
 
      MODAL
 
-
-
   ==================================================== */
-
-
 
   modalOverlay: {
 
     flex: 1,
 
-
-
     backgroundColor: "rgba(0,0,0,0.3)",
 
-
-
     justifyContent: "flex-end",
+
   },
 
   modalKeyboardView: {
     flex: 1,
     justifyContent: "flex-end",
+    maxHeight: "100%",
+    minHeight: 0,
   },
-
+  modalScrollView: {
+    flex: 1,
+    minHeight: 0,
+  },
   modalScrollContent: {
     flexGrow: 1,
     justifyContent: "flex-end",
+    paddingTop: 16,
   },
 
   modalContent: {
 
     backgroundColor: "#F7F8F3",
 
-
-
     borderTopLeftRadius: 30,
-
-
 
     borderTopRightRadius: 30,
 
-
-
     padding: 24,
-
-
 
     paddingBottom: 40,
 
   },
 
-
-
   modalHeader: {
 
     flexDirection: "row",
 
-
-
     justifyContent: "space-between",
 
-
-
     alignItems: "center",
-
-
 
     marginBottom: 20,
 
   },
 
-
-
   modalTitle: {
 
     fontSize: 22,
 
-
-
     fontWeight: "800",
-
-
 
     color: "#17231E",
 
   },
 
-
-
   /* ===================================================
-
-
 
      INPUTS
 
-
-
   ==================================================== */
-
-
 
   inputLabel: {
 
     fontSize: 14,
 
-
-
     fontWeight: "700",
 
-
-
     color: "#17231E",
-
-
 
     marginBottom: 8,
 
   },
 
-
-
   input: {
 
     backgroundColor: "#fff",
 
-
-
     borderRadius: 16,
-
-
 
     borderWidth: 1,
 
-
-
     borderColor: "#E5E8E3",
-
-
 
     paddingHorizontal: 16,
 
-
-
     paddingVertical: 14,
-
-
 
     fontSize: 16,
 
-
-
     color: "#17231E",
-
-
 
     marginBottom: 16,
 
   },
 
-
-
   textArea: {
 
     height: 80,
-
-
 
     textAlignVertical: "top",
 
   },
 
-
-
   /* ===================================================
-
-
 
      SAVE BUTTON
 
-
-
   ==================================================== */
-
-
 
   imagePickerRow: {
 
@@ -2167,8 +1703,6 @@ const styles = StyleSheet.create({
     marginBottom: 18,
 
   },
-
-
 
   imagePreview: {
 
@@ -2192,15 +1726,9 @@ const styles = StyleSheet.create({
 
   },
 
-
-
   imagePreviewImage: { width: "100%", height: "100%" },
 
-
-
   imagePickerActions: { flex: 1, alignItems: "flex-start", gap: 7 },
-
-
 
   chooseImageButton: {
 
@@ -2224,55 +1752,33 @@ const styles = StyleSheet.create({
 
   },
 
-
-
   chooseImageText: { color: "#1F7655", fontSize: 13, fontWeight: "700" },
-
-
 
   imageHint: { fontSize: 11, color: "#68736D" },
 
-
-
   removeImageText: { fontSize: 12, color: "#B33B31", fontWeight: "600" },
-
-
 
   saveButton: {
 
     backgroundColor: "#1F7655",
 
-
-
     borderRadius: 16,
 
-
-
     paddingVertical: 16,
-
-
 
     alignItems: "center",
 
   },
 
-
-
   saveButtonText: {
 
     color: "#fff",
 
-
-
     fontSize: 16,
-
-
 
     fontWeight: "700",
 
   },
-
-
 
   /* ===================================================
 
@@ -2378,8 +1884,6 @@ const styles = StyleSheet.create({
 
   },
 
-
-
   cancelConfirmButtonText: {
 
     color: "#34443B",
@@ -2391,8 +1895,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
 
   },
-
-
 
   confirmUpdateButton: {
 
@@ -2413,8 +1915,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
 
   },
-
-
 
   confirmUpdateButtonText: {
 
@@ -2462,23 +1962,13 @@ const styles = StyleSheet.create({
 
     borderRadius: 50,
 
-
-
     backgroundColor: "#FDECEC",
-
-
 
     alignItems: "center",
 
-
-
     justifyContent: "center",
 
-
-
     alignSelf: "center",
-
-
 
     marginBottom: 16,
 

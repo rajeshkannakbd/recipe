@@ -1,23 +1,24 @@
+import AppText from "@/components/common/AppText";
+import { Ionicons } from "@expo/vector-icons";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import * as SecureStore from "expo-secure-store";
+import { useEffect, useRef, useState } from "react";
 import {
-  View,
-  TextInput,
+  ActivityIndicator,
+  Alert,
   Animated,
   Easing,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
-  Alert,
+  TextInput,
+  View,
+  useWindowDimensions
 } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import * as SecureStore from "expo-secure-store";
 import { API_BASE_URL } from "../api/client";
-import { useEffect, useRef, useState } from "react";
-import AppText from "@/components/common/AppText";
 
 const TOKEN_KEY = "recipepro_token";
 const USER_KEY = "recipepro_user";
@@ -73,6 +74,10 @@ export default function LoginScreen() {
   const formTranslateY = useRef(new Animated.Value(18)).current;
   const footerOpacity = useRef(new Animated.Value(0)).current;
   const footerTranslateY = useRef(new Animated.Value(10)).current;
+  const scrollViewRef = useRef<ScrollView>(null);
+  const passwordInputRef = useRef<TextInput>(null);
+  const { width } = useWindowDimensions();
+  const isSmallScreen = width < 600;
 
   useEffect(() => {
     const entranceAnimation = Animated.sequence([
@@ -168,11 +173,11 @@ export default function LoginScreen() {
 
         if (role === "admin") {
           router.replace("/admin");
-                  } else if (
+        } else if (
           ["user", "hotelmess", "hotel/mess", "hotel", "mess"].includes(role)
         ) {
           router.replace("/categories");
-                  }
+        }
       } catch (error) {
         console.error("Existing session check failed:", error);
       }
@@ -320,15 +325,68 @@ export default function LoginScreen() {
     Alert.alert(title, message);
   };
 
+
+  // const scrollFocusedInputIntoView = () => {
+  //   if (Platform.OS !== "web") return;
+
+  //   setTimeout(() => {
+  //     const activeElement = document.activeElement;
+
+  //     if (
+  //       activeElement instanceof HTMLElement &&
+  //       activeElement.matches("input, textarea")
+  //     ) {
+  //       activeElement.scrollIntoView({
+  //         behavior: "smooth",
+  //         block: "center",
+  //         inline: "nearest",
+  //       });
+  //     }
+  //   }, 300);
+  // };
+
+  // const scrollPasswordToBottom = () => {
+  //   if (Platform.OS !== "web") return;
+
+  //   // Mobile Chrome may resize its visible area after focus.
+  //   // Retry scrolling after the keyboard begins opening.
+  //   setTimeout(() => {
+  //     scrollViewRef.current?.scrollToEnd({ animated: false });
+  //   }, 150);
+
+  //   setTimeout(() => {
+  //     scrollViewRef.current?.scrollToEnd({ animated: true });
+  //   }, 400);
+
+  //   setTimeout(() => {
+  //     scrollViewRef.current?.scrollToEnd({ animated: false });
+  //   }, 700);
+  // };
+
+
   return (
     <SafeAreaView style={styles.container}>
+
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={
+          Platform.OS === "web"
+            ? undefined
+            : Platform.OS === "ios"
+              ? "padding"
+              : "height"
+        }
         style={styles.keyboardView}
+        keyboardVerticalOffset={0}
       >
+
         <ScrollView
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
+          ref={scrollViewRef}
+          style={{ flex: 1 }}
+          contentContainerStyle={[
+            styles.content,
+            isSmallScreen && styles.mobileContent,
+          ]} keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
         >
           <Animated.View
@@ -389,8 +447,12 @@ export default function LoginScreen() {
                 style={styles.inputIcon}
               />
 
+
               <TextInput
-                style={styles.input}
+                style={[
+                  styles.input,
+                  Platform.OS === "web" && { outlineStyle: "none" } as any,
+                ]}
                 placeholder="Enter your password"
                 placeholderTextColor="#8A938E"
                 value={password}
@@ -402,6 +464,7 @@ export default function LoginScreen() {
                 onSubmitEditing={handleLogin}
                 returnKeyType="go"
               />
+
 
               <Pressable
                 onPress={() => setShowPassword((value) => !value)}
@@ -572,10 +635,17 @@ const styles = StyleSheet.create({
     paddingVertical: 35,
   },
 
+  mobileContent: {
+    justifyContent: "flex-start",
+    paddingTop: 24,
+    paddingBottom: 32,
+  },
+
   header: {
     alignItems: "center",
     marginBottom: 20,
   },
+
   logoIcon: {
     width: 80,
     height: 80,

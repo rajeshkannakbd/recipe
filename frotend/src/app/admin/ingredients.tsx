@@ -2,13 +2,22 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   Alert,
+
   FlatList,
+
   Image,
+
+  KeyboardAvoidingView,
   Modal,
+
   Pressable,
+
   ScrollView,
+
   StyleSheet,
+
   TextInput,
+
   View,
 } from "react-native";
 
@@ -372,9 +381,9 @@ export default function AdminIngredientsScreen() {
 
     const apiBaseUrl = (
 
-      process.env.EXPO_PUBLIC_API_BASE_URL || "https://recipepro-api.onrender.com/api"
+      process.env.EXPO_PUBLIC_API_BASE_URL || "https\://recipepro-api.onrender.com/api"
 
-    ).replace(/[\\/]+$/, "");
+    ).replace(/[**\\\**/]+$/, "");
 
     const formData = new FormData();
 
@@ -670,15 +679,19 @@ export default function AdminIngredientsScreen() {
 
   return (
 
+    <SafeAreaView style={styles.container} edges={[]}>
 
+      <View
 
-        <SafeAreaView style={styles.container} edges={[]}>
-  <View
-    style={[
-      styles.header,
-      { paddingTop: Platform.OS === "web" ? 8 : 8 },
-    ]}
-  >
+        style={[
+
+          styles.header,
+
+          { paddingTop: Platform.OS === "web" ? 8 : 8 },
+
+        ]}
+
+      >
 
         <View style={styles.headerTop}>
 
@@ -945,761 +958,766 @@ export default function AdminIngredientsScreen() {
       >
 
         <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView
+            style={styles.modalKeyboardView}
+            behavior={
+              Platform.OS === "ios"
+                ? "padding"
+                : Platform.OS === "android"
+                  ? "height"
+                  : undefined
+            }
+            keyboardVerticalOffset={0}
+          >
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
 
-          <View style={styles.modalContent}>
+                <AppText variant="sectionTitle" style={styles.modalTitle} numberOfLines={1}>
 
-            <View style={styles.modalHeader}>
-
-              <AppText variant="sectionTitle" style={styles.modalTitle} numberOfLines={1}>
-
-                {editingId ? "Edit Ingredient" : "New Ingredient"}
-
-              </AppText>
-
-              <Pressable
-
-                style={styles.headerSaveButton}
-
-                onPress={handleSave}
-
-                disabled={saving}
-
-              >
-
-                <AppText variant="button" style={styles.headerSaveButtonText}>
-
-                  {saving ? "Saving..." : "Save"}
+                  {editingId ? "Edit Ingredient" : "New Ingredient"}
 
                 </AppText>
 
-              </Pressable>
+                <Pressable
 
-              <Pressable
+                  style={styles.headerSaveButton}
 
-                onPress={() => setModalVisible(false)}
+                  onPress={handleSave}
 
-                disabled={saving}
+                  disabled={saving}
 
-              >
+                >
 
-                <Ionicons name="close" size={28} color="#17231E" />
+                  <AppText variant="button" style={styles.headerSaveButtonText}>
 
-              </Pressable>
-
-            </View>
-
-            <ScrollView
-
-              style={styles.modalScrollView}
-
-              contentContainerStyle={styles.modalScrollContent}
-
-              showsVerticalScrollIndicator
-
-              keyboardShouldPersistTaps="handled"
-
-              keyboardDismissMode="on-drag"
-
-            >
-
-              <AppText variant="label" style={styles.inputLabel}>
-
-                Name <AppText variant="label" style={styles.requiredMark}>*</AppText>
-
-              </AppText>
-
-              <TextInput
-
-                style={styles.input}
-
-                value={name}
-
-                onChangeText={setName}
-
-                placeholder="Ingredient name"
-
-                placeholderTextColor="#8A938E"
-
-              />
-
-              <AppText variant="label" style={styles.inputLabel}>Ingredient Image</AppText>
-
-              <Pressable
-
-                style={styles.imagePickerButton}
-
-                onPress={chooseImage}
-
-                disabled={saving}
-
-              >
-
-                <Ionicons name="image-outline" size={20} color="#1F7655" />
-
-                <AppText variant="button" style={styles.imagePickerButtonText}>
-
-                  {selectedImage ? "Change Selected Image" : "Browse Image"}
-
-                </AppText>
-
-              </Pressable>
-
-              {selectedImage ? (
-
-                <View style={styles.previewContainer}>
-
-                  <AppText variant="label" style={styles.previewLabel}>
-
-                    Selected Image Preview
+                    {saving ? "Saving..." : "Save"}
 
                   </AppText>
 
-                  <Image
+                </Pressable>
 
-                    source={{ uri: selectedImage.uri }}
+                <Pressable
 
-                    style={styles.previewImage}
+                  onPress={() => setModalVisible(false)}
 
-                    resizeMode="cover"
+                  disabled={saving}
 
-                  />
+                >
 
-                  <Pressable
+                  <Ionicons name="close" size={28} color="#17231E" />
 
-                    onPress={() => setSelectedImage(null)}
+                </Pressable>
 
-                    style={styles.removeImageButton}
+              </View>
+
+              <ScrollView
+                style={styles.modalScrollView}
+                contentContainerStyle={styles.modalScrollContent}
+                showsVerticalScrollIndicator
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode={
+                  Platform.OS === "ios" ? "interactive" : "on-drag"
+                }
+                automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
+                nestedScrollEnabled
+              >
+
+                <AppText variant="label" style={styles.inputLabel}>
+
+                  Name <AppText variant="label" style={styles.requiredMark}>*</AppText>
+
+                </AppText>
+
+                <TextInput
+
+                  style={styles.input}
+
+                  value={name}
+
+                  onChangeText={setName}
+
+                  placeholder="Ingredient name"
+
+                  placeholderTextColor="#8A938E"
+
+                />
+
+                <AppText variant="label" style={styles.inputLabel}>Ingredient Image</AppText>
+
+                <Pressable
+
+                  style={styles.imagePickerButton}
+
+                  onPress={chooseImage}
+
+                  disabled={saving}
+
+                >
+
+                  <Ionicons name="image-outline" size={20} color="#1F7655" />
+
+                  <AppText variant="button" style={styles.imagePickerButtonText}>
+
+                    {selectedImage ? "Change Selected Image" : "Browse Image"}
+
+                  </AppText>
+
+                </Pressable>
+
+                {selectedImage ? (
+
+                  <View style={styles.previewContainer}>
+
+                    <AppText variant="label" style={styles.previewLabel}>
+
+                      Selected Image Preview
+
+                    </AppText>
+
+                    <Image
+
+                      source={{ uri: selectedImage.uri }}
+
+                      style={styles.previewImage}
+
+                      resizeMode="cover"
+
+                    />
+
+                    <Pressable
+
+                      onPress={() => setSelectedImage(null)}
+
+                      style={styles.removeImageButton}
+
+                    >
+
+                      <Ionicons name="close-circle" size={18} color="#B33B31" />
+
+                      <AppText variant="helper" style={styles.removeImageText}>Remove selection</AppText>
+
+                    </Pressable>
+
+                  </View>
+
+                ) : photoUrl.trim() ? (
+
+                  <View style={styles.previewContainer}>
+
+                    <AppText variant="label" style={styles.previewLabel}>Current Image</AppText>
+
+                    <Image
+
+                      source={{ uri: photoUrl.trim() }}
+
+                      style={styles.previewImage}
+
+                      resizeMode="cover"
+
+                    />
+
+                  </View>
+
+                ) : null}
+
+                <AppText variant="label" style={styles.inputLabel}>
+
+                  Purchase Price (₹) <AppText variant="label" style={styles.requiredMark}>*</AppText>
+
+                </AppText>
+
+                <TextInput
+
+                  style={styles.input}
+
+                  value={purchasePrice}
+
+                  onChangeText={setPurchasePrice}
+
+                  placeholder="e.g. 600"
+
+                  placeholderTextColor="#8A938E"
+
+                  keyboardType="decimal-pad"
+
+                />
+
+                <AppText variant="label" style={styles.inputLabel}>
+
+                  Purchase Quantity <AppText variant="label" style={styles.requiredMark}>*</AppText>
+
+                </AppText>
+
+                <TextInput
+
+                  style={styles.input}
+
+                  value={purchaseQuantity}
+
+                  onChangeText={setPurchaseQuantity}
+
+                  placeholder="e.g. 4"
+
+                  placeholderTextColor="#8A938E"
+
+                  keyboardType="decimal-pad"
+
+                />
+
+                <AppText variant="label" style={styles.inputLabel}>
+
+                  Purchase Unit <AppText variant="label" style={styles.requiredMark}>*</AppText>
+
+                </AppText>
+
+                <Pressable
+
+                  style={styles.dropdown}
+
+                  onPress={() => setPurchaseUnitDropdownOpen((open) => !open)}
+
+                  disabled={saving}
+
+                >
+
+                  <AppText variant="body"
+
+                    style={
+
+                      purchaseUnit
+
+                        ? styles.dropdownValue
+
+                        : styles.dropdownPlaceholder
+
+                    }
 
                   >
 
-                    <Ionicons name="close-circle" size={18} color="#B33B31" />
+                    {purchaseUnit || "Select purchase unit"}
 
-                    <AppText variant="helper" style={styles.removeImageText}>Remove selection</AppText>
+                  </AppText>
+
+                  <Ionicons
+
+                    name={
+
+                      purchaseUnitDropdownOpen ? "chevron-up" : "chevron-down"
+
+                    }
+
+                    size={18}
+
+                    color="#53605A"
+
+                  />
+
+                </Pressable>
+
+                {purchaseUnitDropdownOpen && (
+
+                  <View style={styles.dropdownOptions}>
+
+                    {purchaseUnitOptions.map((unit) => (
+
+                      <Pressable
+
+                        key={unit}
+
+                        style={styles.dropdownOption}
+
+                        onPress={() => handlePurchaseUnitChange(unit)}
+
+                      >
+
+                        <AppText variant="body" style={styles.dropdownOptionText}>{unit}</AppText>
+
+                      </Pressable>
+
+                    ))}
+
+                  </View>
+
+                )}
+
+                <AppText variant="label" style={styles.inputLabel}>Ingredient Type</AppText>
+
+                <View style={styles.statusSelector}>
+
+                  <Pressable
+
+                    style={[
+
+                      styles.statusOption,
+
+                      ingredientType === IngredientType.Veg &&
+
+                      styles.activeStatusOption,
+
+                    ]}
+
+                    onPress={() => setIngredientType(IngredientType.Veg)}
+
+                    disabled={saving}
+
+                  >
+
+                    <AppText variant="button"
+
+                      style={[
+
+                        styles.statusOptionText,
+
+                        ingredientType === IngredientType.Veg &&
+
+                        styles.selectedStatusOptionText,
+
+                      ]}
+
+                    >
+
+                      Veg
+
+                    </AppText>
+
+                  </Pressable>
+
+                  <Pressable
+
+                    style={[
+
+                      styles.statusOption,
+
+                      ingredientType === IngredientType.NonVeg &&
+
+                      styles.activeStatusOption,
+
+                    ]}
+
+                    onPress={() => setIngredientType(IngredientType.NonVeg)}
+
+                    disabled={saving}
+
+                  >
+
+                    <AppText variant="button"
+
+                      style={[
+
+                        styles.statusOptionText,
+
+                        ingredientType === IngredientType.NonVeg &&
+
+                        styles.selectedStatusOptionText,
+
+                      ]}
+
+                    >
+
+                      Non-Veg
+
+                    </AppText>
 
                   </Pressable>
 
                 </View>
 
-              ) : photoUrl.trim() ? (
+                {(["litre", "ml"].includes(purchaseUnit)) && <>
 
-                <View style={styles.previewContainer}>
+                  <AppText variant="label" style={styles.inputLabel}>Grams Per Milliliter (Optional)</AppText>
 
-                  <AppText variant="label" style={styles.previewLabel}>Current Image</AppText>
+                  <TextInput style={styles.input} value={gramsPerMilliliter} onChangeText={setGramsPerMilliliter} placeholder="e.g. 1.03" keyboardType="decimal-pad" placeholderTextColor="#8A938E" />
 
-                  <Image
+                </>}
 
-                    source={{ uri: photoUrl.trim() }}
+                {purchaseUnit === "piece" && <>
 
-                    style={styles.previewImage}
+                  <AppText variant="label" style={styles.inputLabel}>Grams Per Piece (Optional)</AppText>
 
-                    resizeMode="cover"
+                  <TextInput style={styles.input} value={gramsPerPiece} onChangeText={setGramsPerPiece} placeholder="e.g. 120" keyboardType="decimal-pad" placeholderTextColor="#8A938E" />
+
+                </>}
+
+                <AppText variant="label" style={styles.inputLabel}>Wastage Quantity</AppText>
+
+                <TextInput
+
+                  style={styles.input}
+
+                  value={wastageQuantity}
+
+                  onChangeText={setWastageQuantity}
+
+                  placeholder="e.g. 10"
+
+                  keyboardType="decimal-pad"
+
+                  placeholderTextColor="#8A938E"
+
+                />
+
+                <AppText variant="label" style={styles.inputLabel}>Wastage Unit</AppText>
+
+                <Pressable
+
+                  style={styles.dropdown}
+
+                  onPress={() => setWastageUnitDropdownOpen((open) => !open)}
+
+                  disabled={saving}
+
+                >
+
+                  <AppText variant="body"
+
+                    style={
+
+                      wastageUnit
+
+                        ? styles.dropdownValue
+
+                        : styles.dropdownPlaceholder
+
+                    }
+
+                  >
+
+                    {wastageUnit || "Select wastage unit"}
+
+                  </AppText>
+
+                  <Ionicons
+
+                    name={wastageUnitDropdownOpen ? "chevron-up" : "chevron-down"}
+
+                    size={18}
+
+                    color="#53605A"
 
                   />
 
-                </View>
+                </Pressable>
 
-              ) : null}
+                {wastageUnitDropdownOpen && (
 
-              <AppText variant="label" style={styles.inputLabel}>
+                  <View style={styles.dropdownOptions}>
 
-                Purchase Price (₹) <AppText variant="label" style={styles.requiredMark}>*</AppText>
+                    {wastageUnitOptions.map((unit) => (
 
-              </AppText>
+                      <Pressable
 
-              <TextInput
+                        key={unit}
 
-                style={styles.input}
+                        style={styles.dropdownOption}
 
-                value={purchasePrice}
+                        onPress={() => {
 
-                onChangeText={setPurchasePrice}
+                          setWastageUnit(unit);
 
-                placeholder="e.g. 600"
+                          setWastageUnitDropdownOpen(false);
 
-                placeholderTextColor="#8A938E"
+                        }}
 
-                keyboardType="decimal-pad"
+                      >
 
-              />
+                        <AppText variant="body" style={styles.dropdownOptionText}>{unit}</AppText>
 
-              <AppText variant="label" style={styles.inputLabel}>
+                      </Pressable>
 
-                Purchase Quantity <AppText variant="label" style={styles.requiredMark}>*</AppText>
+                    ))}
 
-              </AppText>
+                  </View>
 
-              <TextInput
+                )}
 
-                style={styles.input}
+                <AppText variant="label" style={styles.inputLabel}>Caution Required? (Optional)</AppText>
 
-                value={purchaseQuantity}
+                <View style={styles.statusSelector}>
 
-                onChangeText={setPurchaseQuantity}
+                  <Pressable
 
-                placeholder="e.g. 4"
+                    style={[
 
-                placeholderTextColor="#8A938E"
+                      styles.statusOption,
 
-                keyboardType="decimal-pad"
+                      isCautionRequired && styles.activeStatusOption,
 
-              />
+                    ]}
 
-              <AppText variant="label" style={styles.inputLabel}>
+                    onPress={() => setIsCautionRequired(true)}
 
-                Purchase Unit <AppText variant="label" style={styles.requiredMark}>*</AppText>
+                    disabled={saving}
 
-              </AppText>
+                  >
 
-              <Pressable
+                    <AppText variant="button"
 
-                style={styles.dropdown}
+                      style={[
 
-                onPress={() => setPurchaseUnitDropdownOpen((open) => !open)}
+                        styles.statusOptionText,
 
-                disabled={saving}
+                        isCautionRequired && styles.selectedStatusOptionText,
 
-              >
-
-                <AppText variant="body"
-
-                  style={
-
-                    purchaseUnit
-
-                      ? styles.dropdownValue
-
-                      : styles.dropdownPlaceholder
-
-                  }
-
-                >
-
-                  {purchaseUnit || "Select purchase unit"}
-
-                </AppText>
-
-                <Ionicons
-
-                  name={
-
-                    purchaseUnitDropdownOpen ? "chevron-up" : "chevron-down"
-
-                  }
-
-                  size={18}
-
-                  color="#53605A"
-
-                />
-
-              </Pressable>
-
-              {purchaseUnitDropdownOpen && (
-
-                <View style={styles.dropdownOptions}>
-
-                  {purchaseUnitOptions.map((unit) => (
-
-                    <Pressable
-
-                      key={unit}
-
-                      style={styles.dropdownOption}
-
-                      onPress={() => handlePurchaseUnitChange(unit)}
+                      ]}
 
                     >
 
-                      <AppText variant="body" style={styles.dropdownOptionText}>{unit}</AppText>
+                      Yes
 
-                    </Pressable>
+                    </AppText>
 
-                  ))}
+                  </Pressable>
+
+                  <Pressable
+
+                    style={[
+
+                      styles.statusOption,
+
+                      !isCautionRequired && styles.activeStatusOption,
+
+                    ]}
+
+                    onPress={() => setIsCautionRequired(false)}
+
+                    disabled={saving}
+
+                  >
+
+                    <AppText variant="button"
+
+                      style={[
+
+                        styles.statusOptionText,
+
+                        !isCautionRequired && styles.selectedStatusOptionText,
+
+                      ]}
+
+                    >
+
+                      No
+
+                    </AppText>
+
+                  </Pressable>
 
                 </View>
 
-              )}
+                {isCautionRequired && <>
 
-              <AppText variant="label" style={styles.inputLabel}>Ingredient Type</AppText>
+                  <AppText variant="label" style={styles.inputLabel}>Caution Message (Optional)</AppText>
 
-              <View style={styles.statusSelector}>
+                  <TextInput style={[styles.input, { minHeight: 80, textAlignVertical: "top" }]} value={cautionMessage} onChangeText={setCautionMessage} placeholder="Enter caution details" placeholderTextColor="#8A938E" multiline />
 
-                <Pressable
+                </>}
 
-                  style={[
+                <AppText variant="label" style={styles.inputLabel}>Storage Instructions (Optional)</AppText>
 
-                    styles.statusOption,
+                <TextInput
 
-                    ingredientType === IngredientType.Veg &&
+                  style={styles.input}
 
-                    styles.activeStatusOption,
+                  value={storageInstructions}
 
-                  ]}
+                  onChangeText={setStorageInstructions}
 
-                  onPress={() => setIngredientType(IngredientType.Veg)}
+                  placeholder="e.g. Store in a cool, dry place"
 
-                  disabled={saving}
+                  placeholderTextColor="#8A938E"
 
-                >
-
-                  <AppText variant="button"
-
-                    style={[
-
-                      styles.statusOptionText,
-
-                      ingredientType === IngredientType.Veg &&
-
-                      styles.selectedStatusOptionText,
-
-                    ]}
-
-                  >
-
-                    Veg
-
-                  </AppText>
-
-                </Pressable>
-
-                <Pressable
-
-                  style={[
-
-                    styles.statusOption,
-
-                    ingredientType === IngredientType.NonVeg &&
-
-                    styles.activeStatusOption,
-
-                  ]}
-
-                  onPress={() => setIngredientType(IngredientType.NonVeg)}
-
-                  disabled={saving}
-
-                >
-
-                  <AppText variant="button"
-
-                    style={[
-
-                      styles.statusOptionText,
-
-                      ingredientType === IngredientType.NonVeg &&
-
-                      styles.selectedStatusOptionText,
-
-                    ]}
-
-                  >
-
-                    Non-Veg
-
-                  </AppText>
-
-                </Pressable>
-
-              </View>
-
-              {(["litre", "ml"].includes(purchaseUnit)) && <>
-
-                <AppText variant="label" style={styles.inputLabel}>Grams Per Milliliter (Optional)</AppText>
-
-                <TextInput style={styles.input} value={gramsPerMilliliter} onChangeText={setGramsPerMilliliter} placeholder="e.g. 1.03" keyboardType="decimal-pad" placeholderTextColor="#8A938E" />
-
-              </>}
-
-              {purchaseUnit === "piece" && <>
-
-                <AppText variant="label" style={styles.inputLabel}>Grams Per Piece (Optional)</AppText>
-
-                <TextInput style={styles.input} value={gramsPerPiece} onChangeText={setGramsPerPiece} placeholder="e.g. 120" keyboardType="decimal-pad" placeholderTextColor="#8A938E" />
-
-              </>}
-
-              <AppText variant="label" style={styles.inputLabel}>Wastage Quantity</AppText>
-
-              <TextInput
-
-                style={styles.input}
-
-                value={wastageQuantity}
-
-                onChangeText={setWastageQuantity}
-
-                placeholder="e.g. 10"
-
-                keyboardType="decimal-pad"
-
-                placeholderTextColor="#8A938E"
-
-              />
-
-              <AppText variant="label" style={styles.inputLabel}>Wastage Unit</AppText>
-
-              <Pressable
-
-                style={styles.dropdown}
-
-                onPress={() => setWastageUnitDropdownOpen((open) => !open)}
-
-                disabled={saving}
-
-              >
-
-                <AppText variant="body"
-
-                  style={
-
-                    wastageUnit
-
-                      ? styles.dropdownValue
-
-                      : styles.dropdownPlaceholder
-
-                  }
-
-                >
-
-                  {wastageUnit || "Select wastage unit"}
-
-                </AppText>
-
-                <Ionicons
-
-                  name={wastageUnitDropdownOpen ? "chevron-up" : "chevron-down"}
-
-                  size={18}
-
-                  color="#53605A"
+                  multiline
 
                 />
 
-              </Pressable>
+                <AppText variant="label" style={styles.inputLabel}>Shelf Life (Days) (Optional)</AppText>
 
-              {wastageUnitDropdownOpen && (
+                <TextInput
 
-                <View style={styles.dropdownOptions}>
+                  style={styles.input}
 
-                  {wastageUnitOptions.map((unit) => (
+                  value={shelfLifeDays}
 
-                    <Pressable
+                  onChangeText={setShelfLifeDays}
 
-                      key={unit}
+                  placeholder="e.g. 30"
 
-                      style={styles.dropdownOption}
+                  keyboardType="number-pad"
 
-                      onPress={() => {
+                  placeholderTextColor="#8A938E"
 
-                        setWastageUnit(unit);
+                />
 
-                        setWastageUnitDropdownOpen(false);
+                <AppText variant="label" style={styles.inputLabel}>Brand (Optional)</AppText>
+
+                <TextInput
+
+                  style={styles.input}
+
+                  value={brand}
+
+                  onChangeText={setBrand}
+
+                  placeholder="Enter brand name"
+
+                  placeholderTextColor="#8A938E"
+
+                />
+
+                <AppText variant="label" style={styles.inputLabel}>Notes (Optional)</AppText>
+
+                <TextInput
+
+                  style={[
+
+                    styles.input,
+
+                    { minHeight: 90, textAlignVertical: "top" },
+
+                  ]}
+
+                  value={notes}
+
+                  onChangeText={setNotes}
+
+                  placeholder="Additional notes"
+
+                  placeholderTextColor="#8A938E"
+
+                  multiline
+
+                />
+
+                {photoUrl.trim() ? (
+
+                  <View style={styles.previewContainer}>
+
+                    <AppText variant="label" style={styles.previewLabel}>Preview</AppText>
+
+                    <Image
+
+                      source={{
+
+                        uri: photoUrl.trim(),
 
                       }}
 
+                      style={styles.previewImage}
+
+                      resizeMode="cover"
+
+                    />
+
+                  </View>
+
+                ) : null}
+
+                <AppText variant="label" style={styles.inputLabel}>Status</AppText>
+
+                <View style={styles.statusSelector}>
+
+                  <Pressable
+
+                    accessibilityRole="button"
+
+                    accessibilityState={{ selected: status === 1 }}
+
+                    style={[
+
+                      styles.statusOption,
+
+                      status === 1 && styles.activeStatusOption,
+
+                    ]}
+
+                    onPress={() => setStatus(1)}
+
+                    disabled={saving}
+
+                  >
+
+                    <Ionicons
+
+                      name="checkmark-circle-outline"
+
+                      size={18}
+
+                      color={status === 1 ? "#FFFFFF" : "#1F7655"}
+
+                    />
+
+                    <AppText variant="button"
+
+                      style={[
+
+                        styles.statusOptionText,
+
+                        status === 1 && styles.selectedStatusOptionText,
+
+                      ]}
+
                     >
 
-                      <AppText variant="body" style={styles.dropdownOptionText}>{unit}</AppText>
+                      Active
 
-                    </Pressable>
+                    </AppText>
 
-                  ))}
+                  </Pressable>
+
+                  <Pressable
+
+                    accessibilityRole="button"
+
+                    accessibilityState={{ selected: status === 2 }}
+
+                    style={[
+
+                      styles.statusOption,
+
+                      status === 2 && styles.inactiveStatusOption,
+
+                    ]}
+
+                    onPress={() => setStatus(2)}
+
+                    disabled={saving}
+
+                  >
+
+                    <Ionicons
+
+                      name="close-circle-outline"
+
+                      size={18}
+
+                      color={status === 2 ? "#FFFFFF" : "#B33B31"}
+
+                    />
+
+                    <AppText variant="button"
+
+                      style={[
+
+                        styles.statusOptionText,
+
+                        status === 2 && styles.selectedStatusOptionText,
+
+                      ]}
+
+                    >
+
+                      Inactive
+
+                    </AppText>
+
+                  </Pressable>
 
                 </View>
 
-              )}
-
-              <AppText variant="label" style={styles.inputLabel}>Caution Required? (Optional)</AppText>
-
-              <View style={styles.statusSelector}>
-
-                <Pressable
-
-                  style={[
-
-                    styles.statusOption,
-
-                    isCautionRequired && styles.activeStatusOption,
-
-                  ]}
-
-                  onPress={() => setIsCautionRequired(true)}
-
-                  disabled={saving}
-
-                >
-
-                  <AppText variant="button"
-
-                    style={[
-
-                      styles.statusOptionText,
-
-                      isCautionRequired && styles.selectedStatusOptionText,
-
-                    ]}
-
-                  >
-
-                    Yes
-
-                  </AppText>
-
-                </Pressable>
-
-                <Pressable
-
-                  style={[
-
-                    styles.statusOption,
-
-                    !isCautionRequired && styles.activeStatusOption,
-
-                  ]}
-
-                  onPress={() => setIsCautionRequired(false)}
-
-                  disabled={saving}
-
-                >
-
-                  <AppText variant="button"
-
-                    style={[
-
-                      styles.statusOptionText,
-
-                      !isCautionRequired && styles.selectedStatusOptionText,
-
-                    ]}
-
-                  >
-
-                    No
-
-                  </AppText>
-
-                </Pressable>
-
-              </View>
-
-              {isCautionRequired && <>
-
-                <AppText variant="label" style={styles.inputLabel}>Caution Message (Optional)</AppText>
-
-                <TextInput style={[styles.input, { minHeight: 80, textAlignVertical: "top" }]} value={cautionMessage} onChangeText={setCautionMessage} placeholder="Enter caution details" placeholderTextColor="#8A938E" multiline />
-
-              </>}
-
-              <AppText variant="label" style={styles.inputLabel}>Storage Instructions (Optional)</AppText>
-
-              <TextInput
-
-                style={styles.input}
-
-                value={storageInstructions}
-
-                onChangeText={setStorageInstructions}
-
-                placeholder="e.g. Store in a cool, dry place"
-
-                placeholderTextColor="#8A938E"
-
-                multiline
-
-              />
-
-              <AppText variant="label" style={styles.inputLabel}>Shelf Life (Days) (Optional)</AppText>
-
-              <TextInput
-
-                style={styles.input}
-
-                value={shelfLifeDays}
-
-                onChangeText={setShelfLifeDays}
-
-                placeholder="e.g. 30"
-
-                keyboardType="number-pad"
-
-                placeholderTextColor="#8A938E"
-
-              />
-
-              <AppText variant="label" style={styles.inputLabel}>Brand (Optional)</AppText>
-
-              <TextInput
-
-                style={styles.input}
-
-                value={brand}
-
-                onChangeText={setBrand}
-
-                placeholder="Enter brand name"
-
-                placeholderTextColor="#8A938E"
-
-              />
-
-              <AppText variant="label" style={styles.inputLabel}>Notes (Optional)</AppText>
-
-              <TextInput
-
-                style={[
-
-                  styles.input,
-
-                  { minHeight: 90, textAlignVertical: "top" },
-
-                ]}
-
-                value={notes}
-
-                onChangeText={setNotes}
-
-                placeholder="Additional notes"
-
-                placeholderTextColor="#8A938E"
-
-                multiline
-
-              />
-
-              {photoUrl.trim() ? (
-
-                <View style={styles.previewContainer}>
-
-                  <AppText variant="label" style={styles.previewLabel}>Preview</AppText>
-
-                  <Image
-
-                    source={{
-
-                      uri: photoUrl.trim(),
-
-                    }}
-
-                    style={styles.previewImage}
-
-                    resizeMode="cover"
-
-                  />
-
-                </View>
-
-              ) : null}
-
-              <AppText variant="label" style={styles.inputLabel}>Status</AppText>
-
-              <View style={styles.statusSelector}>
-
-                <Pressable
-
-                  accessibilityRole="button"
-
-                  accessibilityState={{ selected: status === 1 }}
-
-                  style={[
-
-                    styles.statusOption,
-
-                    status === 1 && styles.activeStatusOption,
-
-                  ]}
-
-                  onPress={() => setStatus(1)}
-
-                  disabled={saving}
-
-                >
-
-                  <Ionicons
-
-                    name="checkmark-circle-outline"
-
-                    size={18}
-
-                    color={status === 1 ? "#FFFFFF" : "#1F7655"}
-
-                  />
-
-                  <AppText variant="button"
-
-                    style={[
-
-                      styles.statusOptionText,
-
-                      status === 1 && styles.selectedStatusOptionText,
-
-                    ]}
-
-                  >
-
-                    Active
-
-                  </AppText>
-
-                </Pressable>
-
-                <Pressable
-
-                  accessibilityRole="button"
-
-                  accessibilityState={{ selected: status === 2 }}
-
-                  style={[
-
-                    styles.statusOption,
-
-                    status === 2 && styles.inactiveStatusOption,
-
-                  ]}
-
-                  onPress={() => setStatus(2)}
-
-                  disabled={saving}
-
-                >
-
-                  <Ionicons
-
-                    name="close-circle-outline"
-
-                    size={18}
-
-                    color={status === 2 ? "#FFFFFF" : "#B33B31"}
-
-                  />
-
-                  <AppText variant="button"
-
-                    style={[
-
-                      styles.statusOptionText,
-
-                      status === 2 && styles.selectedStatusOptionText,
-
-                    ]}
-
-                  >
-
-                    Inactive
-
-                  </AppText>
-
-                </Pressable>
-
-              </View>
-
-            </ScrollView>
-
-          </View>
-
+              </ScrollView>
+            </View>
+          </KeyboardAvoidingView>
         </View>
-
       </Modal>
 
       <Modal
@@ -1891,27 +1909,43 @@ const styles = StyleSheet.create({
   },
 
   headerTop: {
+
     flexDirection: "row",
+
     justifyContent: "space-between",
+
     alignItems: "center",
+
     marginBottom: 16,
+
     paddingTop: 8,
+
   },
 
   headerTitle: {
+
     flex: 1,
+
     minWidth: 0,
+
     marginRight: 12,
+
   },
 
   title: {
+
     color: "#17231E",
+
     flexShrink: 1,
+
   },
 
   addButton: {
+
     flexDirection: "row",
+
     flexShrink: 0,
+
     alignItems: "center",
 
     backgroundColor: "#1F7655",
@@ -2691,15 +2725,15 @@ const styles = StyleSheet.create({
   },
 
   modalOverlay: {
-
     flex: 1,
-
     backgroundColor: "rgba(0,0,0,0.3)",
-
     justifyContent: "flex-end",
-
   },
-
+  modalKeyboardView: {
+    flex: 1,
+    justifyContent: "flex-end",
+    minHeight: 0,
+  },
   modalContent: {
 
     backgroundColor: "#F7F8F3",
@@ -2721,11 +2755,9 @@ const styles = StyleSheet.create({
     overflow: "hidden",
 
   },
-
   modalScrollView: {
-
     flex: 1,
-
+    minHeight: 0,
   },
 
   modalScrollContent: {

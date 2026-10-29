@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 
-
-
 import {
 
   View,
@@ -78,6 +76,11 @@ export default function SignupScreen() {
 
   const footerTranslateY = useRef(new Animated.Value(8)).current;
 
+
+const nameRef = useRef<TextInput>(null);
+const emailRef = useRef<TextInput>(null);
+const passwordRef = useRef<TextInput>(null);
+const confirmPasswordRef = useRef<TextInput>(null);
 
 
   useEffect(() => {
@@ -466,25 +469,24 @@ if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
 
   return (
 
+    
     <SafeAreaView style={styles.container}>
-
-      <KeyboardAvoidingView
-
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-
-        style={styles.keyboardView}
-
-      >
-
-        <ScrollView
-
-          contentContainerStyle={styles.scrollContent}
-
-          keyboardShouldPersistTaps="handled"
-
-          showsVerticalScrollIndicator={false}
-
-        >
+  <KeyboardAvoidingView
+    style={styles.keyboardView}
+    behavior={Platform.OS === "ios" ? "padding" : undefined}
+    keyboardVerticalOffset={0}
+  >
+    <ScrollView
+      style={styles.scrollView}
+      contentContainerStyle={styles.scrollContent}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode={
+        Platform.OS === "ios" ? "interactive" : "on-drag"
+      }
+      showsVerticalScrollIndicator={false}
+      automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
+      nestedScrollEnabled
+    >
 
           <View style={styles.content}>
 
@@ -600,6 +602,10 @@ if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
 
                   accessibilityLabel="Full name"
 
+                   ref={nameRef}
+  
+  onSubmitEditing={() => emailRef.current?.focus()}
+
                 />
 
               </View>
@@ -656,6 +662,10 @@ if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
 
                   accessibilityLabel="Email address"
 
+                   ref={emailRef}
+
+  onSubmitEditing={() => passwordRef.current?.focus()}
+
                 />
 
               </View>
@@ -711,6 +721,9 @@ if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
                   maxLength={100}
 
                   accessibilityLabel="Password"
+                    ref={passwordRef}
+ 
+  onSubmitEditing={() => confirmPasswordRef.current?.focus()}
 
                 />
 
@@ -798,9 +811,14 @@ if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
 
                   maxLength={100}
 
-                  onSubmitEditing={handleSignup}
+                  // onSubmitEditing={handleSignup}
 
                   accessibilityLabel="Confirm password"
+
+                    ref={confirmPasswordRef}
+
+  onSubmitEditing={handleSignup}
+  blurOnSubmit
 
                 />
 
@@ -1004,29 +1022,34 @@ if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
 
 const styles = StyleSheet.create({
 
-  container: { flex: 1, backgroundColor: "#F7F8F3" },
+  
+container: {
+  flex: 1,
+  backgroundColor: "#F7F8F3",
+},
 
+keyboardView: {
+  flex: 1,
+},
 
+scrollView: {
+  flex: 1,
+},
 
-  keyboardView: { flex: 1 },
+scrollContent: {
+  flexGrow: 1,
+  justifyContent: "flex-start",
+  paddingTop: 24,
+  paddingBottom: 40,
+},
 
+content: {
+  width: "100%",
+  maxWidth: 480,
+  alignSelf: "center",
+  paddingHorizontal: 24,
+},
 
-
-  scrollContent: { flexGrow: 1, justifyContent: "center", paddingVertical: 24 },
-
-
-
-  content: {
-
-    width: "100%",
-
-    maxWidth: 480,
-
-    alignSelf: "center",
-
-    paddingHorizontal: 24,
-
-  },
 
 
 
