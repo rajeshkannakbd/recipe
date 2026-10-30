@@ -183,7 +183,7 @@ export default function ProfileScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <AppText variant="helper" style={styles.eyebrow}>RECIPEPRO</AppText>
+            {/* <AppText variant="helper" style={styles.eyebrow}>RECIPEPRO</AppText> */}
             <AppText variant="pageTitle" style={styles.title}>My Profile</AppText>
             <AppText variant="subtitle" style={styles.headerSubtitle}>
               Manage your account and preferences

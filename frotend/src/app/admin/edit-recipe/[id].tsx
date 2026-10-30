@@ -1402,7 +1402,7 @@ export default function EditRecipeScreen() {
   return (
     <SafeAreaView
       style={styles.container}
-      edges={Platform.OS === "web" ? ["top"] : ["left", "right", "bottom"]}
+      edges={["top", "left", "right", "bottom"]}
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -1429,9 +1429,11 @@ export default function EditRecipeScreen() {
         </View>
 
         <ScrollView
+          style={{ flex: 1 }}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled
         >
           <View style={styles.form}>
             <AppText style={styles.label}>Recipe Title</AppText>
@@ -1560,88 +1562,63 @@ export default function EditRecipeScreen() {
             </AppText>
 
             <View style={styles.detailsHero}>
-              <View style={styles.detailsHeroIcon}>
-                <Ionicons name="options-outline" size={22} color="#FFFFFF" />
+              <View style={styles.detailsHeroHeader}>
+                <View style={styles.detailsHeroIcon}>
+                  <Ionicons name="options-outline" size={22} color="#FFFFFF" />
+                </View>
+
+                <View style={styles.detailsHeroCopy}>
+                  <AppText style={styles.detailsHeroTitle}>Recipe details</AppText>
+                  <AppText style={styles.detailsHeroSubtitle}>
+                    Make this recipe easier to discover
+                  </AppText>
+                </View>
+
+                <Pressable
+                  onPress={() => setShowAdvanced((v) => !v)}
+                  style={styles.detailsToggle}
+                  accessibilityRole="button"
+                >
+                  <AppText style={styles.detailsToggleText}>
+                    {showAdvanced ? "Hide" : isNew ? "Add" : "Edit"}
+                  </AppText>
+                  <Ionicons
+                    name={showAdvanced ? "chevron-up" : "chevron-down"}
+                    size={15}
+                    color="#176747"
+                  />
+                </Pressable>
               </View>
-              <View style={styles.detailsHeroCopy}>
-                <AppText style={styles.detailsHeroTitle}>Recipe details</AppText>
-                <AppText style={styles.detailsHeroSubtitle}>
-                  Make this recipe easier to discover
-                </AppText>
-                <View style={styles.detailsSummaryRow}>
-                  {!!chefId && (
-                    <View style={styles.summaryPill}>
-                      <Ionicons
-                        name="person-outline"
-                        size={12}
-                        color="#DDF4E7"
-                      />
-                      <AppText style={styles.summaryPillText}>Chef</AppText>
-                    </View>
-                  )}
-                  {!!cuisine.trim() && (
-                    <View style={styles.summaryPill}>
-                      <Ionicons
-                        name="globe-outline"
-                        size={12}
-                        color="#DDF4E7"
-                      />
-                      <AppText style={styles.summaryPillText}>
-                        {/* {cuisine.trim()} */}
-                        Cuisines
-                      </AppText>
-                    </View>
-                  )}
-                  {!!mealType && (
-                    <View style={styles.summaryPill}>
-                      <Ionicons
-                        name="restaurant-outline"
-                        size={12}
-                        color="#DDF4E7"
-                      />
-                      <AppText style={styles.summaryPillText}>
-                        {/* {mealType} */}
-                        MealType
-                      </AppText>
-                    </View>
-                  )}
-                  {tagIds.length > 0 && (
-                    <View style={styles.summaryPill}>
-                      <Ionicons
-                        name="pricetag-outline"
-                        size={12}
-                        color="#DDF4E7"
-                      />
-                      <AppText style={styles.summaryPillText}>
-                        {tagIds.length} Tag{tagIds.length === 1 ? "" : "s"}
-                      </AppText>
-                    </View>
-                  )}
-                  {!chefId &&
-                    !cuisine.trim() &&
-                    !mealType &&
-                    tagIds.length === 0 && (
-                      <AppText style={styles.detailsEmptySummary}>
-                        Optional details · add what you know
-                      </AppText>
-                    )}
+
+              <View style={styles.detailsSummaryRow}>
+                <View style={styles.summaryPill}>
+                  <Ionicons name="person-outline" size={11} color="#DDF4E7" />
+                  <AppText style={styles.summaryPillText}>Chef</AppText>
+                </View>
+
+                <View style={styles.summaryPill}>
+                  <Ionicons name="globe-outline" size={11} color="#DDF4E7" />
+                  <AppText style={styles.summaryPillText}>
+                    {cuisine.trim() || "Cuisine"}
+                  </AppText>
+                </View>
+
+                {/* <View style={styles.summaryPill}>
+                  <Ionicons name="restaurant-outline" size={11} color="#DDF4E7" />
+                  <AppText style={styles.summaryPillText}>
+                    {mealType.trim() || "Meal"}
+                  </AppText>
+                </View> */}
+
+                <View style={styles.summaryPill}>
+                  <Ionicons name="pricetag-outline" size={11} color="#DDF4E7" />
+                  <AppText style={styles.summaryPillText}>
+                    {tagIds.length > 0
+                      ? `${tagIds.length} Tags`
+                      : "Tags"}
+                  </AppText>
                 </View>
               </View>
-              <Pressable
-                onPress={() => setShowAdvanced((v) => !v)}
-                style={styles.detailsToggle}
-                accessibilityRole="button"
-              >
-                <AppText style={styles.detailsToggleText}>
-                  {/* {showAdvanced ? "Hide" : "Add"} */}
-                  {showAdvanced ? "Hide" : isNew ? "Add" : "Edit"}
-                </AppText>
-                <Ionicons
-                  name={showAdvanced ? "chevron-up" : "chevron-down"}
-                  size={15}
-                  color="#176747"
-                />
-              </Pressable>
             </View>
             {showAdvanced && (
               <View style={styles.metadataPanel}>
@@ -2758,23 +2735,27 @@ const styles = StyleSheet.create({
 
     backgroundColor: "#F7F8F3",
   },
-
   keyboardView: {
     flex: 1,
   },
 
   scrollContent: {
-    paddingHorizontal: 20,
-
-    paddingBottom: 40,
+    flexGrow: 1,
+    paddingHorizontal: 16,
+    paddingBottom: 60,
   },
 
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingTop: Platform.OS === "web" ? 8 : 48,
+    paddingTop: 8,
     paddingBottom: 16,
+  },
+
+  form: {
+    width: "100%",
+    flexGrow: 1,
   },
 
   backButton: {
@@ -3095,17 +3076,15 @@ const styles = StyleSheet.create({
   },
 
   ingredientCard: {
+    width: "100%",
+    alignSelf: "stretch",
     backgroundColor: "#FFFFFF",
-
     borderRadius: 20,
-
     borderWidth: 1,
-
     borderColor: "#E5E8E3",
-
-    padding: 16,
-
+    padding: 14,
     marginBottom: 12,
+    overflow: "hidden",
   },
 
   ingredientHeader: {
@@ -3128,17 +3107,14 @@ const styles = StyleSheet.create({
 
   selectedIngredientRow: {
     flexDirection: "row",
-
     alignItems: "center",
-
-    gap: 6,
-
+    width: "100%",
+    gap: 8,
     marginBottom: 4,
   },
 
   selectedChip: {
     flex: 1,
-
     minWidth: 0,
   },
 
@@ -3164,38 +3140,30 @@ const styles = StyleSheet.create({
 
   quantityRow: {
     flexDirection: "row",
-
+    alignItems: "center",
+    width: "100%",
     gap: 8,
-
     marginTop: 8,
   },
 
   quantityInput: {
     width: 80,
-
+    minHeight: 46,
     backgroundColor: "#F7F8F3",
-
     borderRadius: 12,
-
     borderWidth: 1,
-
     borderColor: "#E5E8E3",
-
     paddingHorizontal: 12,
-
     paddingVertical: 10,
-
     fontSize: 16,
-
     color: "#17231E",
   },
 
   unitContainer: {
     flexDirection: "row",
-
+    alignItems: "center",
     gap: 6,
   },
-
   unitChip: {
     paddingHorizontal: 12,
 
@@ -3467,67 +3435,95 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
   outlineSmallButtonText: { color: "#1F7655", fontSize: 12, fontWeight: "800" },
-  detailsHero: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 11,
-    padding: 15,
-    marginTop: 14,
-    marginBottom: 10,
-    borderRadius: 18,
-    backgroundColor: "#174F3B",
-    overflow: "hidden",
-  },
-  detailsHeroIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 13,
-    backgroundColor: "#2B7557",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  detailsHeroCopy: { flex: 1, minWidth: 0, paddingTop: 1 },
-  detailsHeroTitle: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "800",
-    letterSpacing: 0.1,
-  },
-  detailsHeroSubtitle: { color: "#C8E4D5", fontSize: 11, marginTop: 3 },
-  detailsSummaryRow: {
-    flexDirection: "row",
-    // flexWrap: "wrap",
-    alignItems: "center",
-    gap: 5,
-    marginTop: 9,
-    marginHorizontal: 2,
-  },
-  summaryPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 7,
-    paddingVertical: 4,
-    borderRadius: 20,
-    backgroundColor: "#2A684F",
-  },
-  summaryPillText: {
-    color: "#F1FFF6",
-    fontSize: 10,
-    fontWeight: "700",
-    maxWidth: 100,
-  },
-  detailsEmptySummary: { color: "#C8E4D5", fontSize: 10 },
-  detailsToggle: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 9,
-    paddingVertical: 8,
-    borderRadius: 10,
-    backgroundColor: "#FFFFFF",
-    alignSelf: "flex-start",
-  },
+detailsHero: {
+  width: "100%",
+  padding: 14,
+  marginTop: 14,
+  marginBottom: 10,
+  borderRadius: 18,
+  backgroundColor: "#174F3B",
+},
+
+detailsHeroHeader: {
+  width: "100%",
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 10,
+},
+
+detailsHeroIcon: {
+  width: 40,
+  height: 40,
+  borderRadius: 12,
+  backgroundColor: "#2B7557",
+  alignItems: "center",
+  justifyContent: "center",
+  flexShrink: 0,
+},
+
+detailsHeroCopy: {
+  flex: 1,
+  minWidth: 0,
+},
+
+detailsHeroTitle: {
+  color: "#FFFFFF",
+  fontSize: 16,
+  fontWeight: "800",
+},
+
+detailsHeroSubtitle: {
+  color: "#C8E4D5",
+  fontSize: 11,
+  marginTop: 3,
+},
+
+detailsSummaryRow: {
+  width: "100%",
+  flexDirection: "row",
+  flexWrap: "nowrap",
+  alignItems: "stretch",
+  gap: 5,
+  marginTop: 13,
+},
+
+summaryPill: {
+  flex: 1,
+  minWidth: 0,
+  height: 32,
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 3,
+  paddingHorizontal: 3,
+  borderRadius: 18,
+  backgroundColor: "#2A684F",
+},
+
+summaryPillText: {
+  color: "#F1FFF6",
+  fontSize: 9,
+  fontWeight: "700",
+  flexShrink: 1,
+  textAlign: "center",
+},
+
+detailsEmptySummary: {
+  color: "#C8E4D5",
+  fontSize: 10,
+},
+detailsToggle: {
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 4,
+  paddingHorizontal: 9,
+  paddingVertical: 8,
+  borderRadius: 10,
+  backgroundColor: "#FFFFFF",
+  flexShrink: 0,
+  alignSelf: "center",
+},
   detailsToggleText: { color: "#176747", fontSize: 11, fontWeight: "800" },
   metadataPanel: {
     backgroundColor: "#FFFFFF",

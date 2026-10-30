@@ -1,319 +1,549 @@
 
-import React, { useEffect, useRef } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import { useEffect, useRef } from "react";
 import {
   Animated,
-  Easing,
+  ScrollView,
   StyleSheet,
   View,
-  type ViewStyle,
+  Platform
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import AppText from "../common/AppText";
 
-function SkeletonBlock({
-  width = "100%",
-  height = 14,
-  radius = 8,
-  style,
+const SkeletonField = ({
   translateX,
+  height = 48,
+  width = "100%",
+  radius = 12,
 }: {
-  width?: number | `${number}%`;
-  height?: number;
-  radius?: number;
-  style?: ViewStyle;
   translateX: Animated.Value;
-}) {
-  return (
-    <View
+  height?: number;
+  width?: number | `${number}%`;
+  radius?: number;
+}) => (
+  <View
+    style={[
+      styles.skeletonField,
+      { height, width, borderRadius: radius },
+    ]}
+  >
+    <Animated.View
+      pointerEvents="none"
       style={[
-        styles.block,
-        { width, height, borderRadius: radius },
-        style,
+        styles.shimmer,
+        {
+          transform: [
+            { translateX },
+            { skewX: "-20deg" },
+          ],
+        },
       ]}
-    >
-      <Animated.View
-        pointerEvents="none"
-        style={[
-          styles.shimmer,
-          {
-            transform: [
-              { translateX },
-              { skewX: "-20deg" },
-            ],
-          },
-        ]}
-      />
-    </View>
-  );
-}
-
-export default function EditRecipeSkeleton({
-  isNew = false,
-}: {
-  isNew?: boolean;
-}) {
-  const translateX = useRef(new Animated.Value(-120)).current;
-
-  useEffect(() => {
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(translateX, {
-          toValue: 450,
-          duration: 1300,
-          easing: Easing.linear,
-          useNativeDriver: true,
-        }),
-        Animated.timing(translateX, {
-          toValue: -120,
-          duration: 0,
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-
-    animation.start();
-
-    return () => animation.stop();
-  }, [translateX]);
-
-  const block = (width: number | `${number}%`, height = 14, radius = 8, style?: ViewStyle) => (
-    <SkeletonBlock
-      width={width}
-      height={height}
-      radius={radius}
-      style={style}
-      translateX={translateX}
     />
+  </View>
+);
+
+const Field = ({
+  label,
+  translateX,
+  height = 48,
+}: {
+  label: string;
+  translateX: Animated.Value;
+  height?: number;
+}) => (
+  <View style={styles.fieldGroup}>
+    <AppText style={styles.label}>{label}</AppText>
+    <SkeletonField translateX={translateX} height={height} />
+  </View>
+);
+
+export default function EditRecipeSkeleton() {
+  const shimmerValue = useRef(new Animated.Value(0)).current;
+
+
+
+const translateX = useRef(
+  new Animated.Value(-120)
+).current;
+
+useEffect(() => {
+  const animation = Animated.loop(
+    Animated.sequence([
+      Animated.timing(translateX, {
+        toValue: 450,
+        duration: 1300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateX, {
+        toValue: -120,
+        duration: 0,
+        useNativeDriver: true,
+      }),
+    ])
   );
+
+  animation.start();
+
+  return () => animation.stop();
+}, [translateX]);
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
+    <SafeAreaView
+      style={styles.container}
+      edges={
+        Platform.OS === "web"
+          ? ["top"]
+          : ["left", "right", "bottom"]
+      }
+    >
+      {/* Normal header - no skeleton effect */}
       <View style={styles.header}>
-        {block(38, 38, 12)}
-        {block(125, 19)}
-        {block(42, 18)}
+        <View style={styles.backButton}>
+          <Ionicons name="chevron-back" size={24} color="#17231E" />
+        </View>
+
+        <AppText style={styles.headerTitle}>Edit Recipe</AppText>
+
+        <AppText style={styles.saveText}>Save</AppText>
       </View>
 
-      <View style={styles.scrollContent}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
         <View style={styles.form}>
-          {/* Recipe title */}
-          {block(90, 13)}
-          {block("100%", 48, 12, styles.input)}
+          <Field label="Recipe Title" translateX={translateX} />
 
-          {/* Category */}
-          {block(65, 13, 6, styles.labelSpacing)}
-          <View style={styles.chipRow}>
-            {block(82, 34, 18)}
-            {block(100, 34, 18)}
-            {block(75, 34, 18)}
+          {/* Category label stays visible */}
+          <View style={styles.fieldGroup}>
+            <AppText style={styles.label}>Category</AppText>
+            <View style={styles.chipRow}>
+              {[90, 105, 85, 100].map((width, index) => (
+                <SkeletonField
+                  key={index}
+                  translateX={translateX}
+                  height={38}
+                  width={width}
+                  radius={12}
+                />
+              ))}
+            </View>
           </View>
 
-          {/* Servings and status */}
+          {/* Base servings and status */}
           <View style={styles.row}>
             <View style={styles.flex1}>
-              {block(90, 13)}
-              {block("100%", 48, 12, styles.input)}
+              <Field
+                label="Base Servings"
+                translateX={translateX}
+              />
+            </View>
+
+            <View style={styles.flex1}>
+              <AppText style={styles.label}>Status</AppText>
+              <View style={styles.statusToggle}>
+                <View style={styles.statusButton}>
+                  <AppText style={styles.statusText}>Draft</AppText>
+                </View>
+                <View style={[styles.statusButton, styles.statusActive]}>
+                  <AppText style={styles.statusTextActive}>
+                    Published
+                  </AppText>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          <Field
+            label="Base Cooked Weight (grams)"
+            translateX={translateX}
+          />
+
+          <AppText style={styles.helperText}>
+            Total weight of the cooked recipe for the base servings.
+          </AppText>
+
+          {/* Keep the section heading and descriptive text normal */}
+          <View style={styles.detailsHero}>
+            <View style={styles.detailsIcon}>
+              <Ionicons
+                name="options-outline"
+                size={22}
+                color="#FFFFFF"
+              />
             </View>
             <View style={styles.flex1}>
-              {block(45, 13)}
-              <View style={styles.statusRow}>
-                {block("48%", 38, 10)}
-                {block("48%", 38, 10)}
-              </View>
+              <AppText style={styles.detailsTitle}>
+                Recipe details
+              </AppText>
+              <AppText style={styles.detailsSubtitle}>
+                Make this recipe easier to discover
+              </AppText>
             </View>
+            <AppText style={styles.detailsToggle}>Edit</AppText>
           </View>
 
-          {/* Cooked weight */}
-          {block(190, 13, 6, styles.labelSpacing)}
-          {block("100%", 48, 12, styles.input)}
-          {block(230, 10, 5, { marginTop: 7 })}
-
-          {/* Recipe details card */}
-          <View style={styles.detailsCard}>
-            {block(42, 42, 13)}
-            <View style={styles.detailsCopy}>
-              {block(105, 15)}
-              {block(165, 10)}
-              <View style={styles.pillRow}>
-                {block(48, 20, 12)}
-                {block(65, 20, 12)}
-              </View>
-            </View>
-            {block(45, 30, 9)}
+          {/* Nutrition */}
+          <View style={styles.sectionHeader}>
+            <AppText style={styles.metadataTitle}>
+              Nutrition
+              <AppText style={styles.helperText}> (Optional)</AppText>
+            </AppText>
+            <AppText style={styles.outlineButton}>Add</AppText>
           </View>
 
-          {/* Ingredients */}
-          <View style={styles.sectionHeading}>
-            {block(115, 17)}
-            {block(65, 30, 9)}
-          </View>
-          {block("100%", 45, 12, styles.input)}
-
-          {Array.from({ length: 3 }).map((_, index) => (
-            <View key={`ingredient-${index}`} style={styles.itemCard}>
-              {block(36, 36, 10)}
-              <View style={styles.itemDetails}>
-                {block("65%", 13)}
-                {block("40%", 10)}
-              </View>
-              {block(55, 34, 9)}
-            </View>
-          ))}
-
-          {/* Procedure */}
-          {block(90, 17, 6, styles.sectionSpacing)}
-
-          {Array.from({ length: 2 }).map((_, index) => (
-            <View key={`procedure-${index}`} style={styles.procedureCard}>
-              <View style={styles.procedureHeader}>
-                {block(30, 30, 10)}
-                {block(75, 13)}
-                {block(22, 22, 7)}
-              </View>
-              {block("100%", 44, 10, styles.procedureInput)}
-              {block("100%", 72, 10)}
-            </View>
-          ))}
+          <AppText style={styles.helperText}>
+            Add nutritional information for this recipe.
+          </AppText>
 
           {/* Recipe image */}
-          {block(90, 15, 6, styles.sectionSpacing)}
-          {block("100%", 48, 12, styles.imageButton)}
+          <View style={styles.fieldGroup}>
+            <AppText style={styles.label}>Recipe Image</AppText>
+            <SkeletonField
+              translateX={translateX}
+              height={150}
+              radius={16}
+            />
+            <View style={styles.imageButton}>
+              <SkeletonField
+                translateX={translateX}
+                height={44}
+                width="100%"
+              />
+            </View>
+          </View>
 
-          {/* Save button */}
-          {block("100%", 52, 14, styles.saveButton)}
+          <Field
+            label="Description"
+            translateX={translateX}
+            height={88}
+          />
+
+          {/* Ingredients */}
+          <AppText style={styles.sectionTitle}>Ingredients</AppText>
+
+          <View style={styles.searchRow}>
+            <View style={styles.flex1}>
+              <SkeletonField
+                translateX={translateX}
+                height={48}
+              />
+            </View>
+            <SkeletonField
+              translateX={translateX}
+              height={48}
+              width={82}
+            />
+          </View>
+
+          {/* Ingredient cards */}
+          {[1, 2].map((item) => (
+            <View key={item} style={styles.card}>
+              <View style={styles.cardHeader}>
+                <AppText style={styles.ingredientLabel}>
+                  Ingredient {item}
+                </AppText>
+                <Ionicons
+                  name="chevron-down"
+                  size={18}
+                  color="#68736D"
+                />
+              </View>
+
+              <SkeletonField
+                translateX={translateX}
+                height={42}
+              />
+
+              <View style={styles.quantityRow}>
+                <SkeletonField
+                  translateX={translateX}
+                  height={44}
+                  width={80}
+                />
+                <SkeletonField
+                  translateX={translateX}
+                  height={44}
+                  width={70}
+                />
+                <SkeletonField
+                  translateX={translateX}
+                  height={44}
+                  width={70}
+                />
+              </View>
+            </View>
+          ))}
+
+          <SkeletonField
+            translateX={translateX}
+            height={48}
+          />
+
+          {/* Procedures */}
+          <AppText style={styles.sectionTitle}>Procedure</AppText>
+
+          {[1, 2].map((step) => (
+            <View key={step} style={styles.card}>
+              <View style={styles.procedureHeader}>
+                <View style={styles.stepBadge}>
+                  <AppText style={styles.stepText}>
+                    {step}
+                  </AppText>
+                </View>
+                <AppText style={styles.ingredientLabel}>
+                  Step {step}
+                </AppText>
+              </View>
+
+              <AppText style={styles.label}>Step Title</AppText>
+              <SkeletonField
+                translateX={translateX}
+                height={44}
+              />
+
+              <View style={styles.descriptionLabel}>
+                <AppText style={styles.label}>
+                  Description
+                </AppText>
+              </View>
+              <SkeletonField
+                translateX={translateX}
+                height={88}
+              />
+            </View>
+          ))}
+
+          <SkeletonField
+            translateX={translateX}
+            height={50}
+          />
+
+          <SkeletonField
+            translateX={translateX}
+            height={50}
+          />
         </View>
-      </View>
-    </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F7F8F3",
+    backgroundColor: "#F6F8F5",
   },
   header: {
-    minHeight: 58,
-    paddingHorizontal: 18,
+    height: 58,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    paddingHorizontal: 18,
     backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
-    borderBottomColor: "#E8EDE9",
+    borderBottomColor: "#E8ECE8",
+  },
+  backButton: {
+    width: 36,
+    alignItems: "flex-start",
+  },
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: "#17231E",
+  },
+  saveText: {
+    color: "#1F7655",
+    fontSize: 15,
+    fontWeight: "700",
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 18,
-    paddingBottom: 35,
+    padding: 16,
+    paddingBottom: 40,
   },
   form: {
-    width: "100%",
+    gap: 12,
   },
-  block: {
-    backgroundColor: "#E5EBE6",
-    overflow: "hidden",
+  fieldGroup: {
+    marginBottom: 5,
   },
-  shimmer: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    left: 0,
-    width: 65,
-    backgroundColor: "rgba(255,255,255,0.65)",
-  },
-  input: {
-    marginTop: 8,
-    marginBottom: 15,
-  },
-  labelSpacing: {
-    marginTop: 2,
+  label: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#17231E",
     marginBottom: 8,
   },
-  chipRow: {
-    flexDirection: "row",
-    gap: 8,
-    marginBottom: 17,
+  skeletonField: {
+    backgroundColor: "#E5EAE6",
+    overflow: "hidden",
   },
+shimmer: {
+  position: "absolute",
+  top: 0,
+  bottom: 0,
+  left: 0,
+  width: 65,
+  backgroundColor: "rgba(255,255,255,0.65)",
+},
   row: {
     flexDirection: "row",
     gap: 12,
   },
   flex1: {
     flex: 1,
+    minWidth: 0,
   },
-  statusRow: {
+  chipRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 5,
-    marginTop: 8,
-    marginBottom: 15,
+    gap: 8,
+    overflow: "hidden",
   },
-  detailsCard: {
+  statusToggle: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 11,
+    backgroundColor: "#E7F1EA",
+    borderRadius: 12,
+    padding: 4,
+    minHeight: 44,
+  },
+  statusButton: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 8,
+  },
+  statusActive: {
+    backgroundColor: "#FFFFFF",
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#68736D",
+  },
+  statusTextActive: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#17231E",
+  },
+  helperText: {
+    fontSize: 12,
+    color: "#68736D",
+  },
+  detailsHero: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
     padding: 15,
-    marginTop: 14,
-    marginBottom: 18,
+    marginTop: 8,
     borderRadius: 18,
     backgroundColor: "#174F3B",
   },
-  detailsCopy: {
-    flex: 1,
-    gap: 7,
+  detailsIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+    backgroundColor: "#2B7557",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  pillRow: {
-    flexDirection: "row",
-    gap: 6,
+  detailsTitle: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  detailsSubtitle: {
+    color: "#C8E4D5",
+    fontSize: 11,
     marginTop: 3,
   },
-  sectionHeading: {
+  detailsToggle: {
+    color: "#176747",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 12,
   },
-  itemCard: {
+  metadataTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: "#17231E",
+  },
+  outlineButton: {
+    color: "#1F7655",
+    borderWidth: 1,
+    borderColor: "#C9D9D0",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  imageButton: {
+    marginTop: 10,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#17231E",
+    marginTop: 16,
+    marginBottom: 4,
+  },
+  searchRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 11,
-    padding: 12,
-    marginTop: 9,
-    borderRadius: 14,
+    gap: 8,
+    marginBottom: 4,
+  },
+  card: {
     backgroundColor: "#FFFFFF",
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: "#E7EDE8",
-  },
-  itemDetails: {
-    flex: 1,
-    gap: 7,
-  },
-  sectionSpacing: {
-    marginTop: 22,
-    marginBottom: 12,
-  },
-  procedureCard: {
-    padding: 14,
-    marginBottom: 11,
-    borderRadius: 14,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E7EDE8",
+    borderColor: "#E5E8E3",
+    padding: 15,
+    marginBottom: 4,
     gap: 10,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  ingredientLabel: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#17231E",
+  },
+  quantityRow: {
+    flexDirection: "row",
+    gap: 8,
   },
   procedureHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    marginBottom: 3,
   },
-  procedureInput: {
-    marginBottom: 2,
+  stepBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#1F7655",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  imageButton: {
-    marginTop: 8,
+  stepText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "700",
   },
-  saveButton: {
-    marginTop: 24,
+  descriptionLabel: {
+    marginTop: 4,
   },
 });

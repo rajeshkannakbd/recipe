@@ -45,7 +45,12 @@ const SkeletonCard = ({
   </View>
 );
 
-export default function FavoritesScreenSkeleton() {
+export default function FavoritesScreenSkeleton( {
+  count,
+}: {
+  count: number;
+}) {
+  
   const translateX = useRef(
     new Animated.Value(-150)
   ).current;
@@ -102,15 +107,16 @@ useEffect(() => {
         </View>
       </View>
 
+    
       {/* Skeleton cards */}
-      <View style={styles.listContent}>
-        {[1, 2, 3, 4].map((item) => (
-          <SkeletonCard
-            key={item}
-            translateX={translateX}
-          />
-        ))}
-      </View>
+<View style={styles.listContent}>
+  {Array.from({ length: count }).map((_, index) => (
+    <SkeletonCard
+      key={index}
+      translateX={translateX}
+    />
+  ))}
+</View>
     </SafeAreaView>
   );
 }

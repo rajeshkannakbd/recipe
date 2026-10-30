@@ -26,7 +26,7 @@ import {
   FunctionPlanResponse,
 } from "../../api/functionPlanApi";
 import { recipeApi } from "../../api/recipeApi";
-
+import { ApiError } from "../../api/client";
 type RecipeChoice = {
   id: number;
   name: string;
@@ -117,6 +117,11 @@ export default function FunctionPlannerScreen() {
   const [selected, setSelected] = useState<SelectedRecipes>({});
 
   const [deletingPlanId, setDeletingPlanId] = useState<number | null>(null);
+
+  const [deleteTarget, setDeleteTarget] =
+  useState<FunctionPlanResponse | null>(null);
+
+const [deleteModalVisible, setDeleteModalVisible] = useState(false);
 
   const loadPlans = useCallback(async (showSpinner = true) => {
     if (showSpinner) setLoading(true);
@@ -424,34 +429,47 @@ export default function FunctionPlannerScreen() {
   };
 
   const deletePlan = (plan: FunctionPlanResponse) => {
-    Alert.alert(
-      "Delete function?",
-      `Delete "${plan.name}"? This cannot be undone.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            setDeletingPlanId(plan.id);
-            try {
-              await functionPlanApi.delete(plan.id);
-              setPlans((current) =>
-                current.filter((item) => item.id !== plan.id),
-              );
-            } catch (error) {
-              Alert.alert(
-                "Delete failed",
-                error instanceof Error ? error.message : "Please try again.",
-              );
-            } finally {
-              setDeletingPlanId(null);
-            }
-          },
-        },
-      ],
+  setDeleteTarget(plan);
+  setDeleteModalVisible(true);
+};
+
+const confirmDeletePlan = async () => {
+  if (!deleteTarget || deletingPlanId !== null) return;
+
+  const plan = deleteTarget;
+
+  setDeletingPlanId(plan.id);
+
+  try {
+    console.log("DELETE REQUEST:", plan.id);
+
+    await functionPlanApi.delete(plan.id);
+
+    console.log("DELETE SUCCESS:", plan.id);
+
+    setPlans((current) =>
+      current.filter((item) => item.id !== plan.id),
     );
-  };
+
+    setDeleteModalVisible(false);
+    setDeleteTarget(null);
+  } catch (error) {
+    console.error("DELETE ERROR:", error);
+
+    if (error instanceof ApiError) {
+      console.error("Status:", error.status);
+      console.error("URL:", error.url);
+      console.error("Response:", error.data);
+    }
+
+    Alert.alert(
+      "Delete failed",
+      error instanceof Error ? error.message : "Please try again.",
+    );
+  } finally {
+    setDeletingPlanId(null);
+  }
+};
 
   const renderPlanRecipeSummary = (plan: FunctionPlanResponse) => {
     const planRecipes = getPlanRecipes(plan);
@@ -552,7 +570,7 @@ export default function FunctionPlannerScreen() {
           </View>
 
           {loading ? (
-            <FunctionPlannerSkeleton />
+            <FunctionPlannerSkeleton count={Math.max(plans.length, 1)} />
           ) : plans.length === 0 ? (
             <View style={styles.emptyState}>
               <View style={styles.emptyIcon}>
@@ -563,10 +581,13 @@ export default function FunctionPlannerScreen() {
                 Create your first function to select recipes, set serving
                 counts, and prepare a combined shopping list.
               </AppText>
-              <Pressable style={styles.emptyAction} onPress={openAddModal}>
+              <Pressable style={styles.emptyAction} onPress={openAddModal}
+              >
                 <Ionicons name="add" size={18} color="#FFFFFF" />
                 <AppText style={styles.emptyActionText} variant="button">Create function</AppText>
+                
               </Pressable>
+              
             </View>
           ) : (
             plans.map((plan) => {
@@ -1150,6 +1171,67 @@ export default function FunctionPlannerScreen() {
           </View>
         </View>
       </Modal>
+      <Modal
+  visible={deleteModalVisible}
+  transparent
+  animationType="fade"
+  onRequestClose={() => {
+    if (deletingPlanId === null) {
+      setDeleteModalVisible(false);
+      setDeleteTarget(null);
+    }
+  }}
+>
+  <View style={styles.deleteOverlay}>
+    <View style={styles.deleteModal}>
+      <View style={styles.deleteIconCircle}>
+        <Ionicons
+          name="trash-outline"
+          size={27}
+          color="#C13F3F"
+        />
+      </View>
+
+      <AppText style={styles.deleteModalTitle} variant="cardTitle">
+        Delete function?
+      </AppText>
+
+      <AppText style={styles.deleteModalDescription} variant="body">
+        Are you sure you want to delete "{deleteTarget?.name}"?
+        This action cannot be undone.
+      </AppText>
+
+      <View style={styles.deleteModalActions}>
+        <Pressable
+          style={styles.cancelDeleteButton}
+          disabled={deletingPlanId !== null}
+          onPress={() => {
+            setDeleteModalVisible(false);
+            setDeleteTarget(null);
+          }}
+        >
+          <AppText style={styles.cancelDeleteText} variant="button">
+            Cancel
+          </AppText>
+        </Pressable>
+
+        <Pressable
+          style={styles.confirmDeleteButton}
+          disabled={deletingPlanId !== null}
+          onPress={confirmDeletePlan}
+        >
+          {deletingPlanId !== null ? (
+            <ActivityIndicator color="#FFFFFF" size="small" />
+          ) : (
+            <AppText style={styles.confirmDeleteText} variant="button">
+              Delete
+            </AppText>
+          )}
+        </Pressable>
+      </View>
+    </View>
+  </View>
+</Modal>
     </SafeAreaView>
   );
 }
@@ -1767,4 +1849,80 @@ const styles = StyleSheet.create({
   },
   saveButtonText: { color: "#FFFFFF", fontSize: 12, fontWeight: "800" },
   buttonDisabled: { opacity: 0.65 },
+
+  deleteOverlay: {
+  flex: 1,
+  backgroundColor: "rgba(0,0,0,0.45)",
+  justifyContent: "center",
+  alignItems: "center",
+  padding: 22,
+},
+
+deleteModal: {
+  width: "100%",
+  maxWidth: 380,
+  backgroundColor: "#FFFFFF",
+  borderRadius: 20,
+  padding: 24,
+  alignItems: "center",
+},
+
+deleteIconCircle: {
+  width: 60,
+  height: 60,
+  borderRadius: 30,
+  backgroundColor: "#FFF0EF",
+  alignItems: "center",
+  justifyContent: "center",
+  marginBottom: 16,
+},
+
+deleteModalTitle: {
+  fontSize: 19,
+  fontWeight: "800",
+  color: "#26372C",
+  marginBottom: 9,
+},
+
+deleteModalDescription: {
+  fontSize: 13,
+  color: "#77847A",
+  textAlign: "center",
+  lineHeight: 21,
+},
+
+deleteModalActions: {
+  flexDirection: "row",
+  gap: 12,
+  width: "100%",
+  marginTop: 24,
+},
+
+cancelDeleteButton: {
+  flex: 1,
+  height: 45,
+  borderRadius: 11,
+  backgroundColor: "#EFF3EF",
+  alignItems: "center",
+  justifyContent: "center",
+},
+
+cancelDeleteText: {
+  color: "#405247",
+  fontWeight: "700",
+},
+
+confirmDeleteButton: {
+  flex: 1,
+  height: 45,
+  borderRadius: 11,
+  backgroundColor: "#C13F3F",
+  alignItems: "center",
+  justifyContent: "center",
+},
+
+confirmDeleteText: {
+  color: "#FFFFFF",
+  fontWeight: "800",
+},
 });

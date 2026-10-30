@@ -692,7 +692,7 @@ export default function SignupScreen() {
 
                   style={styles.input}
 
-                  placeholder="Create a password (min. 8 characters)"
+                  placeholder="Enter new a password"
 
                   placeholderTextColor="#8A938E"
 

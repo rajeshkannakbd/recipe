@@ -120,7 +120,11 @@ const FunctionCardSkeleton = ({
   </View>
 );
 
-export default function FunctionPlannerSkeleton() {
+export default function FunctionPlannerSkeleton({
+  count = 1,
+}: {
+  count?: number;
+}) {
   const opacity = useRef(new Animated.Value(0.45)).current;
 
   useEffect(() => {
@@ -136,7 +140,7 @@ export default function FunctionPlannerSkeleton() {
           duration: 750,
           useNativeDriver: true,
         }),
-      ])
+      ]),
     );
 
     animation.start();
@@ -146,8 +150,12 @@ export default function FunctionPlannerSkeleton() {
 
   return (
     <View style={styles.container}>
-      <FunctionCardSkeleton opacity={opacity} recipeCount={3} />
-      <FunctionCardSkeleton opacity={opacity} recipeCount={2} />
+      {Array.from({ length: count }).map((_, index) => (
+        <FunctionCardSkeleton
+          key={index}
+          opacity={opacity}
+        />
+      ))}
     </View>
   );
 }

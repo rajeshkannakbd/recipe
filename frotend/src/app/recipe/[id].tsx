@@ -2327,30 +2327,37 @@ export default function RecipeDetailScreen() {
       </Modal>
 
       {/* EDIT INGREDIENT MODAL */}
+
       <Modal
         visible={editingIngredient !== null}
         transparent
         animationType="fade"
+        statusBarTranslucent
         onRequestClose={() => setEditingIngredient(null)}
       >
         <View style={styles.ingredientModalOverlay}>
           <KeyboardAvoidingView
             style={styles.centeredKeyboardModalView}
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
           >
             <ScrollView
+              style={styles.ingredientModalScroll}
               contentContainerStyle={styles.centeredKeyboardModalContent}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
               <View style={styles.ingredientModal}>
-                <AppText style={styles.ingredientModalTitle}>Edit Ingredient</AppText>
+                <AppText style={styles.ingredientModalTitle}>
+                  Edit Ingredient
+                </AppText>
 
                 <AppText style={styles.ingredientModalName}>
                   {editingIngredient?.ingredientName}
                 </AppText>
 
-                <AppText style={styles.ingredientModalLabel}>Quantity</AppText>
+                <AppText style={styles.ingredientModalLabel}>
+                  Quantity
+                </AppText>
 
                 <TextInput
                   value={editedQuantity}
@@ -2358,15 +2365,19 @@ export default function RecipeDetailScreen() {
                   keyboardType="decimal-pad"
                   style={styles.ingredientModalInput}
                   placeholder="Enter quantity"
+                  placeholderTextColor="#929D95"
                 />
 
-                <AppText style={styles.ingredientModalLabel}>Unit</AppText>
+                <AppText style={styles.ingredientModalLabel}>
+                  Unit
+                </AppText>
 
                 <TextInput
                   value={editedUnit}
                   onChangeText={setEditedUnit}
                   style={styles.ingredientModalInput}
                   placeholder="e.g. g, ml, pieces"
+                  placeholderTextColor="#929D95"
                   autoCapitalize="none"
                 />
 
@@ -2375,14 +2386,18 @@ export default function RecipeDetailScreen() {
                     style={styles.ingredientCancelButton}
                     onPress={() => setEditingIngredient(null)}
                   >
-                    <AppText style={styles.ingredientCancelText}>Cancel</AppText>
+                    <AppText style={styles.ingredientCancelText}>
+                      Cancel
+                    </AppText>
                   </Pressable>
 
                   <Pressable
                     style={styles.ingredientSaveButton}
                     onPress={saveIngredientEdit}
                   >
-                    <AppText style={styles.ingredientSaveText}>Save Quantity</AppText>
+                    <AppText style={styles.ingredientSaveText}>
+                      Save Quantity
+                    </AppText>
                   </Pressable>
                 </View>
               </View>
@@ -3796,28 +3811,40 @@ const styles = StyleSheet.create({
   },
 
   /* INGREDIENT EDIT MODAL */
+  /* INGREDIENT EDIT MODAL */
+
   ingredientModalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.45)",
-    alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 24,
+    alignItems: "center",
+    paddingHorizontal: 16,
   },
+
   centeredKeyboardModalView: {
     flex: 1,
+    width: "100%",
     justifyContent: "center",
   },
+
+  ingredientModalScroll: {
+    width: "100%",
+  },
+
   centeredKeyboardModalContent: {
     flexGrow: 1,
     justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 24,
   },
 
   ingredientModal: {
     width: "100%",
     maxWidth: 400,
+    alignSelf: "center",
     backgroundColor: "#FFFFFF",
     borderRadius: 22,
-    padding: 22,
+    padding: 20,
   },
 
   ingredientModalTitle: {
@@ -3831,7 +3858,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#1F7655",
     marginTop: 8,
-    marginBottom: 14,
+    marginBottom: 16,
   },
 
   ingredientModalLabel: {
@@ -3842,50 +3869,58 @@ const styles = StyleSheet.create({
   },
 
   ingredientModalInput: {
+    width: "100%",
+    minHeight: 48,
     borderWidth: 1,
     borderColor: "#D9E1DB",
     borderRadius: 12,
-    paddingHorizontal: 13,
-    paddingVertical: 11,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     fontSize: 16,
     color: "#17231E",
+    backgroundColor: "#FFFFFF",
     marginBottom: 16,
+    textAlignVertical: "center",
   },
 
   ingredientModalActions: {
     flexDirection: "row",
+    width: "100%",
     gap: 10,
     marginTop: 4,
   },
 
   ingredientCancelButton: {
     flex: 1,
+    minHeight: 48,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 13,
+    paddingHorizontal: 8,
     borderRadius: 12,
     backgroundColor: "#F1F3EF",
   },
 
   ingredientCancelText: {
     color: "#52645A",
+    fontSize: 13,
     fontWeight: "700",
   },
 
   ingredientSaveButton: {
     flex: 1,
+    minHeight: 48,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 13,
+    paddingHorizontal: 8,
     borderRadius: 12,
     backgroundColor: "#1F7655",
   },
 
   ingredientSaveText: {
     color: "#FFFFFF",
+    fontSize: 13,
     fontWeight: "700",
   },
-
   /* SUCCESS POPUP */
   successOverlay: {
     position: "absolute",

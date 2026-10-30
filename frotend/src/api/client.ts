@@ -153,7 +153,8 @@ export const put = <T>(path: string, body: unknown) =>
     body: JSON.stringify(body),
   });
 
-export const del = (path: string) =>
-  apiRequest<void>(path, {
+export const del = async (path: string) => {
+  return apiRequest<void>(path, {
     method: "DELETE",
   });
+};

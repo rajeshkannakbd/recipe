@@ -1,24 +1,24 @@
+import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
-  View,
+  Alert,
   FlatList,
-  Pressable,
-  StyleSheet,
   Image,
   Modal,
-  Alert,
+  Pressable,
+  StyleSheet,
+  View,
 } from "react-native";
-import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
 
-import type { RecipeResponse } from "../../types/recipe";
-import { recipeApi } from "../../api/recipeApi";
-import { favoriteApi } from "../../api/favoriteApi";
 import FavoritesScreenSkeleton from "@/components/skeleton/FavoritesScreenSkeleton";
-import AppText from "../../components/common/AppText";
-import { getAuthToken } from "../../utils/authStorage";
 import type { FavoriteCustomization, FavoriteEntry } from "../../api/favoriteApi";
+import { favoriteApi } from "../../api/favoriteApi";
+import { recipeApi } from "../../api/recipeApi";
+import AppText from "../../components/common/AppText";
+import type { RecipeResponse } from "../../types/recipe";
+import { getAuthToken } from "../../utils/authStorage";
 
 import SearchBar from "../../components/common/SearchBar";
 
@@ -33,6 +33,7 @@ export default function FavoritesScreen() {
 
   const [recipes, setRecipes] = useState<FavoriteRecipeItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [skeletonCount, setSkeletonCount] = useState(0);
   const [showRemoveModal, setShowRemoveModal] = useState(false);
   const [selectedFavoriteId, setSelectedFavoriteId] = useState<number | null>(null);
   const [removing, setRemoving] = useState(false);
@@ -40,16 +41,18 @@ export default function FavoritesScreen() {
 
   const load = useCallback(async () => {
     setLoading(true);
-
+    setSkeletonCount(0);
     try {
       const token = await getAuthToken();
 
       if (!token) {
         setRecipes([]);
+        setSkeletonCount(0);
         return;
       }
 
       const favoriteEntries: FavoriteEntry[] = await favoriteApi.getMyFavorites();
+      setSkeletonCount(favoriteEntries.length);
 
       const results = await Promise.all(
         favoriteEntries.map(async (entry): Promise<FavoriteRecipeItem> => {
@@ -71,6 +74,7 @@ export default function FavoritesScreen() {
 
       setRecipes(results);
     } catch (error) {
+      setSkeletonCount(0);
       console.error("Failed to load favorites:", error);
       setRecipes([]);
 
@@ -168,7 +172,7 @@ export default function FavoritesScreen() {
   }, [recipes, search]);
 
   if (loading) {
-    return <FavoritesScreenSkeleton />;
+    return <FavoritesScreenSkeleton count={skeletonCount} />;
   }
 
   return (

@@ -6,8 +6,12 @@ import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-
+import { NavigationBar } from "expo-navigation-bar";
 import { AppProvider } from "../store/AppContext";
+import GlobalAuthGuard from "../components/GlobalAuthGuard";
+import {
+  SafeAreaProvider,
+} from "react-native-safe-area-context";
 
 import {
   Roboto_400Regular,
@@ -25,8 +29,6 @@ import {
 
 import { PlaywriteARGuides_400Regular } from "@expo-google-fonts/playwrite-ar-guides";
 
-import GlobalAuthGuard from "../components/GlobalAuthGuard";
-
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
@@ -42,6 +44,8 @@ export default function RootLayout() {
     BricolageGrotesque_800ExtraBold,
   });
 
+
+
   useEffect(() => {
     if (fontsLoaded || fontError) {
       SplashScreen.hideAsync().catch(() => {});
@@ -52,30 +56,30 @@ export default function RootLayout() {
     return null;
   }
 
-  
-return (
-  <AppProvider>
-    <GlobalAuthGuard>
-      <StatusBar style="dark" />
-
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: {
-            backgroundColor: "#F7F8F3",
-          },
-        }}
-      >
-        <Stack.Screen name="index" />
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="category/[id]" />
-        <Stack.Screen name="recipe/[id]" />
-        <Stack.Screen name="admin" />
-        <Stack.Screen name="login" />
-        <Stack.Screen name="signup" />
-      </Stack>
-    </GlobalAuthGuard>
-  </AppProvider>
-);
-
+  return (
+     <SafeAreaProvider>
+    <AppProvider>
+      <GlobalAuthGuard>
+        <StatusBar style="dark" />
+        <NavigationBar style="dark" />
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: {
+              backgroundColor: "#F7F8F3",
+            },
+          }}
+        >
+          <Stack.Screen name="index" />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="category/[id]" />
+          <Stack.Screen name="recipe/[id]" />
+          <Stack.Screen name="admin" />
+          <Stack.Screen name="login" />
+          <Stack.Screen name="signup" />
+        </Stack>
+      </GlobalAuthGuard>
+    </AppProvider>
+    </SafeAreaProvider>
+  );
 }

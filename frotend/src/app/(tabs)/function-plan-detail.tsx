@@ -406,9 +406,8 @@ export default function FunctionPlanDetailsScreen() {
 
       }
 
+      setLoading(true);
       if (refresh) setRefreshing(true);
-
-      else setLoading(true);
 
       const results = await Promise.allSettled([
 
@@ -894,7 +893,7 @@ export default function FunctionPlanDetailsScreen() {
 
   }, [shoppingList]);
 
-  if (loading) {
+  if (loading || refreshing) {
     return (
       <SafeAreaView
         style={styles.safeArea}
