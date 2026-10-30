@@ -1,10 +1,11 @@
+
 import "../../global.css";
 
 import { useEffect } from "react";
-import { Stack } from "expo-router";
-import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
+import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
+import { StatusBar } from "expo-status-bar";
 
 import { AppProvider } from "../store/AppContext";
 
@@ -24,7 +25,8 @@ import {
 
 import { PlaywriteARGuides_400Regular } from "@expo-google-fonts/playwrite-ar-guides";
 
-// Keep the native splash visible until fonts are ready.
+import GlobalAuthGuard from "../components/GlobalAuthGuard";
+
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
@@ -50,23 +52,30 @@ export default function RootLayout() {
     return null;
   }
 
-  return (
-    <AppProvider>
+  
+return (
+  <AppProvider>
+    <GlobalAuthGuard>
       <StatusBar style="dark" />
+
       <Stack
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: "#F7F8F3" },
+          contentStyle: {
+            backgroundColor: "#F7F8F3",
+          },
         }}
       >
         <Stack.Screen name="index" />
-        <Stack.Screen name="login" />
-        <Stack.Screen name="signup" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="category/[id]" />
         <Stack.Screen name="recipe/[id]" />
         <Stack.Screen name="admin" />
+        <Stack.Screen name="login" />
+        <Stack.Screen name="signup" />
       </Stack>
-    </AppProvider>
-  );
+    </GlobalAuthGuard>
+  </AppProvider>
+);
+
 }

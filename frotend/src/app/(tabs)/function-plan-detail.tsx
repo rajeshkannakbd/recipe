@@ -1,20 +1,14 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
 import AppText from "@/components/common/AppText";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
-
-  ActivityIndicator,
-
   Alert,
 
   Animated,
 
   Image,
-
-  Pressable,
-
   Platform,
-
+  Pressable,
   RefreshControl,
 
   ScrollView,
@@ -22,8 +16,7 @@ import {
   StatusBar,
 
   StyleSheet,
-  View,
-
+  View
 } from "react-native";
 
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -35,7 +28,6 @@ import * as Print from "expo-print";
 import { useLocalSearchParams, useRouter } from "expo-router";
 
 import {
-
   functionPlanApi,
 
   FunctionPlanResponse,
@@ -43,9 +35,9 @@ import {
   FunctionPlanShoppingListResponse,
 
   ShoppingListItemResponse,
-
 } from "../../api/functionPlanApi";
 
+import FunctionPlanDetailsSkeleton from "@/components/skeleton/FunctionPlanDetailsSkeleton";
 import { recipeApi } from "../../api/recipeApi";
 
 type RecipeMeta = {
@@ -214,19 +206,19 @@ const getItemEstimatedCost = (
 
     item.estimatedCost ??
 
-      item.EstimatedCost ??
+    item.EstimatedCost ??
 
-      item.totalCost ??
+    item.totalCost ??
 
-      item.TotalCost ??
+    item.TotalCost ??
 
-      item.totalPrice ??
+    item.totalPrice ??
 
-      item.TotalPrice ??
+    item.TotalPrice ??
 
-      item.estimatedPrice ??
+    item.estimatedPrice ??
 
-      item.EstimatedPrice,
+    item.EstimatedPrice,
 
   );
 
@@ -242,15 +234,15 @@ const getItemUnitPrice = (
 
     item.unitPrice ??
 
-      item.UnitPrice ??
+    item.UnitPrice ??
 
-      item.pricePerUnit ??
+    item.pricePerUnit ??
 
-      item.PricePerUnit ??
+    item.PricePerUnit ??
 
-      item.price ??
+    item.price ??
 
-      item.Price,
+    item.Price,
 
   );
 
@@ -508,13 +500,13 @@ export default function FunctionPlanDetailsScreen() {
 
                 item?.name ??
 
-                  item?.recipeName ??
+                item?.recipeName ??
 
-                  item?.Name ??
+                item?.Name ??
 
-                  item?.RecipeName ??
+                item?.RecipeName ??
 
-                  "",
+                "",
 
               ),
 
@@ -522,11 +514,11 @@ export default function FunctionPlanDetailsScreen() {
 
                 item?.categoryName ??
 
-                  item?.CategoryName ??
+                item?.CategoryName ??
 
-                  item?.category?.name ??
+                item?.category?.name ??
 
-                  "",
+                "",
 
               ),
 
@@ -534,21 +526,21 @@ export default function FunctionPlanDetailsScreen() {
 
                 item?.mealType ??
 
-                  item?.MealType ??
+                item?.MealType ??
 
-                  item?.mealTypeName ??
+                item?.mealTypeName ??
 
-                  item?.MealTypeName ??
+                item?.MealTypeName ??
 
-                  item?.mealCategory ??
+                item?.mealCategory ??
 
-                  item?.MealCategory ??
+                item?.MealCategory ??
 
-                  item?.meal?.name ??
+                item?.meal?.name ??
 
-                  item?.Meal?.Name ??
+                item?.Meal?.Name ??
 
-                  "",
+                "",
 
               ),
 
@@ -556,13 +548,13 @@ export default function FunctionPlanDetailsScreen() {
 
                 item?.photoUrl ??
 
-                  item?.PhotoUrl ??
+                item?.PhotoUrl ??
 
-                  item?.imageUrl ??
+                item?.imageUrl ??
 
-                  item?.ImageUrl ??
+                item?.ImageUrl ??
 
-                  "",
+                "",
 
               ),
 
@@ -903,25 +895,67 @@ export default function FunctionPlanDetailsScreen() {
   }, [shoppingList]);
 
   if (loading) {
-
     return (
-
-      <SafeAreaView style={styles.safeArea}>
-
+      <SafeAreaView
+        style={styles.safeArea}
+        edges={["top", "left", "right"]}
+      >
         <StatusBar barStyle="dark-content" />
 
-        <View style={styles.loadingState}>
+        {/* Keep the actual header visible */}
+        <View style={styles.header}>
+          <Pressable
+            style={styles.backButton}
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace("/function-planner");
+              }
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
+            <Ionicons
+              name="chevron-back"
+              size={21}
+              color="#173A2B"
+            />
+          </Pressable>
 
-          <ActivityIndicator size="large" color="#176747" />
+          <View style={styles.headerText}>
+            <AppText variant="pageTitle" style={styles.pageTitle}>
+              Event details
+            </AppText>
 
-          <AppText variant="helper" style={styles.muted}>Loading function details…</AppText>
+            <AppText variant="subtitle" style={styles.headerSubtitle}>
+              Menu, servings and ingredient cost summary.
+            </AppText>
+          </View>
 
+          <Pressable
+            style={styles.refreshButton}
+            onPress={() => load(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Refresh function details"
+          >
+            <Ionicons
+              name="refresh-outline"
+              size={19}
+              color="#176747"
+            />
+          </Pressable>
         </View>
 
+        <ScrollView
+          style={styles.flex}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
+          <FunctionPlanDetailsSkeleton />
+        </ScrollView>
       </SafeAreaView>
-
     );
-
   }
 
   if (!plan) {
@@ -982,7 +1016,7 @@ export default function FunctionPlanDetailsScreen() {
 
         >
 
-          <Ionicons name="arrow-back" size={21} color="#173A2B" />
+          <Ionicons name="chevron-back" size={21} color="#173A2B" />
 
         </Pressable>
 

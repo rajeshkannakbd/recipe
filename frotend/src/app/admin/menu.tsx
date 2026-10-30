@@ -36,7 +36,7 @@ export default function AdminMenuScreen() {
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
         <Pressable onPress={() => { }} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#17231E" />
+          <Ionicons name="chevron-back" size={24} color="#17231E" />
         </Pressable>
         <AppText variant="pageTitle" style={styles.title}>Menu Management</AppText>
         <View style={{ width: 44 }} />

@@ -1,12 +1,13 @@
-import { useMemo, useCallback, useEffect, useState } from "react";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
-  View,
-  Text,
   FlatList,
+  Image,
   Pressable,
   StyleSheet,
-  Image,
+  Text,
+  View,
 } from "react-native";
 
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -22,7 +23,8 @@ import type { CategoryResponse } from "../../types/category";
 import type { RecipeResponse } from "../../types/recipe";
 
 import SearchBar from "../../components/common/SearchBar";
-import ScreenLoader from "../../components/common/ScreenLoader";
+
+import CategoryRecipesSkeleton from "../../components/skeleton/CategoryRecipesSkeleton";
 
 /* =====================================================
    CATEGORY IMAGES
@@ -47,7 +49,8 @@ export default function CategoryRecipesScreen() {
 
   const router = useRouter();
 
-  const [category, setCategory] = useState<CategoryResponse | null>(null);
+  const [category, setCategory] =
+    useState<CategoryResponse | null>(null);
 
   const [recipes, setRecipes] = useState<RecipeResponse[]>([]);
 
@@ -68,7 +71,11 @@ export default function CategoryRecipesScreen() {
 
       setCategory(cat);
 
-      setRecipes(allRecipes.filter((r) => r.categoryId === Number(id)));
+      setRecipes(
+        allRecipes.filter(
+          (r) => r.categoryId === Number(id)
+        )
+      );
     } catch (e) {
       console.error(e);
     } finally {
@@ -87,17 +94,37 @@ export default function CategoryRecipesScreen() {
   const filtered = useMemo(
     () =>
       recipes.filter((r) =>
-        r.name.toLowerCase().includes(search.toLowerCase()),
+        r.name.toLowerCase().includes(search.toLowerCase())
       ),
-    [recipes, search],
+    [recipes, search]
   );
 
   /* =====================================================
-     LOADING
+     LOADING SKELETON
   ===================================================== */
 
   if (loading) {
-    return <ScreenLoader />;
+    return (
+      <SafeAreaView
+        style={styles.container}
+        edges={["top"]}
+      >
+        {/* FIXED BACK BUTTON */}
+        <Pressable
+          onPress={() => router.back()}
+          style={styles.backBtnFixed}
+        >
+          <Ionicons
+            name="chevron-back"
+            size={24}
+            color="#17231E"
+          />
+        </Pressable>
+
+        {/* CONTINUOUS SHIMMER SKELETON */}
+        <CategoryRecipesSkeleton />
+      </SafeAreaView>
+    );
   }
 
   /* =====================================================
@@ -108,10 +135,17 @@ export default function CategoryRecipesScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Category not found</Text>
+          <Text style={styles.errorText}>
+            Category not found
+          </Text>
 
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
-            <Text style={styles.backButtonText}>Go Back</Text>
+          <Pressable
+            onPress={() => router.back()}
+            style={styles.backButton}
+          >
+            <Text style={styles.backButtonText}>
+              Go Back
+            </Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -124,18 +158,31 @@ export default function CategoryRecipesScreen() {
 
   const categoryKey = category.name.trim().toLowerCase();
 
-  const categoryImageUrl = CATEGORY_IMAGES[categoryKey];
+  const categoryImageUrl = category.imageUrl;
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
-      <Pressable onPress={() => router.back()} style={styles.backBtnFixed}>
-        <Ionicons name="arrow-back" size={24} color="#17231E" />
+    <SafeAreaView
+      style={styles.container}
+      edges={["top"]}
+    >
+      {/* FIXED BACK BUTTON */}
+      <Pressable
+        onPress={() => router.back()}
+        style={styles.backBtnFixed}
+      >
+        <Ionicons
+          name="chevron-back"
+          size={24}
+          color="#17231E"
+        />
       </Pressable>
+
       <FlatList
         data={filtered}
         keyExtractor={(item) => String(item.id)}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
+
         /* =================================================
            HEADER
         ================================================== */
@@ -157,7 +204,7 @@ export default function CategoryRecipesScreen() {
                       console.log(
                         "CATEGORY IMAGE LOADED:",
                         category.name,
-                        categoryImageUrl,
+                        categoryImageUrl
                       )
                     }
                     onError={(error) =>
@@ -165,7 +212,7 @@ export default function CategoryRecipesScreen() {
                         "CATEGORY IMAGE ERROR:",
                         category.name,
                         categoryImageUrl,
-                        error.nativeEvent,
+                        error.nativeEvent
                       )
                     }
                   />
@@ -186,13 +233,17 @@ export default function CategoryRecipesScreen() {
                 )}
               </View>
 
-              <Text style={styles.categoryName}>{category.name}</Text>
+              <Text style={styles.categoryName}>
+                {category.name}
+              </Text>
 
               <Text style={styles.categoryDescription}>
                 {category.description}
               </Text>
 
-              <Text style={styles.recipeCount}>{recipes.length} recipes</Text>
+              <Text style={styles.recipeCount}>
+                {recipes.length} recipes
+              </Text>
             </View>
 
             {/* SEARCH */}
@@ -206,6 +257,7 @@ export default function CategoryRecipesScreen() {
             </View>
           </View>
         }
+
         /* =================================================
            RECIPE CARD
         ================================================== */
@@ -236,7 +288,7 @@ export default function CategoryRecipesScreen() {
                     console.log(
                       "CATEGORY RECIPE IMAGE LOADED:",
                       item.name,
-                      item.photoUrl,
+                      item.photoUrl
                     )
                   }
                   onError={(error) =>
@@ -244,19 +296,24 @@ export default function CategoryRecipesScreen() {
                       "CATEGORY RECIPE IMAGE ERROR:",
                       item.name,
                       item.photoUrl,
-                      error.nativeEvent,
+                      error.nativeEvent
                     )
                   }
                 />
               ) : (
-                <Text style={styles.recipeEmoji}>{item.name.charAt(0)}</Text>
+                <Text style={styles.recipeEmoji}>
+                  {item.name.charAt(0)}
+                </Text>
               )}
             </View>
 
             {/* RECIPE INFORMATION */}
 
             <View style={styles.recipeInfo}>
-              <Text style={styles.recipeName} numberOfLines={1}>
+              <Text
+                style={styles.recipeName}
+                numberOfLines={1}
+              >
                 {item.name}
               </Text>
 
@@ -289,18 +346,29 @@ export default function CategoryRecipesScreen() {
 
             {/* ARROW */}
 
-            <Ionicons name="chevron-forward" size={20} color="#C5C9C4" />
+            <Ionicons
+              name="chevron-forward"
+              size={20}
+              color="#C5C9C4"
+            />
           </Pressable>
         )}
+
         /* =================================================
            EMPTY STATE
         ================================================== */
 
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Ionicons name="restaurant-outline" size={48} color="#C5C9C4" />
+            <Ionicons
+              name="restaurant-outline"
+              size={48}
+              color="#C5C9C4"
+            />
 
-            <Text style={styles.emptyTitle}>No recipes yet</Text>
+            <Text style={styles.emptyTitle}>
+              No recipes yet
+            </Text>
 
             <Text style={styles.emptyText}>
               Recipes in this category will appear here
@@ -332,9 +400,7 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
 
-  /* ===================================================
-     BACK BUTTON
-  ==================================================== */
+  /* BACK BUTTON */
 
   backBtn: {
     width: 44,
@@ -363,9 +429,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
-  /* ===================================================
-     CATEGORY
-  ==================================================== */
+  /* CATEGORY */
 
   categoryInfo: {
     alignItems: "center",
@@ -412,17 +476,13 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
 
-  /* ===================================================
-     SEARCH
-  ==================================================== */
+  /* SEARCH */
 
   searchContainer: {
     marginTop: 8,
   },
 
-  /* ===================================================
-     RECIPE CARD
-  ==================================================== */
+  /* RECIPE CARD */
 
   recipeCard: {
     flexDirection: "row",
@@ -456,9 +516,7 @@ const styles = StyleSheet.create({
     color: "#1F7655",
   },
 
-  /* ===================================================
-     RECIPE INFORMATION
-  ==================================================== */
+  /* RECIPE INFORMATION */
 
   recipeInfo: {
     flex: 1,
@@ -477,9 +535,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  /* ===================================================
-     STATUS
-  ==================================================== */
+  /* STATUS */
 
   statusBadge: {
     alignSelf: "flex-start",
@@ -510,9 +566,7 @@ const styles = StyleSheet.create({
     color: "#E65100",
   },
 
-  /* ===================================================
-     EMPTY STATE
-  ==================================================== */
+  /* EMPTY STATE */
 
   emptyState: {
     alignItems: "center",
@@ -532,9 +586,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
-  /* ===================================================
-     ERROR
-  ==================================================== */
+  /* ERROR */
 
   errorContainer: {
     flex: 1,

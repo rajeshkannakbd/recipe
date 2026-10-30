@@ -30,7 +30,7 @@ import type { RecipeResponse } from "../../types/recipe";
 
 import SearchBar from "../../components/common/SearchBar";
 
-import ScreenLoader from "../../components/common/ScreenLoader";
+import CategoriesScreenSkeleton from "@/components/skeleton/CategoriesScreenSkeleton";
 import AppText from "@/components/common/AppText";
 
 const CATEGORY_IMAGES: Record<string, string> = {
@@ -418,7 +418,7 @@ export default function CategoriesScreen() {
   };
 
   if (loading) {
-    return <ScreenLoader />;
+    return <CategoriesScreenSkeleton />;
   }
 
   return (
@@ -507,7 +507,7 @@ export default function CategoriesScreen() {
                                 accessibilityRole="button"
                               >
                                 <AppText variant="button" style={styles.heroButtonText}>Explore recipes</AppText>
-                                <Ionicons name="arrow-forward" size={16} color={COLORS.primaryDark} />
+                                <Ionicons name="chevron-forward" size={16} color={COLORS.primaryDark} />
                               </Pressable>
                             </Animated.View>
                           </View>
@@ -1296,7 +1296,7 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 3,
     backgroundColor: "#FFFFFF",
     borderRadius: 12,
     paddingHorizontal: 14,

@@ -245,7 +245,7 @@ export default function AdminUsersScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color="#1A202C" />
+          <Ionicons name="chevron-back" size={22} color="#1A202C" />
         </Pressable>
         <AppText variant="pageTitle" style={styles.headerTitle}>Manage Users</AppText>
         <Pressable onPress={openCreateModal} style={styles.addBtn}>

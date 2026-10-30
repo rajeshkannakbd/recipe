@@ -53,6 +53,8 @@ import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 
 import { usePathname } from "expo-router";
+import CategoriesScreenSkeleton from "@/components/skeleton/CategoriesScreenSkeleton";
+import CategoryListSkeleton from "@/components/skeleton/CategoryListSkeleton";
 
 /* =====================================================
 
@@ -568,7 +570,7 @@ export default function AdminCategoriesScreen() {
 
   if (loading) {
 
-    return <ScreenLoader />;
+    return <CategoryListSkeleton />;
 
   }
 

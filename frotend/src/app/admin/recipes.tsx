@@ -29,6 +29,7 @@ import SearchBar from "../../components/common/SearchBar";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ScreenLoader from "../../components/common/ScreenLoader";
+import RecipeListSkeleton2 from "@/components/skeleton/RecipeListSkeleton2";
 
 type FilterTab = "all" | "published" | "draft";
 
@@ -213,7 +214,7 @@ useFocusEffect(
     ];
 
   if (loading) {
-    return <ScreenLoader />;
+    return <RecipeListSkeleton2 />;
   }
 
   return (

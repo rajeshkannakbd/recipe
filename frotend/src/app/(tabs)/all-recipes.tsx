@@ -16,7 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ingredientApi } from "../../api/ingredientApi";
 import { recipeApi } from "../../api/recipeApi";
 import AppText from "../../components/common/AppText";
-import ScreenLoader from "../../components/common/ScreenLoader";
+import RecipeListSkeleton from "../../components/skeleton/RecipeListSkeleton";
 import SearchBar from "../../components/common/SearchBar";
 import {
   IngredientType,
@@ -106,6 +106,7 @@ export default function AllRecipesScreen() {
     Record<number, number>
   >({});
   const [search, setSearch] = useState("");
+  const [filtersVisible, setFiltersVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeMeal, setActiveMeal] = useState<MealFilter>("All");
   const [activeCuisine, setActiveCuisine] = useState("All");
@@ -364,7 +365,7 @@ export default function AllRecipesScreen() {
         </View>
         <View style={styles.recipeInfo}>
           <View style={styles.nameRatingRow}>
-            <AppText variant="cardTitle" style={styles.recipeName} numberOfLines={2}>
+            <AppText variant="cardTitle" style={styles.recipeName} numberOfLines={1}>
               {item.name || "Untitled recipe"}
             </AppText>
             {reviewCount > 0 && averageRating > 0 ? (
@@ -376,7 +377,7 @@ export default function AllRecipesScreen() {
               </View>
             ) : null}
           </View>
-          <AppText variant="body" style={styles.recipeDescription} numberOfLines={2}>
+          <AppText variant="body" style={styles.recipeDescription} numberOfLines={1}>
             {item.description?.trim() ||
               item.categoryName ||
               "Discover this recipe."}
@@ -441,7 +442,7 @@ export default function AllRecipesScreen() {
       </Pressable>
     );
   };
-  if (loading) return <ScreenLoader />;
+  if (loading) return <RecipeListSkeleton />;
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <Animated.View
@@ -463,23 +464,40 @@ export default function AllRecipesScreen() {
         <View style={styles.headingRow}>
           <View style={styles.headingTextWrap}>
             <AppText variant="pageTitle" style={styles.title}>All Recipes</AppText>
-            <AppText variant="subtitle" style={styles.subtitle}>Find your next favourite dish</AppText>
+            {/* <AppText variant="subtitle" style={styles.subtitle}>Find your next favourite dish</AppText> */}
           </View>
           <Pressable
-            style={styles.refreshButton}
+            style={styles.headerIconButton}
             onPress={load}
             accessibilityRole="button"
             accessibilityLabel="Refresh recipes"
+            hitSlop={6}
           >
             <Ionicons name="refresh-outline" size={20} color="#1F7655" />
           </Pressable>
         </View>
-        <View style={styles.searchContainer}>
-          <SearchBar
-            value={search}
-            onChangeText={setSearch}
-            placeholder="Search recipes, ingredients, chefs..."
-          />
+        <View style={styles.searchToolsRow}>
+          <View style={styles.searchContainer}>
+            <SearchBar
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Search recipes, ingredients, chefs..."
+            />
+          </View>
+          <Pressable
+            style={[styles.headerIconButton, filtersVisible && styles.headerIconButtonActive]}
+            onPress={() => {
+              setFiltersVisible((visible) => !visible);
+              setActiveDropdown(null);
+              setDropdownSearch("");
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={filtersVisible ? "Hide recipe filters" : "Show recipe filters"}
+            accessibilityState={{ expanded: filtersVisible }}
+            hitSlop={6}
+          >
+            <Ionicons name="options-outline" size={21} color={filtersVisible ? "#FFFFFF" : "#1F7655"} />
+          </Pressable>
         </View>
         <View style={styles.foodToggleRow}>
           {([
@@ -512,84 +530,102 @@ export default function AllRecipesScreen() {
               </AppText>
             </Pressable>
           ))}
-        </View>
-        <View style={styles.filterTableWrap}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.filterTableRow}
-            keyboardShouldPersistTaps="handled"
-          >
-            {(
-              [
-                {
-                  key: "meal",
-                  title: "Meal type",
-                  value: activeMeal,
-                  options: mealOptions,
-                },
-                {
-                  key: "cuisine",
-                  title: "Cuisine",
-                  value: activeCuisine,
-                  options: cuisineOptions,
-                },
-                {
-                  key: "style",
-                  title: "Cooking style",
-                  value: activeCookingStyle,
-                  options: cookingStyleOptions,
-                },
-              ] as const
-            ).map((filter) => (
+          <View style={styles.foodToggleUtilityGroup}>
+            {activeMeal !== "All" ||
+              activeCuisine !== "All" ||
+              activeCookingStyle !== "All" ||
+              activeFood !== "All" ||
+              search.trim() ? (
               <Pressable
-                key={filter.key}
-                style={[
-                  styles.filterDropdown,
-                  activeDropdown === filter.key && styles.filterDropdownOpen,
-                  filter.value !== "All" && styles.filterDropdownSelected,
-                ]}
-                onPress={() => {
-                  setDropdownSearch("");
-                  setActiveDropdown((current) =>
-                    current === filter.key ? null : filter.key,
-                  );
-                }}
+                style={styles.utilityIconButton}
+                onPress={resetFilters}
                 accessibilityRole="button"
-                accessibilityLabel={`Choose ${filter.title}`}
-                accessibilityState={{ expanded: activeDropdown === filter.key }}
+                accessibilityLabel="Clear all filters"
+                hitSlop={6}
               >
-                <AppText variant="label" style={styles.filterDropdownTitle} numberOfLines={1}>
-                  {filter.title}
-                </AppText>
-                <View style={styles.filterDropdownValueRow}>
-                  <AppText
-                    style={[
-                      styles.filterDropdownValue,
-                      filter.value !== "All" &&
-                      styles.filterDropdownValueSelected,
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {filter.value}
-                  </AppText>
-                  <Ionicons
-                    name={
-                      activeDropdown === filter.key
-                        ? "chevron-up"
-                        : "chevron-down"
-                    }
-                    size={13}
-                    color={filter.value !== "All" ? "#1F7655" : "#778179"}
-                  />
-                </View>
+                <Ionicons name="close-circle-outline" size={19} color="#C44949" /> 
               </Pressable>
-            ))}
-          </ScrollView>
-          {activeDropdown ? (
-            <View style={styles.filterDropdownMenu}>
-              <View style={styles.filterDropdownMenuHeader}>
-                {/* <AppText style={styles.filterDropdownMenuTitle}>
+            ) : null}
+          </View>
+        </View>
+        {filtersVisible ? (
+          <View style={styles.filterTableWrap}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterTableRow}
+              keyboardShouldPersistTaps="handled"
+            >
+              {(
+                [
+                  {
+                    key: "meal",
+                    title: "Meal type",
+                    value: activeMeal,
+                    options: mealOptions,
+                  },
+                  {
+                    key: "cuisine",
+                    title: "Cuisine",
+                    value: activeCuisine,
+                    options: cuisineOptions,
+                  },
+                  {
+                    key: "style",
+                    title: "Cooking style",
+                    value: activeCookingStyle,
+                    options: cookingStyleOptions,
+                  },
+                ] as const
+              ).map((filter) => (
+                <Pressable
+                  key={filter.key}
+                  style={[
+                    styles.filterDropdown,
+                    activeDropdown === filter.key && styles.filterDropdownOpen,
+                    filter.value !== "All" && styles.filterDropdownSelected,
+                  ]}
+                  onPress={() => {
+                    setDropdownSearch("");
+                    setActiveDropdown((current) =>
+                      current === filter.key ? null : filter.key,
+                    );
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Choose ${filter.title}`}
+                  accessibilityState={{ expanded: activeDropdown === filter.key }}
+                >
+                  <AppText variant="label" style={styles.filterDropdownTitle} numberOfLines={1}>
+                    {filter.title}
+                  </AppText>
+                  <View style={styles.filterDropdownValueRow}>
+                    <AppText
+                      style={[
+                        styles.filterDropdownValue,
+                        filter.value !== "All" &&
+                        styles.filterDropdownValueSelected,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {filter.value}
+                    </AppText>
+                    <Ionicons
+                      name={
+                        activeDropdown === filter.key
+                          ? "chevron-up"
+                          : "chevron-down"
+                      }
+                      size={13}
+                      color={filter.value !== "All" ? "#1F7655" : "#778179"}
+                    />
+                  </View>
+                </Pressable>
+              ))}
+            </ScrollView>
+            {activeDropdown ? (
+              <View style={styles.filterDropdownMenu}>
+                <View style={styles.filterDropdownMenuHeader}>
+                  {/* <AppText style={styles.filterDropdownMenuTitle}>
                   {activeDropdown === "meal"
                     ? "Meal type"
                     : activeDropdown === "cuisine"
@@ -598,120 +634,107 @@ export default function AllRecipesScreen() {
                         ? "Cooking style"
                         : "Cooking style"}
                 </AppText> */}
-                <Pressable
-                  onPress={() => {
-                    setActiveDropdown(null);
-                    setDropdownSearch("");
-                  }}
-                  hitSlop={8}
-                >
-                  <Ionicons name="close" size={18} color="#66736A" />
-                </Pressable>
-              </View>
-              <View style={styles.dropdownSearchBox}>
-                <Ionicons name="search-outline" size={16} color="#849087" />
-                <TextInput
-                  value={dropdownSearch}
-                  onChangeText={setDropdownSearch}
-                  placeholder={`Search ${activeDropdown === "meal" ? "meal types" : activeDropdown === "cuisine" ? "cuisines" : activeDropdown === "style" ? "cooking styles" : "filter options"}...`}
-                  placeholderTextColor="#929D95"
-                  style={styles.dropdownSearchInput}
-                  autoCorrect={false}
-                  autoCapitalize="none"
-                  returnKeyType="search"
-                  accessibilityLabel="Search filter options"
-                />
-                {!!dropdownSearch && (
-                  <Pressable onPress={() => setDropdownSearch("")} hitSlop={8}>
-                    <Ionicons name="close-circle" size={16} color="#849087" />
+                  <Pressable
+                    onPress={() => {
+                      setActiveDropdown(null);
+                      setDropdownSearch("");
+                    }}
+                    hitSlop={8}
+                  >
+                    <Ionicons name="close" size={18} color="#66736A" />
                   </Pressable>
-                )}
-              </View>
-              <ScrollView
-                style={styles.filterDropdownOptions}
-                nestedScrollEnabled
-                keyboardShouldPersistTaps="handled"
-              >
-                {(activeDropdown === "meal"
-                  ? mealOptions
-                  : activeDropdown === "cuisine"
-                    ? cuisineOptions
-                    : cookingStyleOptions
-                )
-                  .filter((option) =>
-                    normalize(option).includes(normalize(dropdownSearch)),
+                </View>
+                <View style={styles.dropdownSearchBox}>
+                  <Ionicons name="search-outline" size={16} color="#849087" />
+                  <TextInput
+                    value={dropdownSearch}
+                    onChangeText={setDropdownSearch}
+                    placeholder={`Search ${activeDropdown === "meal" ? "meal types" : activeDropdown === "cuisine" ? "cuisines" : activeDropdown === "style" ? "cooking styles" : "filter options"}...`}
+                    placeholderTextColor="#929D95"
+                    style={styles.dropdownSearchInput}
+                    autoCorrect={false}
+                    autoCapitalize="none"
+                    returnKeyType="search"
+                    accessibilityLabel="Search filter options"
+                  />
+                  {!!dropdownSearch && (
+                    <Pressable onPress={() => setDropdownSearch("")} hitSlop={8}>
+                      <Ionicons name="close-circle" size={16} color="#849087" />
+                    </Pressable>
+                  )}
+                </View>
+                <ScrollView
+                  style={styles.filterDropdownOptions}
+                  nestedScrollEnabled
+                  keyboardShouldPersistTaps="handled"
+                >
+                  {(activeDropdown === "meal"
+                    ? mealOptions
+                    : activeDropdown === "cuisine"
+                      ? cuisineOptions
+                      : cookingStyleOptions
                   )
-                  .map((option) => {
-                    const selectedValue =
-                      activeDropdown === "meal"
-                        ? activeMeal
-                        : activeDropdown === "cuisine"
-                          ? activeCuisine
-                          : activeCookingStyle;
-                    const isSelected = option === selectedValue;
-                    return (
-                      <Pressable
-                        key={option}
-                        style={[
-                          styles.filterDropdownOption,
-                          isSelected && styles.filterDropdownOptionActive,
-                        ]}
-                        onPress={() => {
-                          if (activeDropdown === "meal") setActiveMeal(option);
-                          else if (activeDropdown === "cuisine")
-                            setActiveCuisine(option);
-                          else setActiveCookingStyle(option);
-                          setActiveDropdown(null);
-                        }}
-                      >
-                        <AppText
+                    .filter((option) =>
+                      normalize(option).includes(normalize(dropdownSearch)),
+                    )
+                    .map((option) => {
+                      const selectedValue =
+                        activeDropdown === "meal"
+                          ? activeMeal
+                          : activeDropdown === "cuisine"
+                            ? activeCuisine
+                            : activeCookingStyle;
+                      const isSelected = option === selectedValue;
+                      return (
+                        <Pressable
+                          key={option}
                           style={[
-                            styles.filterDropdownOptionText,
-                            isSelected && styles.filterDropdownOptionTextActive,
+                            styles.filterDropdownOption,
+                            isSelected && styles.filterDropdownOptionActive,
                           ]}
+                          onPress={() => {
+                            if (activeDropdown === "meal") setActiveMeal(option);
+                            else if (activeDropdown === "cuisine")
+                              setActiveCuisine(option);
+                            else setActiveCookingStyle(option);
+                            setActiveDropdown(null);
+                          }}
                         >
-                          {option}
-                        </AppText>
-                        {isSelected ? (
-                          <Ionicons
-                            name="checkmark-circle"
-                            size={18}
-                            color="#1F7655"
-                          />
-                        ) : null}
-                      </Pressable>
-                    );
-                  })}
-                {!(activeDropdown === "meal"
-                  ? mealOptions
-                  : activeDropdown === "cuisine"
-                    ? cuisineOptions
-                    : cookingStyleOptions
-                ).some((option) =>
-                  normalize(option).includes(normalize(dropdownSearch)),
-                ) ? (
-                  <AppText variant="helper" style={styles.dropdownNoResults}>
-                    No matching options
-                  </AppText>
-                ) : null}
-              </ScrollView>
-            </View>
-          ) : null}
-        </View>
-        <View style={styles.resultsRow}>
-          <AppText variant="helper" style={styles.resultsText}>
-            {filtered.length} {filtered.length === 1 ? "recipe" : "recipes"}
-          </AppText>
-          {activeMeal !== "All" ||
-            activeCuisine !== "All" ||
-            activeCookingStyle !== "All" ||
-            activeFood !== "All" ||
-            search.trim() ? (
-            <Pressable onPress={resetFilters}>
-              <AppText variant="label" style={styles.clearText}>Clear filters</AppText>
-            </Pressable>
-          ) : null}
-        </View>
+                          <AppText
+                            style={[
+                              styles.filterDropdownOptionText,
+                              isSelected && styles.filterDropdownOptionTextActive,
+                            ]}
+                          >
+                            {option}
+                          </AppText>
+                          {isSelected ? (
+                            <Ionicons
+                              name="checkmark-circle"
+                              size={18}
+                              color="#1F7655"
+                            />
+                          ) : null}
+                        </Pressable>
+                      );
+                    })}
+                  {!(activeDropdown === "meal"
+                    ? mealOptions
+                    : activeDropdown === "cuisine"
+                      ? cuisineOptions
+                      : cookingStyleOptions
+                  ).some((option) =>
+                    normalize(option).includes(normalize(dropdownSearch)),
+                  ) ? (
+                    <AppText variant="helper" style={styles.dropdownNoResults}>
+                      No matching options
+                    </AppText>
+                  ) : null}
+                </ScrollView>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
       </Animated.View>
       <Animated.View
         style={[
@@ -787,29 +810,60 @@ const styles = StyleSheet.create({
     letterSpacing: -0.65,
   },
   subtitle: { color: "#778179", fontSize: 13, lineHeight: 19, marginTop: 4 },
-  refreshButton: {
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginLeft: 12,
+  },
+  headerIconButton: {
     width: 40,
     height: 40,
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#EAF3ED",
-    marginLeft: 12,
   },
-  searchContainer: { marginTop: 16, marginBottom: 12 },
-  foodToggleRow: {
+  headerIconButtonActive: { backgroundColor: "#1F7655" },
+  refreshButton: {
+    marginLeft: 0,
+  },
+  searchToolsRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    marginBottom: 10,
+    marginTop: 10,
+    marginBottom: 8,
+  },
+  searchContainer: { flex: 1, minWidth: 0 },
+  foodToggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    // marginBottom: 5,
     marginTop: 2,
+    flexWrap: "nowrap",
+  },
+  foodToggleUtilityGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginLeft: "auto",
+  },
+  utilityIconButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFF0F0",
   },
   foodToggleButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    paddingHorizontal: 15,
+    paddingHorizontal: 11,
     paddingVertical: 9,
     borderRadius: 20,
     borderWidth: 1,
@@ -976,14 +1030,6 @@ const styles = StyleSheet.create({
   },
   chipTextActive: { color: "#FFFFFF" },
   advancedFilters: { marginTop: 9, gap: 3 },
-  resultsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 13,
-  },
-  resultsText: { fontSize: 12, color: "#778179", fontWeight: "600" },
-  clearText: { fontSize: 12, color: "#1F7655", fontWeight: "700" },
   listContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 30 },
   listAnimationWrap: { flex: 1 },
   emptyListContent: { flexGrow: 1 },

@@ -1,4 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -14,17 +16,16 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
 
 import AppText from "../../components/common/AppText";
 
-import { recipeApi } from "../../api/recipeApi";
+import FunctionPlannerSkeleton from "@/components/skeleton/FunctionPlannerSkeleton";
 import {
   functionPlanApi,
   FunctionPlanRequest,
   FunctionPlanResponse,
 } from "../../api/functionPlanApi";
+import { recipeApi } from "../../api/recipeApi";
 
 type RecipeChoice = {
   id: number;
@@ -496,7 +497,7 @@ export default function FunctionPlannerScreen() {
                 : router.replace("/categories" as never)
             }
           >
-            <Ionicons name="arrow-back" size={21} color="#173A2B" />
+            <Ionicons name="chevron-back" size={21} color="#173A2B" />
           </Pressable> */}
 
           <View style={styles.headerText}>
@@ -551,10 +552,7 @@ export default function FunctionPlannerScreen() {
           </View>
 
           {loading ? (
-            <View style={styles.loadingBox}>
-              <ActivityIndicator size="large" color="#267653" />
-              <AppText style={styles.muted} variant="helper">Loading saved functions…</AppText>
-            </View>
+            <FunctionPlannerSkeleton />
           ) : plans.length === 0 ? (
             <View style={styles.emptyState}>
               <View style={styles.emptyIcon}>
@@ -662,7 +660,7 @@ export default function FunctionPlannerScreen() {
                     <AppText style={styles.shoppingButtonText} variant="button">
                       View shopping list
                     </AppText>
-                    <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+                    <Ionicons name="chevron-forward" size={16} color="#FFFFFF" />
                   </Pressable>
                 </View>
               );
@@ -1040,8 +1038,8 @@ export default function FunctionPlannerScreen() {
                 style={[
                   styles.calendarNavButton,
                   displayedMonth.getFullYear() === today.getFullYear() &&
-                    displayedMonth.getMonth() === today.getMonth() &&
-                    styles.calendarNavButtonDisabled,
+                  displayedMonth.getMonth() === today.getMonth() &&
+                  styles.calendarNavButtonDisabled,
                 ]}
                 disabled={
                   displayedMonth.getFullYear() === today.getFullYear() &&

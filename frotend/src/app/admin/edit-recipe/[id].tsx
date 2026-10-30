@@ -42,8 +42,8 @@ import {
   type RecipeStatus,
 } from "../../../types/recipe";
 
+import EditRecipeSkeleton from "@/components/skeleton/EditRecipeSkeleton";
 import AppText from "../../../components/common/AppText";
-import ScreenLoader from "../../../components/common/ScreenLoader";
 
 const UNITS = ["g", "kg", "ml", "l", "pcs", "tbsp", "tsp", "cup"];
 
@@ -1397,7 +1397,7 @@ export default function EditRecipeScreen() {
     router.back();
   };
 
-  if (loading) return <ScreenLoader />;
+  if (loading) return <EditRecipeSkeleton />;
 
   return (
     <SafeAreaView
@@ -1410,7 +1410,7 @@ export default function EditRecipeScreen() {
       >
         <View style={styles.header}>
           <Pressable onPress={() => handleBack()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#17231E" />
+            <Ionicons name="chevron-back" size={24} color="#17231E" />
           </Pressable>
 
           <AppText style={styles.headerTitle}>
@@ -3500,7 +3500,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 5,
     marginTop: 9,
-    marginHorizontal:2,
+    marginHorizontal: 2,
   },
   summaryPill: {
     flexDirection: "row",

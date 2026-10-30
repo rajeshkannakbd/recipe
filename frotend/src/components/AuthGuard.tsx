@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, useRef, type ReactNode } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 
@@ -28,8 +28,20 @@ export default function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter();
   const [allowed, setAllowed] = useState(false);
 
+  const redirected = useRef(false);
+
+
+
   useEffect(() => {
+    
     let active = true;
+
+    const redirectOnce = (path: string) => {
+  if (!active || redirected.current) return;
+
+  redirected.current = true;
+  router.replace(path as any);
+};
 
     async function checkAccess() {
       try {
@@ -37,7 +49,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
         const storedUser = await getAuthUser();
 
         if (!token || !storedUser) {
-          if (active) router.replace("/login");
+          if (active) redirectOnce("/login");
           return;
         }
 
@@ -49,19 +61,19 @@ export default function AuthGuard({ children }: AuthGuardProps) {
               : (storedUser as AuthUser);
         } catch {
           await clearAuthData();
-          if (active) router.replace("/login");
+          if (active) redirectOnce("/login");
           return;
         }
 
         if (user.role?.trim().toLowerCase() !== "admin") {
-          if (active) router.replace("/(tabs)/categories");
+          if (active) redirectOnce("/(tabs)/categories");
           return;
         }
 
         if (active) setAllowed(true);
       } catch (error) {
         console.error("Admin route check failed:", error);
-        if (active) router.replace("/login");
+        if (active) redirectOnce("/login");
       }
     }
 

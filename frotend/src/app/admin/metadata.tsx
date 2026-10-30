@@ -18,6 +18,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 
+import MetadataSkeleton from "@/components/skeleton/MetadataSkeleton";
 import { chefApi, ChefRecord } from "../../api/chefApi";
 import { cookingStyleApi, CookingStyleRecord } from "../../api/cookingStyleApi";
 import { cuisineApi, CuisineRecord } from "../../api/cuisineApi";
@@ -274,7 +275,7 @@ export default function MetadataScreen() {
               style={s.backButton}
               hitSlop={8}
             >
-              <Ionicons name="arrow-back" size={22} color="#17231D" />
+              <Ionicons name="chevron-back" size={22} color="#17231D" />
             </Pressable>
             <View style={s.headerTextContainer}>
               <AppText variant="pageTitle" style={s.title}>Recipe & Chef Directory</AppText>
@@ -361,10 +362,7 @@ export default function MetadataScreen() {
           />
 
           {loading ? (
-            <View style={s.loadingBox}>
-              <ActivityIndicator size="large" color="#1F7655" />
-              <AppText variant="helper" style={s.loadingText}>Loading metadata...</AppText>
-            </View>
+            <MetadataSkeleton />
           ) : filteredItems.length === 0 ? (
             <View style={s.emptyBox}>
               <AppText variant="sectionTitle" style={s.emptyTitle}>No items found</AppText>

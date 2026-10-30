@@ -39,11 +39,11 @@ import type { IngredientResponse } from "../../types/ingredient";
 
 import SearchBar from "../../components/common/SearchBar";
 
-import ScreenLoader from "../../components/common/ScreenLoader";
 
 import AppText from "../../components/common/AppText";
 
 import { IngredientStatus, IngredientType } from "../../types/ingredient";
+import AdminIngredientsSkeleton from "@/components/skeleton/AdminIngredientsSkeleton";
 
 export default function AdminIngredientsScreen() {
 
@@ -671,11 +671,59 @@ export default function AdminIngredientsScreen() {
 
   };
 
-  if (loading) {
 
-    return <ScreenLoader />;
+if (loading) {
+  return (
+    <SafeAreaView style={styles.container} edges={[]}>
+      {/* Keep actual header visible */}
+      <View
+        style={[
+          styles.header,
+          { paddingTop: Platform.OS === "web" ? 8 : 8 },
+        ]}
+      >
+        <View style={styles.headerTop}>
+          <View style={styles.headerTitle}>
+            <AppText variant="pageTitle" style={styles.title}>
+              Manage Ingredients
+            </AppText>
 
-  }
+            <AppText variant="label" style={styles.brandCaption}>
+              ADMIN WORKSPACE
+            </AppText>
+          </View>
+
+          <Pressable
+            style={styles.addButton}
+            onPress={() => openModal()}
+          >
+            <Ionicons name="add" size={20} color="#fff" />
+            <AppText variant="button" style={styles.addButtonText}>
+              Add
+            </AppText>
+          </Pressable>
+        </View>
+
+        <View style={styles.searchContainer}>
+          <SearchBar
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search ingredients..."
+          />
+        </View>
+      </View>
+
+      {/* Ingredient card skeletons */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ flexGrow: 1 }}
+      >
+        <AdminIngredientsSkeleton />
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
 
   return (
 

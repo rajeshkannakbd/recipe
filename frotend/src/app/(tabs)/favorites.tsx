@@ -15,7 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import type { RecipeResponse } from "../../types/recipe";
 import { recipeApi } from "../../api/recipeApi";
 import { favoriteApi } from "../../api/favoriteApi";
-import ScreenLoader from "../../components/common/ScreenLoader";
+import FavoritesScreenSkeleton from "@/components/skeleton/FavoritesScreenSkeleton";
 import AppText from "../../components/common/AppText";
 import { getAuthToken } from "../../utils/authStorage";
 import type { FavoriteCustomization, FavoriteEntry } from "../../api/favoriteApi";
@@ -168,7 +168,7 @@ export default function FavoritesScreen() {
   }, [recipes, search]);
 
   if (loading) {
-    return <ScreenLoader />;
+    return <FavoritesScreenSkeleton />;
   }
 
   return (

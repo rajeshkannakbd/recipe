@@ -1,18 +1,18 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import {
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-  ScrollView,
+  Alert,
   KeyboardAvoidingView,
   Modal,
-  TextInput,
-  Alert,
   Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
 
 interface Role {
   id: number;
@@ -96,8 +96,8 @@ export default function AdminRolesScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <Pressable onPress={() => {}} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#17231E" />
+        <Pressable onPress={() => { }} style={styles.backButton}>
+          <Ionicons name="chevron-back" size={24} color="#17231E" />
         </Pressable>
         <Text style={styles.title}>Roles & Permissions</Text>
         <View style={{ width: 44 }} />

@@ -3,15 +3,27 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet } from "react-native";
 import AuthGuard from "../../components/AuthGuard";
+import {
+  useTabBarStyle,
+  tabBarLabelStyle,
+  TAB_ACTIVE,
+  TAB_INACTIVE,
+} from "../../components/useTabBarStyle";
+
+type IconName = React.ComponentProps<typeof Ionicons>["name"];
+
+const icon =
+  (active: IconName, inactive: IconName) =>
+  ({ color, size, focused }: { color: string; size: number; focused: boolean }) =>
+    <Ionicons name={focused ? active : inactive} size={size} color={color} />;
 
 export default function AdminLayout() {
   const segments = useSegments();
-
+  const tabBarStyle = useTabBarStyle();
 
   // Keep Recipes active while viewing the edit recipe screen.
   const isRecipeSection = segments.some(
-    (segment) =>
-      segment === "recipes" || segment === "edit-recipe"
+    (segment) => segment === "recipes" || segment === "edit-recipe"
   );
 
   return (
@@ -20,48 +32,23 @@ export default function AdminLayout() {
         <Tabs
           screenOptions={{
             headerShown: false,
-            tabBarActiveTintColor: "#1F7655",
-            tabBarInactiveTintColor: "#7A837E",
-            tabBarStyle: {
-              height: 74,
-              paddingTop: 7,
-              paddingBottom: 9,
-              backgroundColor: "#FFFFFF",
-              borderTopColor: "#E5E8E3",
-            },
-            tabBarLabelStyle: {
-              fontSize: 11,
-              fontWeight: "700",
-            },
+            tabBarActiveTintColor: TAB_ACTIVE,
+            tabBarInactiveTintColor: TAB_INACTIVE,
+            tabBarHideOnKeyboard: true,
+            tabBarStyle,
+            tabBarLabelStyle,
           }}
         >
           <Tabs.Screen
             name="index"
-            options={{
-              title: "Dashboard",
-              tabBarIcon: ({ color, size }) => (
-                <Ionicons
-                  name="grid-outline"
-                  size={size}
-                  color={color as string}
-                />
-              ),
-            }}
+            options={{ title: "Dashboard", tabBarIcon: icon("grid", "grid-outline") }}
           />
 
           <Tabs.Screen
             name="edit-recipe/[id]"
             options={{
               href: null,
-              tabBarStyle: isRecipeSection
-                ? {
-                    height: 74,
-                    paddingTop: 7,
-                    paddingBottom: 9,
-                    backgroundColor: "#FFFFFF",
-                    borderTopColor: "#E5E8E3",
-                  }
-                : { display: "none" },
+              tabBarStyle: isRecipeSection ? tabBarStyle : { display: "none" },
             }}
           />
 
@@ -75,47 +62,27 @@ export default function AdminLayout() {
             name="recipes"
             options={{
               title: "Recipes",
-              tabBarIcon: ({ color, size }) => (
+              tabBarIcon: ({ size, focused }) => (
                 <Ionicons
-                  name="restaurant-outline"
+                  name={focused || isRecipeSection ? "restaurant" : "restaurant-outline"}
                   size={size}
-                  color={isRecipeSection ? "#1F7655" : (color as string)}
+                  color={isRecipeSection ? TAB_ACTIVE : TAB_INACTIVE}
                 />
               ),
               tabBarLabelStyle: {
-                fontSize: 11,
-                fontWeight: "700",
-                color: isRecipeSection ? "#1F7655" : undefined,
+                ...tabBarLabelStyle,
+                color: isRecipeSection ? TAB_ACTIVE : TAB_INACTIVE,
               },
             }}
           />
 
           <Tabs.Screen
             name="categories"
-            options={{
-              title: "Categories",
-              tabBarIcon: ({ color, size }) => (
-                <Ionicons
-                  name="albums-outline"
-                  size={size}
-                  color={color as string}
-                />
-              ),
-            }}
+            options={{ title: "Categories", tabBarIcon: icon("albums", "albums-outline") }}
           />
-
           <Tabs.Screen
             name="ingredients"
-            options={{
-              title: "Ingredients",
-              tabBarIcon: ({ color, size }) => (
-                <Ionicons
-                  name="leaf-outline"
-                  size={size}
-                  color={color as string}
-                />
-              ),
-            }}
+            options={{ title: "Ingredients", tabBarIcon: icon("leaf", "leaf-outline") }}
           />
         </Tabs>
       </SafeAreaView>
@@ -124,8 +91,5 @@ export default function AdminLayout() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F7F8F3",
-  },
+  container: { flex: 1, backgroundColor: "#F7F8F3" },
 });

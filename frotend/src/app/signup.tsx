@@ -1,26 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 
 import {
-
-  View,
-  TextInput,
-
-  Pressable,
-
-  StyleSheet,
-
-  KeyboardAvoidingView,
-
-  Platform,
-
   ActivityIndicator,
-
-  ScrollView,
-
   Animated,
 
   Easing,
+  KeyboardAvoidingView,
 
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
 } from "react-native";
 
 
@@ -37,8 +29,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 
 
-import { API_BASE_URL } from "../api/client";
 import AppText from "@/components/common/AppText";
+import { API_BASE_URL } from "../api/client";
 
 
 
@@ -77,10 +69,10 @@ export default function SignupScreen() {
   const footerTranslateY = useRef(new Animated.Value(8)).current;
 
 
-const nameRef = useRef<TextInput>(null);
-const emailRef = useRef<TextInput>(null);
-const passwordRef = useRef<TextInput>(null);
-const confirmPasswordRef = useRef<TextInput>(null);
+  const nameRef = useRef<TextInput>(null);
+  const emailRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInput>(null);
+  const confirmPasswordRef = useRef<TextInput>(null);
 
 
   useEffect(() => {
@@ -289,7 +281,7 @@ const confirmPasswordRef = useRef<TextInput>(null);
 
 
 
-if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
 
       setError("Please enter a valid email address.");
 
@@ -413,13 +405,13 @@ if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
 
           data?.message ||
 
-            validationMessages ||
+          validationMessages ||
 
-            (response.status === 409
+          (response.status === 409
 
-              ? "This email is already registered."
+            ? "This email is already registered."
 
-              : `Registration failed (${response.status}).`),
+            : `Registration failed (${response.status}).`),
 
         );
 
@@ -469,24 +461,24 @@ if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
 
   return (
 
-    
+
     <SafeAreaView style={styles.container}>
-  <KeyboardAvoidingView
-    style={styles.keyboardView}
-    behavior={Platform.OS === "ios" ? "padding" : undefined}
-    keyboardVerticalOffset={0}
-  >
-    <ScrollView
-      style={styles.scrollView}
-      contentContainerStyle={styles.scrollContent}
-      keyboardShouldPersistTaps="handled"
-      keyboardDismissMode={
-        Platform.OS === "ios" ? "interactive" : "on-drag"
-      }
-      showsVerticalScrollIndicator={false}
-      automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
-      nestedScrollEnabled
-    >
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={0}
+      >
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={
+            Platform.OS === "ios" ? "interactive" : "on-drag"
+          }
+          showsVerticalScrollIndicator={false}
+          automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
+          nestedScrollEnabled
+        >
 
           <View style={styles.content}>
 
@@ -602,9 +594,9 @@ if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
 
                   accessibilityLabel="Full name"
 
-                   ref={nameRef}
-  
-  onSubmitEditing={() => emailRef.current?.focus()}
+                  ref={nameRef}
+
+                  onSubmitEditing={() => emailRef.current?.focus()}
 
                 />
 
@@ -662,9 +654,9 @@ if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
 
                   accessibilityLabel="Email address"
 
-                   ref={emailRef}
+                  ref={emailRef}
 
-  onSubmitEditing={() => passwordRef.current?.focus()}
+                  onSubmitEditing={() => passwordRef.current?.focus()}
 
                 />
 
@@ -721,9 +713,9 @@ if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
                   maxLength={100}
 
                   accessibilityLabel="Password"
-                    ref={passwordRef}
- 
-  onSubmitEditing={() => confirmPasswordRef.current?.focus()}
+                  ref={passwordRef}
+
+                  onSubmitEditing={() => confirmPasswordRef.current?.focus()}
 
                 />
 
@@ -815,10 +807,10 @@ if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
 
                   accessibilityLabel="Confirm password"
 
-                    ref={confirmPasswordRef}
+                  ref={confirmPasswordRef}
 
-  onSubmitEditing={handleSignup}
-  blurOnSubmit
+                  onSubmitEditing={handleSignup}
+                  blurOnSubmit
 
                 />
 
@@ -1022,33 +1014,33 @@ if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
 
 const styles = StyleSheet.create({
 
-  
-container: {
-  flex: 1,
-  backgroundColor: "#F7F8F3",
-},
 
-keyboardView: {
-  flex: 1,
-},
+  container: {
+    flex: 1,
+    backgroundColor: "#F7F8F3",
+  },
 
-scrollView: {
-  flex: 1,
-},
+  keyboardView: {
+    flex: 1,
+  },
 
-scrollContent: {
-  flexGrow: 1,
-  justifyContent: "flex-start",
-  paddingTop: 24,
-  paddingBottom: 40,
-},
+  scrollView: {
+    flex: 1,
+  },
 
-content: {
-  width: "100%",
-  maxWidth: 480,
-  alignSelf: "center",
-  paddingHorizontal: 24,
-},
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: "flex-start",
+    paddingTop: 24,
+    paddingBottom: 40,
+  },
+
+  content: {
+    width: "100%",
+    maxWidth: 480,
+    alignSelf: "center",
+    paddingHorizontal: 24,
+  },
 
 
 

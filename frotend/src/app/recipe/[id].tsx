@@ -35,8 +35,9 @@ import type {
 } from "../../types/recipe";
 
 import AppText from "@/components/common/AppText";
-import ScreenLoader from "../../components/common/ScreenLoader";
-
+import RecipeDetailSkeleton, {
+  SkeletonBlock,
+} from "../../components/skeleton/RecipeDetailSkeleton";
 
 const formatEstimatedWeight = (grams: number): string => {
   if (grams >= 1000) {
@@ -1052,9 +1053,69 @@ export default function RecipeDetailScreen() {
     }
   };
 
+
   if (loading || !recipe || !calculation) {
-    return <ScreenLoader />;
+    return (
+      <SafeAreaView
+        style={styles.container}
+        edges={["top", "left", "right"]}
+      >
+        {/* Fixed header remains visible */}
+        <View style={styles.fixedHeader}>
+          <BlurView
+            intensity={Platform.OS === "ios" ? 75 : 45}
+            tint="light"
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+            }}
+          />
+
+          <View style={styles.headerTint} />
+
+          <Pressable
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace("/(tabs)/categories");
+              }
+            }}
+            style={styles.headerIconButton}
+            hitSlop={8}
+          >
+            <Ionicons name="chevron-back" size={23} color="#17231E" />
+          </Pressable>
+
+          <View style={{ flex: 1 }}>
+            <SkeletonBlock style={{ width: 120, height: 16 }} />
+          </View>
+
+          <View style={styles.headerIconButton}>
+            <Ionicons
+              name="calendar-outline"
+              size={20}
+              color="#1F7655"
+            />
+          </View>
+
+          <View style={styles.headerIconButton}>
+            <Ionicons
+              name="heart-outline"
+              size={23}
+              color="#68736D"
+            />
+          </View>
+        </View>
+
+        <RecipeDetailSkeleton />
+      </SafeAreaView>
+    );
   }
+
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
@@ -1082,7 +1143,7 @@ export default function RecipeDetailScreen() {
           style={styles.headerIconButton}
           hitSlop={8}
         >
-          <Ionicons name="arrow-back" size={23} color="#17231E" />
+          <Ionicons name="chevron-back" size={23} color="#17231E" />
         </Pressable>
 
         <AppText style={styles.headerRecipeName} numberOfLines={1}>
@@ -1153,7 +1214,7 @@ export default function RecipeDetailScreen() {
             <View style={styles.recipeHeadingText}>
               <AppText style={styles.recipeTitle}>{recipe.name}</AppText>
               {hasText(recipe.description) ? (
-                <AppText style={styles.recipeDescription} numberOfLines={2}>
+                <AppText style={styles.recipeDescription} numberOfLines={3}>
                   {recipe.description}
                 </AppText>
               ) : null}
@@ -1576,176 +1637,176 @@ export default function RecipeDetailScreen() {
               showsVerticalScrollIndicator={false}
             >
               <View style={styles.eventModal}>
-            <View style={styles.eventModalHeader}>
-              <View style={{ flex: 1 }}>
-                <AppText style={styles.eventModalTitle}>Add to Event</AppText>
-                <AppText style={styles.eventModalSubtitle} numberOfLines={2}>
-                  {recipe.name}
-                </AppText>
-              </View>
-              <Pressable
-                onPress={() => setShowAddToEventModal(false)}
-                style={styles.eventModalClose}
-                hitSlop={8}
-              >
-                <Ionicons name="close" size={22} color="#34423A" />
-              </Pressable>
-            </View>
+                <View style={styles.eventModalHeader}>
+                  <View style={{ flex: 1 }}>
+                    <AppText style={styles.eventModalTitle}>Add to Event</AppText>
+                    <AppText style={styles.eventModalSubtitle} numberOfLines={2}>
+                      {recipe.name}
+                    </AppText>
+                  </View>
+                  <Pressable
+                    onPress={() => setShowAddToEventModal(false)}
+                    style={styles.eventModalClose}
+                    hitSlop={8}
+                  >
+                    <Ionicons name="close" size={22} color="#34423A" />
+                  </Pressable>
+                </View>
 
-            <AppText style={styles.eventFieldLabel}>Required servings</AppText>
-            <TextInput
-              value={requiredServingsInput}
-              onChangeText={(value) => {
-                if (/^\d*$/.test(value)) setRequiredServingsInput(value);
-              }}
-              keyboardType="number-pad"
-              inputMode="numeric"
-              placeholder="Enter servings"
-              style={styles.eventTextInput}
-              selectTextOnFocus
-            />
-            <AppText style={styles.eventHelperText}>
-              Choose how many people this recipe should serve for this event.
-            </AppText>
-
-            <Pressable
-              style={styles.createEventToggle}
-              onPress={() => setShowCreateEventForm((current) => !current)}
-            >
-              <Ionicons
-                name={
-                  showCreateEventForm
-                    ? "remove-circle-outline"
-                    : "add-circle-outline"
-                }
-                size={20}
-                color="#1F7655"
-              />
-              <AppText style={styles.createEventToggleText}>
-                {showCreateEventForm
-                  ? "Choose an existing event"
-                  : "Create a new event"}
-              </AppText>
-            </Pressable>
-
-            {showCreateEventForm ? (
-              <View style={styles.createEventForm}>
-                <AppText style={styles.eventFieldLabel}>Event name</AppText>
+                <AppText style={styles.eventFieldLabel}>Required servings</AppText>
                 <TextInput
-                  value={newEventName}
-                  onChangeText={setNewEventName}
-                  placeholder="e.g. Family function"
-                  maxLength={150}
+                  value={requiredServingsInput}
+                  onChangeText={(value) => {
+                    if (/^\d*$/.test(value)) setRequiredServingsInput(value);
+                  }}
+                  keyboardType="number-pad"
+                  inputMode="numeric"
+                  placeholder="Enter servings"
                   style={styles.eventTextInput}
-                  returnKeyType="done"
+                  selectTextOnFocus
                 />
                 <AppText style={styles.eventHelperText}>
-                  You can add the event date and notes later in Function
-                  Planner.
+                  Choose how many people this recipe should serve for this event.
                 </AppText>
+
                 <Pressable
-                  style={[
-                    styles.eventPrimaryButton,
-                    isSavingFunctionPlan && styles.eventButtonDisabled,
-                  ]}
-                  onPress={createEventWithRecipe}
-                  disabled={isSavingFunctionPlan}
+                  style={styles.createEventToggle}
+                  onPress={() => setShowCreateEventForm((current) => !current)}
                 >
-                  <AppText style={styles.eventPrimaryButtonText}>
-                    {isSavingFunctionPlan
-                      ? "Saving…"
-                      : "Create event and add recipe"}
+                  <Ionicons
+                    name={
+                      showCreateEventForm
+                        ? "remove-circle-outline"
+                        : "add-circle-outline"
+                    }
+                    size={20}
+                    color="#1F7655"
+                  />
+                  <AppText style={styles.createEventToggleText}>
+                    {showCreateEventForm
+                      ? "Choose an existing event"
+                      : "Create a new event"}
                   </AppText>
                 </Pressable>
-              </View>
-            ) : (
-              <>
-                <AppText style={styles.eventListTitle}>Your events</AppText>
-                {isLoadingFunctionPlans ? (
-                  <View style={styles.eventLoadingRow}>
-                    <AppText style={styles.eventEmptyText}>Loading events…</AppText>
-                  </View>
-                ) : functionPlans.length === 0 ? (
-                  <View style={styles.eventEmptyBox}>
-                    <Ionicons
-                      name="calendar-clear-outline"
-                      size={28}
-                      color="#8A938E"
+
+                {showCreateEventForm ? (
+                  <View style={styles.createEventForm}>
+                    <AppText style={styles.eventFieldLabel}>Event name</AppText>
+                    <TextInput
+                      value={newEventName}
+                      onChangeText={setNewEventName}
+                      placeholder="e.g. Family function"
+                      maxLength={150}
+                      style={styles.eventTextInput}
+                      returnKeyType="done"
                     />
-                    <AppText style={styles.eventEmptyText}>
-                      You don't have any events yet.
+                    <AppText style={styles.eventHelperText}>
+                      You can add the event date and notes later in Function
+                      Planner.
                     </AppText>
-                    <AppText style={styles.eventEmptyHint}>
-                      Create one above to start planning.
-                    </AppText>
+                    <Pressable
+                      style={[
+                        styles.eventPrimaryButton,
+                        isSavingFunctionPlan && styles.eventButtonDisabled,
+                      ]}
+                      onPress={createEventWithRecipe}
+                      disabled={isSavingFunctionPlan}
+                    >
+                      <AppText style={styles.eventPrimaryButtonText}>
+                        {isSavingFunctionPlan
+                          ? "Saving…"
+                          : "Create event and add recipe"}
+                      </AppText>
+                    </Pressable>
                   </View>
                 ) : (
-                  <ScrollView
-                    style={styles.eventList}
-                    showsVerticalScrollIndicator={false}
-                    keyboardShouldPersistTaps="handled"
-                    nestedScrollEnabled
-                  >
-                    {functionPlans.map((plan) => {
-                      const alreadyAdded =
-                        plan.recipes?.some(
-                          (item) => item.recipeId === recipe.id,
-                        ) ?? false;
-                      return (
-                        <Pressable
-                          key={plan.id}
-                          style={styles.eventListItem}
-                          onPress={() => addRecipeToExistingEvent(plan)}
-                          disabled={isSavingFunctionPlan}
-                        >
-                          <View style={styles.eventListIcon}>
-                            <Ionicons
-                              name="calendar-outline"
-                              size={19}
-                              color="#1F7655"
-                            />
-                          </View>
-                          <View style={styles.eventListTextWrap}>
-                            <AppText
-                              style={styles.eventListName}
-                              numberOfLines={1}
+                  <>
+                    <AppText style={styles.eventListTitle}>Your events</AppText>
+                    {isLoadingFunctionPlans ? (
+                      <View style={styles.eventLoadingRow}>
+                        <AppText style={styles.eventEmptyText}>Loading events…</AppText>
+                      </View>
+                    ) : functionPlans.length === 0 ? (
+                      <View style={styles.eventEmptyBox}>
+                        <Ionicons
+                          name="calendar-clear-outline"
+                          size={28}
+                          color="#8A938E"
+                        />
+                        <AppText style={styles.eventEmptyText}>
+                          You don't have any events yet.
+                        </AppText>
+                        <AppText style={styles.eventEmptyHint}>
+                          Create one above to start planning.
+                        </AppText>
+                      </View>
+                    ) : (
+                      <ScrollView
+                        style={styles.eventList}
+                        showsVerticalScrollIndicator={false}
+                        keyboardShouldPersistTaps="handled"
+                        nestedScrollEnabled
+                      >
+                        {functionPlans.map((plan) => {
+                          const alreadyAdded =
+                            plan.recipes?.some(
+                              (item) => item.recipeId === recipe.id,
+                            ) ?? false;
+                          return (
+                            <Pressable
+                              key={plan.id}
+                              style={styles.eventListItem}
+                              onPress={() => addRecipeToExistingEvent(plan)}
+                              disabled={isSavingFunctionPlan}
                             >
-                              {plan.name}
-                            </AppText>
-                            <AppText
-                              style={styles.eventListMeta}
-                              numberOfLines={1}
-                            >
-                              {plan.recipes?.length ?? 0} recipe
-                              {(plan.recipes?.length ?? 0) === 1 ? "" : "s"}
-                              {plan.eventDate
-                                ? ` · ${new Date(plan.eventDate).toLocaleDateString()}`
-                                : ""}
-                            </AppText>
-                          </View>
-                          {alreadyAdded ? (
-                            <Ionicons
-                              name="checkmark-circle"
-                              size={21}
-                              color="#1F7655"
-                            />
-                          ) : (
-                            <Ionicons
-                              name="chevron-forward"
-                              size={19}
-                              color="#8A938E"
-                            />
-                          )}
-                        </Pressable>
-                      );
-                    })}
-                  </ScrollView>
+                              <View style={styles.eventListIcon}>
+                                <Ionicons
+                                  name="calendar-outline"
+                                  size={19}
+                                  color="#1F7655"
+                                />
+                              </View>
+                              <View style={styles.eventListTextWrap}>
+                                <AppText
+                                  style={styles.eventListName}
+                                  numberOfLines={1}
+                                >
+                                  {plan.name}
+                                </AppText>
+                                <AppText
+                                  style={styles.eventListMeta}
+                                  numberOfLines={1}
+                                >
+                                  {plan.recipes?.length ?? 0} recipe
+                                  {(plan.recipes?.length ?? 0) === 1 ? "" : "s"}
+                                  {plan.eventDate
+                                    ? ` · ${new Date(plan.eventDate).toLocaleDateString()}`
+                                    : ""}
+                                </AppText>
+                              </View>
+                              {alreadyAdded ? (
+                                <Ionicons
+                                  name="checkmark-circle"
+                                  size={21}
+                                  color="#1F7655"
+                                />
+                              ) : (
+                                <Ionicons
+                                  name="chevron-forward"
+                                  size={19}
+                                  color="#8A938E"
+                                />
+                              )}
+                            </Pressable>
+                          );
+                        })}
+                      </ScrollView>
+                    )}
+                  </>
                 )}
-              </>
-            )}
-            {isSavingFunctionPlan ? (
-              <AppText style={styles.eventSavingText}>Saving event…</AppText>
-            ) : null}
+                {isSavingFunctionPlan ? (
+                  <AppText style={styles.eventSavingText}>Saving event…</AppText>
+                ) : null}
               </View>
             </ScrollView>
           </KeyboardAvoidingView>
@@ -1962,95 +2023,95 @@ export default function RecipeDetailScreen() {
               showsVerticalScrollIndicator={false}
             >
               <View style={styles.reviewModal}>
-            <View style={styles.reviewModalHeader}>
-              <View style={styles.reviewModalHeading}>
-                <AppText style={styles.reviewModalTitle}>
-                  {isEditingReview ? "Edit your review" : "Rate this recipe"}
-                </AppText>
-                <AppText style={styles.reviewModalSubtitle} numberOfLines={2}>
-                  Share your experience with {recipe.name}.
-                </AppText>
-              </View>
-              <Pressable
-                onPress={() => setShowReviewModal(false)}
-                style={styles.reviewModalClose}
-                accessibilityRole="button"
-                accessibilityLabel="Close review form"
-                hitSlop={8}
-              >
-                <Ionicons name="close" size={22} color="#34423A" />
-              </Pressable>
-            </View>
+                <View style={styles.reviewModalHeader}>
+                  <View style={styles.reviewModalHeading}>
+                    <AppText style={styles.reviewModalTitle}>
+                      {isEditingReview ? "Edit your review" : "Rate this recipe"}
+                    </AppText>
+                    <AppText style={styles.reviewModalSubtitle} numberOfLines={2}>
+                      Share your experience with {recipe.name}.
+                    </AppText>
+                  </View>
+                  <Pressable
+                    onPress={() => setShowReviewModal(false)}
+                    style={styles.reviewModalClose}
+                    accessibilityRole="button"
+                    accessibilityLabel="Close review form"
+                    hitSlop={8}
+                  >
+                    <Ionicons name="close" size={22} color="#34423A" />
+                  </Pressable>
+                </View>
 
-            <View style={styles.reviewStarPicker}>
-              {[1, 2, 3, 4, 5].map((star) => (
-                <Pressable
-                  key={star}
-                  onPress={() => setReviewRating(star)}
-                  hitSlop={6}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${star} star${star === 1 ? "" : "s"}`}
-                >
-                  <Ionicons
-                    name={star <= reviewRating ? "star" : "star-outline"}
-                    size={34}
-                    color="#E6A23C"
-                  />
-                </Pressable>
-              ))}
-            </View>
-            <AppText style={styles.reviewRatingCaption}>
-              {
-                ["", "Poor", "Fair", "Good", "Very good", "Excellent"][
-                reviewRating
-                ]
-              }
-            </AppText>
-
-            <AppText style={styles.reviewInputLabel}>Your review (optional)</AppText>
-            <TextInput
-              value={reviewComment}
-              onChangeText={setReviewComment}
-              placeholder="What did you think of this recipe?"
-              placeholderTextColor="#8A938E"
-              multiline
-              maxLength={1000}
-              textAlignVertical="top"
-              style={styles.reviewCommentInput}
-            />
-            <AppText style={styles.reviewCharacterCount}>
-              {reviewComment.length}/1000
-            </AppText>
-
-            <View style={styles.reviewModalActions}>
-              <Pressable
-                style={styles.reviewCancelButton}
-                onPress={() => setShowReviewModal(false)}
-                disabled={isSubmittingReview}
-              >
-                <AppText style={styles.reviewCancelText}>Cancel</AppText>
-              </Pressable>
-              <Pressable
-                style={[
-                  styles.reviewSubmitButton,
-                  isSubmittingReview && styles.reviewSubmitButtonDisabled,
-                ]}
-                onPress={handleSubmitReview}
-                disabled={isSubmittingReview}
-              >
-                <AppText style={styles.reviewSubmitText}>
-                  {isSubmittingReview
-                    ? "Saving..."
-                    : isEditingReview
-                      ? "Save changes"
-                      : "Submit review"}
+                <View style={styles.reviewStarPicker}>
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Pressable
+                      key={star}
+                      onPress={() => setReviewRating(star)}
+                      hitSlop={6}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${star} star${star === 1 ? "" : "s"}`}
+                    >
+                      <Ionicons
+                        name={star <= reviewRating ? "star" : "star-outline"}
+                        size={34}
+                        color="#E6A23C"
+                      />
+                    </Pressable>
+                  ))}
+                </View>
+                <AppText style={styles.reviewRatingCaption}>
+                  {
+                    ["", "Poor", "Fair", "Good", "Very good", "Excellent"][
+                    reviewRating
+                    ]
+                  }
                 </AppText>
-              </Pressable>
+
+                <AppText style={styles.reviewInputLabel}>Your review (optional)</AppText>
+                <TextInput
+                  value={reviewComment}
+                  onChangeText={setReviewComment}
+                  placeholder="What did you think of this recipe?"
+                  placeholderTextColor="#8A938E"
+                  multiline
+                  maxLength={1000}
+                  textAlignVertical="top"
+                  style={styles.reviewCommentInput}
+                />
+                <AppText style={styles.reviewCharacterCount}>
+                  {reviewComment.length}/1000
+                </AppText>
+
+                <View style={styles.reviewModalActions}>
+                  <Pressable
+                    style={styles.reviewCancelButton}
+                    onPress={() => setShowReviewModal(false)}
+                    disabled={isSubmittingReview}
+                  >
+                    <AppText style={styles.reviewCancelText}>Cancel</AppText>
+                  </Pressable>
+                  <Pressable
+                    style={[
+                      styles.reviewSubmitButton,
+                      isSubmittingReview && styles.reviewSubmitButtonDisabled,
+                    ]}
+                    onPress={handleSubmitReview}
+                    disabled={isSubmittingReview}
+                  >
+                    <AppText style={styles.reviewSubmitText}>
+                      {isSubmittingReview
+                        ? "Saving..."
+                        : isEditingReview
+                          ? "Save changes"
+                          : "Submit review"}
+                    </AppText>
+                  </Pressable>
                 </View>
               </View>
-              </ScrollView>
-            </KeyboardAvoidingView>
-          </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </View>
       </Modal>
 
       {/* FIXED FOOTER: show only metrics returned by the calculation API */}
@@ -2283,51 +2344,51 @@ export default function RecipeDetailScreen() {
               showsVerticalScrollIndicator={false}
             >
               <View style={styles.ingredientModal}>
-            <AppText style={styles.ingredientModalTitle}>Edit Ingredient</AppText>
+                <AppText style={styles.ingredientModalTitle}>Edit Ingredient</AppText>
 
-            <AppText style={styles.ingredientModalName}>
-              {editingIngredient?.ingredientName}
-            </AppText>
+                <AppText style={styles.ingredientModalName}>
+                  {editingIngredient?.ingredientName}
+                </AppText>
 
-            <AppText style={styles.ingredientModalLabel}>Quantity</AppText>
+                <AppText style={styles.ingredientModalLabel}>Quantity</AppText>
 
-            <TextInput
-              value={editedQuantity}
-              onChangeText={setEditedQuantity}
-              keyboardType="decimal-pad"
-              style={styles.ingredientModalInput}
-              placeholder="Enter quantity"
-            />
+                <TextInput
+                  value={editedQuantity}
+                  onChangeText={setEditedQuantity}
+                  keyboardType="decimal-pad"
+                  style={styles.ingredientModalInput}
+                  placeholder="Enter quantity"
+                />
 
-            <AppText style={styles.ingredientModalLabel}>Unit</AppText>
+                <AppText style={styles.ingredientModalLabel}>Unit</AppText>
 
-            <TextInput
-              value={editedUnit}
-              onChangeText={setEditedUnit}
-              style={styles.ingredientModalInput}
-              placeholder="e.g. g, ml, pieces"
-              autoCapitalize="none"
-            />
+                <TextInput
+                  value={editedUnit}
+                  onChangeText={setEditedUnit}
+                  style={styles.ingredientModalInput}
+                  placeholder="e.g. g, ml, pieces"
+                  autoCapitalize="none"
+                />
 
-            <View style={styles.ingredientModalActions}>
-              <Pressable
-                style={styles.ingredientCancelButton}
-                onPress={() => setEditingIngredient(null)}
-              >
-                <AppText style={styles.ingredientCancelText}>Cancel</AppText>
-              </Pressable>
+                <View style={styles.ingredientModalActions}>
+                  <Pressable
+                    style={styles.ingredientCancelButton}
+                    onPress={() => setEditingIngredient(null)}
+                  >
+                    <AppText style={styles.ingredientCancelText}>Cancel</AppText>
+                  </Pressable>
 
-              <Pressable
-                style={styles.ingredientSaveButton}
-                onPress={saveIngredientEdit}
-              >
-                <AppText style={styles.ingredientSaveText}>Save Quantity</AppText>
-              </Pressable>
+                  <Pressable
+                    style={styles.ingredientSaveButton}
+                    onPress={saveIngredientEdit}
+                  >
+                    <AppText style={styles.ingredientSaveText}>Save Quantity</AppText>
+                  </Pressable>
                 </View>
               </View>
-              </ScrollView>
-            </KeyboardAvoidingView>
-          </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </View>
       </Modal>
 
       {/* SAVE SUCCESS POPUP */}

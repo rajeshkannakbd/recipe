@@ -1,3 +1,4 @@
+import AdminDashboardSkeleton from "@/components/skeleton/AdminDashboardSkeleton";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -19,7 +20,6 @@ import { categoryApi } from "../../api/categoryApi";
 import { ingredientApi } from "../../api/ingredientApi";
 import { recipeApi } from "../../api/recipeApi";
 import AppText from "../../components/common/AppText";
-import ScreenLoader from "../../components/common/ScreenLoader";
 import type { CategoryResponse } from "../../types/category";
 import type { IngredientResponse } from "../../types/ingredient";
 import type { RecipeResponse } from "../../types/recipe";
@@ -215,7 +215,7 @@ export default function AdminDashboardScreen() {
       Number((recipe as any).status) === 2,
   ).length;
 
-  if (loading) return <ScreenLoader />;
+  if (loading) return <AdminDashboardSkeleton />;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
@@ -227,7 +227,7 @@ export default function AdminDashboardScreen() {
       >
         <View style={styles.brandRow}>
           <View style={styles.brandMark}>
-            <Image source={require('../../../assets/logo1.png')} style={styles.logoImage}  />
+            <Image source={require('../../../assets/logo1.png')} style={styles.logoImage} />
           </View>
           <View>
             <AppText variant="pageTitle" style={styles.brandName}>RecipePro</AppText>
@@ -299,7 +299,7 @@ export default function AdminDashboardScreen() {
                 onPress={() => router.push("/admin/edit-recipe/new" as any)}
               >
                 <AppText variant="button" style={styles.heroButtonText}>Create recipe</AppText>
-                <Ionicons name="arrow-forward" size={16} color="#174A34" />
+                <Ionicons name="chevron-forward" size={16} color="#174A34" />
               </Pressable>
             </View>
           </View>
@@ -430,7 +430,7 @@ export default function AdminDashboardScreen() {
             onPress={() => router.push("/admin/recipes" as any)}
           >
             <AppText variant="button" style={styles.viewAllText}>View all</AppText>
-            <Ionicons name="arrow-forward" size={14} color="#176747" />
+            <Ionicons name="chevron-forward" size={14} color="#176747" />
           </Pressable>
         </View>
 
@@ -498,7 +498,7 @@ export default function AdminDashboardScreen() {
                     </View>
                     <Ionicons name="chevron-forward" size={16} color="#A0AAA4" />
                   </View>
-                  
+
                   {index < recentRecipes.length - 1 && (
                     <View style={styles.recentSeparator} />
                   )}
@@ -621,7 +621,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-    logoImage: {
+  logoImage: {
     width: '100%',
     height: '100%',
     resizeMode: 'contain', // Keeps your logo's original aspect ratio
@@ -854,7 +854,7 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     padding: 3,
     borderRadius: 0,
-    
+
   },
   actionCard: {
     flexDirection: "row",
@@ -886,7 +886,7 @@ const styles = StyleSheet.create({
     // color: "#313030",
     // fontSize: 13,
     fontWeight: "100",
-    
+
   },
   actionSubtitle: {
     color: "#859188",
