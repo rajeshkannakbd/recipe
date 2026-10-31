@@ -103,7 +103,7 @@ useEffect(() => {
           <Ionicons name="chevron-back" size={24} color="#17231E" />
         </View>
 
-        <AppText style={styles.headerTitle}>Edit Recipe</AppText>
+        <AppText style={styles.headerTitle}>Loading...</AppText>
 
         <AppText style={styles.saveText}>Save</AppText>
       </View>
@@ -181,7 +181,7 @@ useEffect(() => {
                 Make this recipe easier to discover
               </AppText>
             </View>
-            <AppText style={styles.detailsToggle}>Edit</AppText>
+            <AppText style={styles.detailsToggle}>...</AppText>
           </View>
 
           {/* Nutrition */}
@@ -190,7 +190,7 @@ useEffect(() => {
               Nutrition
               <AppText style={styles.helperText}> (Optional)</AppText>
             </AppText>
-            <AppText style={styles.outlineButton}>Add</AppText>
+            <AppText style={styles.outlineButton}>...</AppText>
           </View>
 
           <AppText style={styles.helperText}>

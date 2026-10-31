@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState , useRef } from "react";
 
 import {
   Alert,
@@ -245,7 +245,7 @@ export default function RecipeDetailScreen() {
 
   const [editedQuantity, setEditedQuantity] = useState("");
   const [editedUnit, setEditedUnit] = useState("");
-
+  const animatedTranslateX = useRef(new Animated.Value(0)).current;
   const [showIngredientInfoModal, setShowIngredientInfoModal] = useState(false);
   const [selectedIngredientInfo, setSelectedIngredientInfo] =
     useState<IngredientDatabaseRecord | null>(null);
@@ -1091,7 +1091,7 @@ export default function RecipeDetailScreen() {
           </Pressable>
 
           <View style={{ flex: 1 }}>
-            <SkeletonBlock style={{ width: 120, height: 16 }} />
+            <SkeletonBlock  style={{ width: 120, height: 16 }} translateX={animatedTranslateX}/>
           </View>
 
           <View style={styles.headerIconButton}>

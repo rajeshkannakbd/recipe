@@ -3,7 +3,6 @@ import "../../global.css";
 
 import { useEffect } from "react";
 import { useFonts } from "expo-font";
-import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { NavigationBar } from "expo-navigation-bar";
@@ -28,6 +27,10 @@ import {
 } from "@expo-google-fonts/bricolage-grotesque";
 
 import { PlaywriteARGuides_400Regular } from "@expo-google-fonts/playwrite-ar-guides";
+
+import { Stack } from 'expo-router';
+import { KeyboardProvider } from
+  'react-native-keyboard-controller';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -62,6 +65,7 @@ export default function RootLayout() {
       <GlobalAuthGuard>
         <StatusBar style="dark" />
         <NavigationBar style="dark" />
+          {/* <KeyboardProvider> */}
         <Stack
           screenOptions={{
             headerShown: false,
@@ -78,6 +82,7 @@ export default function RootLayout() {
           <Stack.Screen name="login" />
           <Stack.Screen name="signup" />
         </Stack>
+        {/* </KeyboardProvider> */}
       </GlobalAuthGuard>
     </AppProvider>
     </SafeAreaProvider>

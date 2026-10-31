@@ -22,6 +22,7 @@ import {
   IngredientType,
   type IngredientResponse,
 } from "../../types/ingredient";
+
 type MealFilter = "All" | string;
 type FoodFilter = "All" | "Veg" | "Non Veg";
 type RecipeIngredient = {
@@ -832,7 +833,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    marginTop: 10,
+    marginTop: 20,
     marginBottom: 8,
   },
   searchContainer: { flex: 1, minWidth: 0 },

@@ -240,7 +240,7 @@ export default function AdminDashboardScreen() {
           style={styles.topLogoutButton}
           onPress={() => setLogoutModalVisible(true)}
         >
-          <Ionicons name="log-out-outline" size={19} color="#f17618" />
+          <Ionicons name="log-out-outline" size={19} color="#B33B31" />
         </Pressable>
       </View>
 

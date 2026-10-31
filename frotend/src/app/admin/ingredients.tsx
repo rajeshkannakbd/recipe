@@ -1982,6 +1982,8 @@ const styles = StyleSheet.create({
 
   title: {
 
+    fontSize:25,
+    fontWeight:900,
     color: "#17231E",
 
     flexShrink: 1,
@@ -1998,7 +2000,7 @@ const styles = StyleSheet.create({
 
     backgroundColor: "#1F7655",
 
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
 
     paddingVertical: 5,
 

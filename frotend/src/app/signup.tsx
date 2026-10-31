@@ -31,7 +31,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import AppText from "@/components/common/AppText";
 import { API_BASE_URL } from "../api/client";
-
+import React from 'react';
+import {
+  KeyboardAwareScrollView
+} from 'react-native-keyboard-controller';
 
 
 type RegisterResponse = {

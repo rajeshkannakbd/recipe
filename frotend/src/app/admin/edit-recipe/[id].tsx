@@ -520,162 +520,167 @@ export default function EditRecipeScreen() {
     }
   }, []);
 
-  const createMetadataOption = async (
-    kind: "chef" | "cookingStyle" | "cuisine" | "tag",
-  ) => {
-    const rawName =
-      kind === "chef"
-        ? chefSearch
-        : kind === "cookingStyle"
-          ? cookingStyleSearch
-          : kind === "cuisine"
-            ? cuisineSearch
-            : tagSearch;
-    const newName = rawName.trim().replace(/\s+/g, " ");
-    if (!newName || creatingMetadata) return;
+const createMetadataOption = async (
+  kind: "chef" | "cookingStyle" | "cuisine" | "tag",
+) => {
+  const rawName =
+    kind === "chef"
+      ? chefSearch
+      : kind === "cookingStyle"
+        ? cookingStyleSearch
+        : kind === "cuisine"
+          ? cuisineSearch
+          : tagSearch;
+  const newName = rawName.trim().replace(/\s+/g, " ");
+  if (!newName || creatingMetadata) return;
 
-    const listKey =
+  const listKey =
+    kind === "chef"
+      ? "chefs"
+      : kind === "cookingStyle"
+        ? "cookingStyles"
+        : kind === "cuisine"
+          ? "cuisines"
+          : "tags";
+  const currentList = metadataOptions[listKey];
+  const existing = currentList.find(
+    (item) => item.name.toLowerCase() === newName.toLowerCase(),
+  );
+  if (existing) {
+    if (kind === "chef") {
+      setChefId(existing.id);
+      setChefSearch(existing.name);
+    } else if (kind === "cookingStyle") {
+      setCookingStyleId(existing.id);
+      setCookingStyleSearch("");
+    } else if (kind === "cuisine") {
+      setCuisine(existing.name);
+      setCuisineSearch("");
+    } else {
+      setTagIds((previous) => [
+        existing.id,
+        ...previous.filter((id) => id !== existing.id),
+      ]);
+      setTagSearch("");
+    }
+    return;
+  }
+
+  // Cuisine is a string on Recipe.Cuisine, not a separate database record.
+  // Select it now; it becomes persistent when the recipe is saved.
+  if (kind === "cuisine") {
+    setCuisine(newName);
+    setCuisineSearch(newName);
+    setMetadataOptions((previous) => ({
+      ...previous,
+      cuisines: [
+        { id: -Date.now(), name: newName },
+        ...previous.cuisines.filter(
+          (item) => item.name.toLowerCase() !== newName.toLowerCase(),
+        ),
+      ],
+    }));
+    showMessage(
+      "Cuisine selected",
+      `“${newName}” will be saved with this recipe when you press Save.`,
+    );
+    return;
+  }
+
+  // Beyond this point, TypeScript knows 'kind' can ONLY be "chef" | "cookingStyle" | "tag"
+  setCreatingMetadata(kind);
+  try {
+    const apiBaseUrl = (
+      process.env.EXPO_PUBLIC_API_BASE_URL || "https://recipepro-api.onrender.com/api"
+    ).replace(/\/$/, "");
+    const token = await getStoredAuthToken();
+    
+    // Removed "cuisine" from path resolution
+    const path =
       kind === "chef"
         ? "chefs"
         : kind === "cookingStyle"
-          ? "cookingStyles"
-          : kind === "cuisine"
-            ? "cuisines"
-            : "tags";
-    const currentList = metadataOptions[listKey];
-    const existing = currentList.find(
-      (item) => item.name.toLowerCase() === newName.toLowerCase(),
+          ? "cooking-styles"
+          : "recipe-tags";
+
+    const response = await fetch(`${apiBaseUrl}/${path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ name: newName }),
+    });
+
+    const responseText = await response.text();
+    let payload: any = {};
+    if (responseText) {
+      try {
+        payload = JSON.parse(responseText);
+      } catch {
+        payload = {};
+      }
+    }
+    if (!response.ok) {
+      const detail = payload?.message ?? payload?.title ?? responseText;
+      throw new Error(
+        `Could not create ${kind === "cookingStyle" ? "cooking style" : kind} (${response.status}). ${detail || "Check the API endpoint and request model."}`,
+      );
+    }
+    const result = payload?.data ?? payload?.item ?? payload;
+    const saved = {
+      id: Number(
+        result?.id ??
+        result?.Id ??
+        result?.chefId ??
+        result?.cookingStyleId ??
+        result?.tagId,
+      ),
+      name: String(result?.name ?? result?.Name ?? newName),
+    };
+    
+    // Removed "Cuisine" option string formatting
+    if (!Number.isInteger(saved.id) || saved.id <= 0) {
+      throw new Error(
+        `${kind === "cookingStyle" ? "Cooking style" : kind === "tag" ? "Tag" : "Chef"} may have been created, but the response did not include its ID. Check the POST response shape.`,
+      );
+    }
+    setMetadataOptions((previous) => ({
+      ...previous,
+      [listKey]: [
+        saved,
+        ...previous[listKey].filter((item) => item.id !== saved.id),
+      ],
+    }));
+
+    // Removed "cuisine" condition checks
+    if (kind === "chef") {
+      setChefId(saved.id);
+      setChefSearch(saved.name);
+    } else if (kind === "cookingStyle") {
+      setCookingStyleId(saved.id);
+      setCookingStyleSearch("");
+    } else {
+      setTagIds((previous) => [
+        saved.id,
+        ...previous.filter((id) => id !== saved.id),
+      ]);
+      setTagSearch("");
+    }
+    showMessage(
+      "Added successfully",
+      `“${saved.name}” was created and selected.`,
     );
-    if (existing) {
-      if (kind === "chef") {
-        setChefId(existing.id);
-        setChefSearch(existing.name);
-      } else if (kind === "cookingStyle") {
-        setCookingStyleId(existing.id);
-        setCookingStyleSearch("");
-      } else if (kind === "cuisine") {
-        setCuisine(existing.name);
-        setCuisineSearch("");
-      } else {
-        setTagIds((previous) => [
-          existing.id,
-          ...previous.filter((id) => id !== existing.id),
-        ]);
-        setTagSearch("");
-      }
-      return;
-    }
+  } catch (error) {
+    showMessage(
+      `Unable to create ${kind === "cookingStyle" ? "cooking style" : kind}`,
+      getErrorMessage(error),
+    );
+  } finally {
+    setCreatingMetadata(null);
+  }
+};
 
-    // Cuisine is a string on Recipe.Cuisine, not a separate database record.
-    // Select it now; it becomes persistent when the recipe is saved.
-    if (kind === "cuisine") {
-      setCuisine(newName);
-      setCuisineSearch(newName);
-      setMetadataOptions((previous) => ({
-        ...previous,
-        cuisines: [
-          { id: -Date.now(), name: newName },
-          ...previous.cuisines.filter(
-            (item) => item.name.toLowerCase() !== newName.toLowerCase(),
-          ),
-        ],
-      }));
-      showMessage(
-        "Cuisine selected",
-        `“${newName}” will be saved with this recipe when you press Save.`,
-      );
-      return;
-    }
-
-    setCreatingMetadata(kind);
-    try {
-      const apiBaseUrl = (
-        process.env.EXPO_PUBLIC_API_BASE_URL || "https://recipepro-api.onrender.com/api"
-      ).replace(/\/$/, "");
-      const token = await getStoredAuthToken();
-      const path =
-        kind === "chef"
-          ? "chefs"
-          : kind === "cookingStyle"
-            ? "cooking-styles"
-            : kind === "cuisine"
-              ? "cuisines"
-              : "recipe-tags";
-      const response = await fetch(`${apiBaseUrl}/${path}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ name: newName }),
-      });
-      const responseText = await response.text();
-      let payload: any = {};
-      if (responseText) {
-        try {
-          payload = JSON.parse(responseText);
-        } catch {
-          payload = {};
-        }
-      }
-      if (!response.ok) {
-        const detail = payload?.message ?? payload?.title ?? responseText;
-        throw new Error(
-          `Could not create ${kind === "cookingStyle" ? "cooking style" : kind} (${response.status}). ${detail || "Check the API endpoint and request model."}`,
-        );
-      }
-      const result = payload?.data ?? payload?.item ?? payload;
-      const saved = {
-        id: Number(
-          result?.id ??
-          result?.Id ??
-          result?.chefId ??
-          result?.cookingStyleId ??
-          result?.tagId,
-        ),
-        name: String(result?.name ?? result?.Name ?? newName),
-      };
-      if (!Number.isInteger(saved.id) || saved.id <= 0) {
-        throw new Error(
-          `${kind === "cookingStyle" ? "Cooking style" : kind === "cuisine" ? "Cuisine" : kind === "tag" ? "Tag" : "Chef"} may have been created, but the response did not include its ID. Check the POST response shape.`,
-        );
-      }
-      setMetadataOptions((previous) => ({
-        ...previous,
-        [listKey]: [
-          saved,
-          ...previous[listKey].filter((item) => item.id !== saved.id),
-        ],
-      }));
-      if (kind === "chef") {
-        setChefId(saved.id);
-        setChefSearch(saved.name);
-      } else if (kind === "cookingStyle") {
-        setCookingStyleId(saved.id);
-        setCookingStyleSearch("");
-      } else if (kind === "cuisine") {
-        setCuisine(saved.name);
-        setCuisineSearch("");
-      } else {
-        setTagIds((previous) => [
-          saved.id,
-          ...previous.filter((id) => id !== saved.id),
-        ]);
-        setTagSearch("");
-      }
-      showMessage(
-        "Added successfully",
-        `“${saved.name}” was created and selected.`,
-      );
-    } catch (error) {
-      showMessage(
-        `Unable to create ${kind === "cookingStyle" ? "cooking style" : kind}`,
-        getErrorMessage(error),
-      );
-    } finally {
-      setCreatingMetadata(null);
-    }
-  };
 
   // Load the form when this screen becomes active.
   useFocusEffect(
@@ -1435,7 +1440,7 @@ export default function EditRecipeScreen() {
           keyboardShouldPersistTaps="handled"
           nestedScrollEnabled
         >
-          <View style={styles.form}>
+          <View style={styles.forma}>
             <AppText style={styles.label}>Recipe Title</AppText>
 
             <TextInput
@@ -2795,7 +2800,7 @@ const styles = StyleSheet.create({
     paddingRight: 15,
   },
 
-  form: {
+  forma: {
     flex: 1,
   },
 

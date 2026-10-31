@@ -134,31 +134,36 @@ export default function ProfileScreen() {
       icon: "time-outline",
       label: "Recently Viewed",
       subtitle: "Recipes you explored",
-      route: "/all-recipes",
+      // route: "/all-recipes",
+      disabled: true,
     },
     {
       icon: "restaurant-outline",
       label: "My Recipes",
       subtitle: "Explore your recipes",
-      route: "/all-recipes",
+      // route: "/all-recipes",
+      disabled: true,
     },
     {
       icon: "bookmark-outline",
       label: "Saved Ingredients",
       subtitle: "Your saved ingredients",
-      route: "/all-recipes",
+      // route: "/all-recipes",
+        disabled: true,
     },
     {
       icon: "settings-outline",
       label: "Settings",
       subtitle: "Manage your preferences",
-      route: "/profile",
+      // route: "/profile",
+        disabled: true,
     },
     {
       icon: "help-circle-outline",
       label: "Help & Support",
       subtitle: "Get help with RecipePro",
-      route: "/profile",
+      // route: "/profile",
+        disabled: true,
     },
   ] as const;
   return (
@@ -240,41 +245,70 @@ export default function ProfileScreen() {
 
         </View>
 
-        <View style={styles.menuContainer}>
-          {menuItems.map((item, index) => (
-            <Pressable
-              key={item.label}
-              style={({ pressed }) => [
-                styles.menuItem,
-                // Explicit native row sizing prevents global styles from
-                // collapsing the account items on iOS/Android.
-                Platform.OS === "web"
-                  ? styles.menuItemWeb
-                  : styles.menuItemNative,
-                pressed && styles.menuItemPressed,
-                index === menuItems.length - 1 && styles.lastMenuItem,
-              ]}
-              onPress={() => router.push(item.route as any)}
-              accessibilityRole="button"
+<View style={styles.menuContainer}>
+  {menuItems.map((item, index) => {
+    const isDisabled = Boolean(item.disabled);
+
+    return (
+      <Pressable
+        key={item.label}
+        style={({ pressed }) => [
+          styles.menuItem,
+          Platform.OS === "web" ? styles.menuItemWeb : styles.menuItemNative,
+          !isDisabled && pressed && styles.menuItemPressed,
+          index === menuItems.length - 1 && styles.lastMenuItem,
+        ]}
+        onPress={isDisabled ? undefined : () => router.push(item.route as any)}
+        disabled={isDisabled}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: isDisabled }}
+        accessibilityHint={isDisabled ? "Coming soon" : undefined}
+      >
+        <View style={styles.menuRowContent}>
+          <View
+            style={[
+              styles.menuIconContainer,
+              isDisabled && styles.menuIconContainerDisabled,
+            ]}
+          >
+            <Ionicons
+              name={item.icon as any}
+              size={21}
+              color={isDisabled ? "#A9B1AB" : "#19734F"}
+            />
+          </View>
+
+          <View style={styles.menuInfo}>
+            <AppText
+              variant="body"
+              style={[styles.menuLabel, isDisabled && styles.menuLabelDisabled]}
             >
-              <View style={styles.menuRowContent}>
-                <View style={styles.menuIconContainer}>
-                  <Ionicons name={item.icon as any} size={21} color="#19734F" />
-                </View>
-                <View style={styles.menuInfo}>
-                  <AppText variant="body" style={styles.menuLabel}>{item.label}</AppText>
-                  <AppText variant="helper" style={styles.menuSubtitle}>{item.subtitle}</AppText>
-                </View>
-                <Ionicons
-                  name="chevron-forward"
-                  size={19}
-                  color="#8A948D"
-                  style={styles.menuChevron}
-                />
-              </View>
-            </Pressable>
-          ))}
+              {item.label}
+            </AppText>
+            <AppText
+              variant="helper"
+              style={[
+                styles.menuSubtitle,
+                isDisabled && styles.menuSubtitleDisabled,
+              ]}
+            >
+              {item.subtitle}
+            </AppText>
+          </View>
+
+          {!isDisabled ? (
+            <Ionicons
+              name="chevron-forward"
+              size={19}
+              color="#8A948D"
+              style={styles.menuChevron}
+            />
+          ) : null}
         </View>
+      </Pressable>
+    );
+  })}
+</View>
         {/* Logout */}
         <Pressable
           style={({ pressed }) => [
@@ -728,4 +762,13 @@ const styles = StyleSheet.create({
     color: "#929B94",
     marginTop: 5,
   },
+  menuIconContainerDisabled: {
+  backgroundColor: "#F0F2EF",
+},
+menuLabelDisabled: {
+  color: "#9AA39D",
+},
+menuSubtitleDisabled: {
+  color: "#B5BCB7",
+},
 });
