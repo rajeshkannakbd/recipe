@@ -173,28 +173,27 @@ public class AppDbContext : DbContext
 
             entity.HasIndex(x => x.RecipeId);
         });
-        modelBuilder.Entity<Favorite>(entity =>
-        {
-            entity.HasKey(x => x.Id);
+modelBuilder.Entity<Favorite>(entity =>
+{
+    entity.HasKey(x => x.Id);
 
-            // Allow multiple saved customizations for the same recipe.
-            // Each favorite entry is identified by its own Id.
-            entity.HasIndex(x => new
-            {
-                x.UserId,
-                x.RecipeId
-            });
+    entity.HasIndex(x => new
+    {
+        x.UserId,
+        x.RecipeId,
+        x.RequiredServings
+    });
 
-            entity.HasOne(x => x.User)
-                .WithMany()
-                .HasForeignKey(x => x.UserId)
-                .OnDelete(DeleteBehavior.Cascade);
+    entity.HasOne(x => x.User)
+        .WithMany()
+        .HasForeignKey(x => x.UserId)
+        .OnDelete(DeleteBehavior.Cascade);
 
-            entity.HasOne(x => x.Recipe)
-                .WithMany()
-                .HasForeignKey(x => x.RecipeId)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
+    entity.HasOne(x => x.Recipe)
+        .WithMany()
+        .HasForeignKey(x => x.RecipeId)
+        .OnDelete(DeleteBehavior.Cascade);
+});
         modelBuilder.Entity<FavoriteIngredient>()
             .HasOne(x => x.Favorite)
             .WithMany(x => x.Ingredients)
@@ -585,8 +584,9 @@ public class AppDbContext : DbContext
             entity.HasIndex(x => new
             {
                 x.UserId,
-                x.RecipeId
-            }).IsUnique();
+                x.RecipeId,
+                x.RequiredServings
+            });
 
             entity.HasOne(x => x.User)
                 .WithMany()

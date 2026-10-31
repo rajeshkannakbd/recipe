@@ -33,6 +33,10 @@ export interface SaveFavoriteCustomizationRequest {
   }[];
 }
 
+export interface FavoriteCheckResponse {
+  exists: boolean;
+}
+
 async function favoriteRequest<T>(
   path: string,
   options: RequestInit = {},
@@ -87,43 +91,64 @@ async function favoriteRequest<T>(
 
     throw new Error(message);
   }
+
   return data as T;
 }
 
 export const favoriteApi = {
-getMyFavorites: () => favoriteRequest<FavoriteEntry[]>("/favorites"),
-  // Keep the original method for existing functionality.
+  // Get all favorites.
+  // Keep this for favorites list screens.
+  getMyFavorites: () =>
+    favoriteRequest<FavoriteEntry[]>("/favorites"),
+
+  // Fast check for a specific recipe and serving count.
+  // Does not download the complete favorites list.
+  checkFavorite: (
+    recipeId: number,
+    requiredServings: number,
+  ) =>
+    favoriteRequest<FavoriteCheckResponse>(
+      `/favorites/check?recipeId=${encodeURIComponent(
+        recipeId,
+      )}&requiredServings=${encodeURIComponent(requiredServings)}`,
+    ),
+
+  // Add a basic favorite.
   add: (recipeId: number) =>
     favoriteRequest<{ message: string; recipeId?: number }>(
       `/favorites/${recipeId}`,
-      { method: "POST" },
+      {
+        method: "POST",
+      },
     ),
 
-  // Save this user's servings and customized ingredient quantities.
-// Save a new customization. Returns its unique favoriteId.
-saveCustomized: (
-  recipeId: number,
-  request: SaveFavoriteCustomizationRequest,
-) =>
-  favoriteRequest<{
-    message: string;
-    favoriteId: number;
-    recipeId: number;
-    requiredServings: number;
-  }>(`/favorites/${recipeId}/customize`, {
-    method: "POST",
-    body: JSON.stringify(request),
-  }),
+  // Save a customized favorite.
+  saveCustomized: (
+    recipeId: number,
+    request: SaveFavoriteCustomizationRequest,
+  ) =>
+    favoriteRequest<{
+      message: string;
+      favoriteId: number;
+      recipeId: number;
+      requiredServings: number;
+    }>(`/favorites/${recipeId}/customize`, {
+      method: "POST",
+      body: JSON.stringify(request),
+    }),
 
-// Retrieve a specific saved customization.
-getCustomized: (favoriteId: number) =>
-  favoriteRequest<FavoriteCustomization>(
-    `/favorites/entries/${favoriteId}`,
-  ),
+  // Retrieve one specific saved customization.
+  getCustomized: (favoriteId: number) =>
+    favoriteRequest<FavoriteCustomization>(
+      `/favorites/entries/${favoriteId}`,
+    ),
 
-// Delete only the selected favorite entry.
-remove: (favoriteId: number) =>
-  favoriteRequest<void>(`/favorites/entries/${favoriteId}`, {
-    method: "DELETE",
-  }),
+  // Delete one specific favorite entry.
+  remove: (favoriteId: number) =>
+    favoriteRequest<void>(
+      `/favorites/entries/${favoriteId}`,
+      {
+        method: "DELETE",
+      },
+    ),
 };

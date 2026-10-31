@@ -56,5 +56,4 @@ public class IngredientRequest
 
     [EnumDataType(typeof(IngredientStatus))]
     public IngredientStatus Status { get; set; }
-        = IngredientStatus.Active;
 }

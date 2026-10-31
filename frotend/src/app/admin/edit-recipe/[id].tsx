@@ -1607,8 +1607,8 @@ const createMetadataOption = async (
                     {cuisine.trim() || "Cuisine"}
                   </AppText>
                 </View>
-
-                {/* <View style={styles.summaryPill}>
+{/* 
+                <View style={styles.summaryPill}>
                   <Ionicons name="restaurant-outline" size={11} color="#DDF4E7" />
                   <AppText style={styles.summaryPillText}>
                     {mealType.trim() || "Meal"}
@@ -1834,7 +1834,7 @@ const createMetadataOption = async (
                     when you press the recipe Save button.
                   </AppText>
                 ) : null}
-                {/* <AppText style={styles.label}>Meal type</AppText>
+                <AppText style={styles.label}>Meal type</AppText>
                 <View style={styles.optionWrap}>
                   {[
                     "Breakfast",
@@ -1863,7 +1863,7 @@ const createMetadataOption = async (
                       </AppText>
                     </Pressable>
                   ))}
-                </View> */}
+                </View>
                 <View style={styles.detailsDivider} />
                 <View style={styles.metadataGroupHeading}>
                   <View style={styles.metadataGroupIcon}>

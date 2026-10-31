@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState , useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   Alert,
@@ -221,6 +221,8 @@ export default function RecipeDetailScreen() {
 
   const [isRecipeAdded, setIsRecipeAdded] = useState(false);
   const [isSavingFavorite, setIsSavingFavorite] = useState(false);
+  const [isCheckingFavorite, setIsCheckingFavorite] = useState(false);
+  const favoriteCheckRequestId = useRef(0);
 
   // Add this recipe to an existing function/event or create a new one.
   const [showAddToEventModal, setShowAddToEventModal] = useState(false);
@@ -259,6 +261,52 @@ export default function RecipeDetailScreen() {
 
   const successOpacity = useState(() => new Animated.Value(0))[0];
   const successScale = useState(() => new Animated.Value(0.85))[0];
+
+  /**
+   * Checks whether this recipe already has a favorite entry for the selected
+   * serving count. Ingredient quantities are intentionally not part of this
+   * check: one saved favorite for this recipe + serving count disables saving
+   * another favorite at that same serving count.
+   *
+   * Request IDs prevent a slow response for an older serving count from
+   * overwriting the status for the latest serving count.
+   */
+  const checkFavoriteForServings = useCallback(
+    async (recipeId: number, requiredServings: number): Promise<boolean> => {
+      const requestId = ++favoriteCheckRequestId.current;
+      setIsCheckingFavorite(true);
+
+      try {
+        // This endpoint returns only { exists: boolean } for this recipe
+        // and serving count. It does not download the user's full favorites list.
+        const result = await favoriteApi.checkFavorite(
+          recipeId,
+          requiredServings,
+        );
+
+        // Ignore responses for older serving counts.
+        if (requestId !== favoriteCheckRequestId.current) {
+          return false;
+        }
+
+        setIsRecipeAdded(result.exists);
+        return result.exists;
+      } catch (error) {
+        console.warn("Could not check favorite status:", error);
+
+        if (requestId === favoriteCheckRequestId.current) {
+          setIsRecipeAdded(false);
+        }
+
+        return false;
+      } finally {
+        if (requestId === favoriteCheckRequestId.current) {
+          setIsCheckingFavorite(false);
+        }
+      }
+    },
+    [],
+  );
 
   const load = useCallback(async () => {
     try {
@@ -375,74 +423,15 @@ export default function RecipeDetailScreen() {
 
       setCalculation(calc);
 
-      // A filled heart means this exact serving + ingredient customization is
-      // saved, not merely that another version of the recipe is a favorite.
-      try {
-        const token = await getAuthToken();
-        if (!token?.trim()) {
-          setIsRecipeAdded(false);
-        } else {
-          const favoriteEntries = await favoriteApi.getMyFavorites();
-          const currentIngredients = calc.ingredients.map((ingredient) => ({
-            ingredientId: ingredient.ingredientId,
-            quantity:
-              loadedCustomIngredients[ingredient.ingredientId]?.quantity ??
-              ingredient.requiredQuantity,
-            unit:
-              loadedCustomIngredients[ingredient.ingredientId]?.unit ?? ingredient.unit,
-          }));
-
-          let exactMatchFound = false;
-          for (const entry of favoriteEntries) {
-            if (
-              entry.recipeId !== data.id ||
-              entry.requiredServings !== loadedServings
-            ) {
-              continue;
-            }
-
-            try {
-              const saved = await favoriteApi.getCustomized(entry.favoriteId);
-              if (saved.recipeId !== data.id || saved.requiredServings !== loadedServings) {
-                continue;
-              }
-
-              const savedByIngredient = new Map(
-                saved.ingredients.map((ingredient) => [
-                  ingredient.ingredientId,
-                  ingredient,
-                ]),
-              );
-              if (
-                currentIngredients.length === saved.ingredients.length &&
-                currentIngredients.every((ingredient) => {
-                  const stored = savedByIngredient.get(ingredient.ingredientId);
-                  return Boolean(
-                    stored &&
-                    quantitiesMatch(stored.quantity, ingredient.quantity) &&
-                    normalizeUnit(stored.unit) === normalizeUnit(ingredient.unit),
-                  );
-                })
-              ) {
-                exactMatchFound = true;
-                break;
-              }
-            } catch {
-              // Basic favorites have no saved customization; ignore them here.
-            }
-          }
-          setIsRecipeAdded(exactMatchFound);
-        }
-      } catch {
-        // Favorite status is optional UI state. Do not log expected auth/API errors.
-        setIsRecipeAdded(false);
-      }
+      // Check every loaded serving count. A favorite for this recipe + serving
+      // count means another favorite at the same serving count is not allowed.
+      await checkFavoriteForServings(data.id, loadedServings);
     } catch (error) {
       console.error("Failed to load recipe:", error);
     } finally {
       setLoading(false);
     }
-  }, [id, fromFavorites, favoriteId]);
+  }, [id, fromFavorites, favoriteId, checkFavoriteForServings]);
 
   useEffect(() => {
     load();
@@ -474,14 +463,19 @@ export default function RecipeDetailScreen() {
     setServingsInput(String(newServings));
     setIsRecipeAdded(false);
 
+    // Check the new serving count immediately, in parallel with recalculation.
+    const favoriteCheck = checkFavoriteForServings(recipe.id, newServings);
+
     try {
       const calc = await recipeApi.calculate(recipe.id, {
         requiredServings: newServings,
       });
 
       setCalculation(calc);
+      await favoriteCheck;
     } catch (error) {
       console.error("Failed to scale recipe:", error);
+      await favoriteCheck;
     }
   };
 
@@ -525,15 +519,20 @@ export default function RecipeDetailScreen() {
     setServings(numericValue);
     setIsRecipeAdded(false);
 
+    // Re-check favorites whenever the user commits a new serving count.
+    const favoriteCheck = checkFavoriteForServings(recipe.id, numericValue);
+
     try {
       const calc = await recipeApi.calculate(recipe.id, {
         requiredServings: numericValue,
       });
 
       setCalculation(calc);
+      await favoriteCheck;
     } catch (error) {
       console.error("Failed to scale recipe:", error);
       setServingsInput(String(currentServings));
+      await favoriteCheck;
     }
   };
 
@@ -660,7 +659,7 @@ export default function RecipeDetailScreen() {
   // The fixed header heart replaces the former Add to My Favorites button.
   // It uses the same customized-favorites API and saves current quantities.
   const handleToggleFavorite = async () => {
-    if (!recipe || !calculation || isSavingFavorite || isReadOnlyFavorite) return;
+    if (!recipe || !calculation || isSavingFavorite || isCheckingFavorite || isRecipeAdded || isReadOnlyFavorite) return;
 
     setIsSavingFavorite(true);
 
@@ -703,6 +702,7 @@ export default function RecipeDetailScreen() {
       });
 
       setIsRecipeAdded(true);
+      setIsCheckingFavorite(false);
 
       // Show the existing success popup.
       setShowSuccessPopup(true);
@@ -723,7 +723,8 @@ export default function RecipeDetailScreen() {
 
       // Let the popup display before returning to My Favorites.
       setTimeout(() => {
-        router.back();
+              setShowSuccessPopup(false);
+
       }, 1500);
 
       return;
@@ -762,7 +763,7 @@ export default function RecipeDetailScreen() {
       ) {
         Alert.alert(
           "Already in My Favorites",
-          "This exact recipe customization (servings and ingredient quantities) is already saved. Open My Favorites to view it, or change the servings or ingredient quantities before saving another version.",
+          `This recipe is already saved for ${currentServings} servings. Open My Favorites to view it, or choose a different serving count.`,
           [{ text: "OK", style: "default" }],
         );
       } else {
@@ -1162,16 +1163,16 @@ export default function RecipeDetailScreen() {
 
         <Pressable
           onPress={handleToggleFavorite}
-          disabled={isSavingFavorite || isReadOnlyFavorite}
+          disabled={isSavingFavorite || isCheckingFavorite || isRecipeAdded || isReadOnlyFavorite}
           style={[styles.headerIconButton, isReadOnlyFavorite && { opacity: 1 }]}
           hitSlop={8}
           accessibilityRole="button"
           accessibilityLabel={
-            isReadOnlyFavorite ? "Saved favorite, editing disabled" : isRecipeAdded ? "Saved to favorites" : "Add to favorites"
+            isReadOnlyFavorite ? "Saved favorite, editing disabled" : isRecipeAdded ? `Already saved for ${currentServings} servings` : isCheckingFavorite ? "Checking favorite status" : "Add to favorites"
           }
         >
           <Ionicons
-            name={isSavingFavorite && !isReadOnlyFavorite ? "hourglass-outline" : (isRecipeAdded || isReadOnlyFavorite) ? "heart" : "heart-outline"}
+            name={isSavingFavorite || isCheckingFavorite ? "hourglass-outline" : (isRecipeAdded || isReadOnlyFavorite) ? "heart" : "heart-outline"}
             size={23}
             color={(isRecipeAdded || isReadOnlyFavorite) ? "#1F7655" : "#68736D"}
           />
