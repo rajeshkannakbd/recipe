@@ -229,7 +229,13 @@ public class IngredientService : IIngredientService
         ingredient.Notes = string.IsNullOrWhiteSpace(request.Notes)
             ? null
             : request.Notes.Trim();
+            
+        if (!Enum.IsDefined(typeof(IngredientStatus), request.Status))
+        {
+            throw new ArgumentException("Select a valid ingredient status.");
+        }
 
+        ingredient.Status = request.Status;
 
         await _context.SaveChangesAsync();
 

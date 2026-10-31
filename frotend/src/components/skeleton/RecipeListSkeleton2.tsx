@@ -53,7 +53,7 @@ function SkeletonBlock({
   );
 }
 
-export default function RecipeListSkeleton() {
+export default function AdminRecipeListSkeleton() {
   const translateX = useRef(
     new Animated.Value(-120)
   ).current;
@@ -81,15 +81,19 @@ export default function RecipeListSkeleton() {
 
   const renderRecipeCard = (key: number) => (
     <View key={key} style={styles.recipeCard}>
+      {/* Recipe Image */}
       <SkeletonBlock
         width={112}
         height={150}
-        radius={12}
+        radius={14}
         translateX={translateX}
       />
 
+      {/* Recipe Details */}
       <View style={styles.recipeInfo}>
-        <View style={styles.row}>
+
+        {/* Name + Edit/Delete Icons */}
+        <View style={styles.headingRow}>
           <View style={{ flex: 1 }}>
             <SkeletonBlock
               width="90%"
@@ -98,45 +102,60 @@ export default function RecipeListSkeleton() {
             />
           </View>
 
+          <View style={styles.actions}>
+            <Ionicons
+              name="create-outline"
+              size={19}
+              color="#DCE3DD"
+            />
+            <Ionicons
+              name="trash-outline"
+              size={19}
+              color="#E8D9D7"
+            />
+          </View>
+        </View>
+
+        {/* Category + Meal Type */}
+        <View style={{ marginTop: 10 }}>
           <SkeletonBlock
-            width={42}
-            height={22}
-            radius={7}
+            width="85%"
+            height={12}
             translateX={translateX}
           />
         </View>
 
-        <View style={{ marginTop: 10, gap: 6 }}>
-          <SkeletonBlock height={10} width="95%" translateX={translateX} />
-          <SkeletonBlock height={10} width="70%" translateX={translateX} />
+        {/* Servings + Cooked Weight */}
+        <View style={[styles.detailRow, { marginTop: 12 }]}>
+          <SkeletonBlock
+            width={65}
+            height={10}
+            translateX={translateX}
+          />
+          <SkeletonBlock
+            width={85}
+            height={10}
+            translateX={translateX}
+          />
         </View>
 
-        <View style={[styles.row, { marginTop: 13, gap: 12 }]}>
-          <SkeletonBlock width={65} height={10} translateX={translateX} />
-          <SkeletonBlock width={55} height={10} translateX={translateX} />
+        {/* Preparation + Cooking Time */}
+        <View style={[styles.detailRow, { marginTop: 10 }]}>
+          <SkeletonBlock
+            width={120}
+            height={10}
+            translateX={translateX}
+          />
         </View>
 
-        <View style={[styles.row, { marginTop: 11, gap: 12 }]}>
-          <SkeletonBlock width={60} height={10} translateX={translateX} />
-          <SkeletonBlock width={45} height={10} translateX={translateX} />
-        </View>
-
-        <View
-          style={[
-            styles.row,
-            {
-              justifyContent: "space-between",
-              marginTop: 15,
-            },
-          ]}
-        >
-          <SkeletonBlock width={75} height={10} translateX={translateX} />
-          <SkeletonBlock width={15} height={15} radius={4} translateX={translateX} />
-        </View>
-
-        <View style={[styles.row, { marginTop: 9, gap: 5 }]}>
-          <SkeletonBlock width={48} height={18} radius={6} translateX={translateX} />
-          <SkeletonBlock width={58} height={18} radius={6} translateX={translateX} />
+        {/* Published / Draft Badge */}
+        <View style={{ marginTop: 12 }}>
+          <SkeletonBlock
+            width={72}
+            height={23}
+            radius={8}
+            translateX={translateX}
+          />
         </View>
       </View>
     </View>
@@ -145,68 +164,76 @@ export default function RecipeListSkeleton() {
   return (
     <View style={styles.container}>
 
-      {/* Actual Recipe Header */}
+      {/* Admin Header */}
       <View style={styles.header}>
-
-        {/* Title and Refresh */}
-        <View style={styles.headingRow}>
+        <View style={styles.headerTop}>
           <View style={{ flex: 1 }}>
-            <AppText variant="pageTitle" style={styles.title}>
+            <AppText
+              variant="pageTitle"
+              style={styles.title}
+            >
               Manage Recipes
             </AppText>
-          </View>
 
-          <View style={styles.headerIconButton}>
-            <Ionicons
-              name="refresh-outline"
-              size={20}
-              color="#1F7655"
-            />
-          </View>
-        </View>
-
-        {/* Search and Filter */}
-        <View style={styles.searchToolsRow}>
-          <View style={styles.searchContainer}>
-            <Ionicons
-              name="search-outline"
-              size={18}
-              color="#849087"
-            />
-            <AppText style={styles.searchPlaceholder}>
-              Search recipes, ingredients, chefs...
+            <AppText
+              variant="label"
+              style={styles.brandCaption}
+            >
+              ADMIN WORKSPACE
             </AppText>
           </View>
 
-          <View style={styles.headerIconButton}>
+          {/* Add Button Skeleton */}
+          <View style={styles.addButton}>
             <Ionicons
-              name="options-outline"
-              size={21}
-              color="#1F7655"
+              name="add"
+              size={20}
+              color="#FFFFFF"
             />
+            <AppText
+              variant="button"
+              style={styles.addButtonText}
+            >
+              Add
+            </AppText>
           </View>
         </View>
 
-        {/* Food Toggle Buttons */}
-        <View style={styles.foodToggleRow}>
-          <View style={[styles.foodToggleButton, styles.allActive]}>
-            <Ionicons name="restaurant-outline" size={15} color="#FFFFFF" />
-            <AppText style={styles.activeToggleText}>All</AppText>
+        {/* Search */}
+        <View style={styles.searchContainer}>
+          <Ionicons
+            name="search-outline"
+            size={18}
+            color="#849087"
+          />
+          <AppText style={styles.searchPlaceholder}>
+            Search recipes...
+          </AppText>
+        </View>
+
+        {/* Admin Tabs */}
+        <View style={styles.tabContainer}>
+          <View style={[styles.tab, styles.activeTab]}>
+            <AppText style={styles.activeTabText}>
+              All
+            </AppText>
           </View>
 
-          <View style={styles.foodToggleButton}>
-            <Ionicons name="leaf-outline" size={15} color="#27834B" />
-            <AppText style={styles.foodToggleText}>Veg</AppText>
+          <View style={styles.tab}>
+            <AppText style={styles.tabText}>
+              Published
+            </AppText>
           </View>
 
-          <View style={styles.foodToggleButton}>
-            <Ionicons name="fish-outline" size={15} color="#C44949" />
-            <AppText style={styles.foodToggleText}>Non Veg</AppText>
+          <View style={styles.tab}>
+            <AppText style={styles.tabText}>
+              Draft
+            </AppText>
           </View>
         </View>
       </View>
 
-      {/* Recipe Card Skeletons Only */}
+      {/* Recipe Cards */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
@@ -215,6 +242,25 @@ export default function RecipeListSkeleton() {
           renderRecipeCard(index)
         )}
       </ScrollView>
+
+      {/* Bottom Navigation Placeholder */}
+      <View style={styles.bottomNavigation}>
+        {[
+          "grid-outline",
+          "restaurant-outline",
+          "albums-outline",
+          "leaf-outline",
+        ].map((icon, index) => (
+          <View key={index} style={styles.navItem}>
+            <Ionicons
+              name={icon as any}
+              size={23}
+              color="#C0C9C2"
+            />
+            <View style={styles.navLabel} />
+          </View>
+        ))}
+      </View>
     </View>
   );
 }
@@ -227,128 +273,138 @@ const styles = StyleSheet.create({
 
   header: {
     paddingTop: 14,
-    paddingBottom: 14,
-    paddingHorizontal: 18,
+    paddingBottom: 16,
+    paddingHorizontal: 20,
     backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
-    borderBottomColor: "#E8EBE6",
+    borderBottomColor: "#E5E8E3",
+    zIndex: 10,
+  },
+
+  headerTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+
+  title: {
+    color: "#17231E",
+    fontSize: 26,
+    lineHeight: 32,
+    fontWeight: "800",
+  },
+
+  brandCaption: {
+    letterSpacing: 1.6,
+    color: "#829087",
+    marginTop: 2,
+    fontSize: 10,
+  },
+
+  addButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#1F7655",
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 8,
+    gap: 4,
+  },
+
+  addButtonText: {
+    color: "#FFFFFF",
+  },
+
+  searchContainer: {
+    height: 42,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 14,
+    borderRadius: 15,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E0E7E0",
+    marginBottom: 10,
+  },
+
+  searchPlaceholder: {
+    fontSize: 13,
+    color: "#929D95",
+  },
+
+  tabContainer: {
+    flexDirection: "row",
+    backgroundColor: "#E7F1EA",
+    borderRadius: 12,
+    padding: 2,
+  },
+
+  tab: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+    borderRadius: 9,
+  },
+
+  activeTab: {
+    backgroundColor: "#FFFFFF",
+  },
+
+  tabText: {
+    fontSize: 12,
+    color: "#68736D",
+  },
+
+  activeTabText: {
+    fontSize: 12,
+    color: "#17231E",
+    fontWeight: "700",
+  },
+
+  listContent: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 110,
+  },
+
+  recipeCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#E5E8E3",
+    padding: 8,
+    marginBottom: 12,
+  },
+
+  recipeInfo: {
+    flex: 1,
+    marginLeft: 11,
+    minWidth: 0,
+    justifyContent: "center",
   },
 
   headingRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    gap: 5,
   },
 
-  title: {
-    fontSize: 28,
-    lineHeight: 34,
-    fontWeight: "800",
-    color: "#17231E",
-    letterSpacing: -0.65,
-  },
-
-  headerIconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#EAF3ED",
-  },
-
-  searchToolsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 10,
-    marginBottom: 8,
-  },
-
-  searchContainer: {
-    flex: 1,
-    minWidth: 0,
-    height: 42,
+  actions: {
     flexDirection: "row",
     alignItems: "center",
     gap: 9,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    backgroundColor: "#F7F8F3",
-    borderWidth: 1,
-    borderColor: "#E0E7E0",
   },
 
-  searchPlaceholder: {
-    fontSize: 12,
-    color: "#929D95",
-  },
-
-  foodToggleRow: {
+  detailRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    marginTop: 2,
-  },
-
-  foodToggleButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    paddingHorizontal: 11,
-    paddingVertical: 9,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "#E0E7E0",
-    backgroundColor: "#FFFFFF",
-  },
-
-  allActive: {
-    backgroundColor: "#1F7655",
-    borderColor: "#1F7655",
-  },
-
-  foodToggleText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#68736D",
-  },
-
-  activeToggleText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#FFFFFF",
-  },
-
-  listContent: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 30,
-  },
-
-  recipeCard: {
-    flexDirection: "row",
-    alignItems: "stretch",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#E6EAE4",
-    padding: 10,
-    marginBottom: 12,
-    overflow: "hidden",
-  },
-
-  recipeInfo: {
-    flex: 1,
-    marginLeft: 12,
-    justifyContent: "center",
-    minWidth: 0,
-  },
-
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
+    gap: 8,
   },
 
   shimmer: {
@@ -358,5 +414,34 @@ const styles = StyleSheet.create({
     left: 0,
     width: 65,
     backgroundColor: "rgba(255,255,255,0.65)",
+  },
+
+  bottomNavigation: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 70,
+    backgroundColor: "#FFFFFF",
+    borderTopWidth: 1,
+    borderTopColor: "#E8EBE6",
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+    paddingBottom: 5,
+  },
+
+  navItem: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+  },
+
+  navLabel: {
+    width: 38,
+    height: 5,
+    borderRadius: 5,
+    backgroundColor: "#E2E8E2",
   },
 });
